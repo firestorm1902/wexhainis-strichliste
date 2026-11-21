@@ -99,6 +99,10 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 Admin → **Einstellungen** → „Rückgängig nach dem Buchen“: an/aus und die Zeit (3–120 Sekunden). Der Server prüft das mit: Mitglieder können eine eigene Buchung nur löschen, solange Rückgängig an ist und höchstens die eingestellte Zeit plus 2 Minuten (für langsames Netz) vergangen ist. Dafür müssen die neuen `firestore.rules` veröffentlicht sein.
 
 Jedes Rückgängig wird gemerkt: wer, wann, welches Getränk, und wie viele Sekunden nach dem Buchen. Beim **Abgleich** eines Tages steht die Liste „Rückgängig gemacht“. Fehlen bei einem Getränk Flaschen und wurde es an dem Tag zurückgenommen, ist die Zeile rot markiert und oben steht „Prüfen: Pils: fehlt 1, aber 1× rückgängig gemacht (Anna 15:20)“. Beim **Tag abschließen** kommt dann eine Rückfrage mit diesem Hinweis. Auch „Zu wenig gebucht“ zeigt die Rückgängig-Fälle der betroffenen Tage. Das Protokoll kann nur der Super-Admin löschen; es steckt auch im Backup.
+
+**Übersicht über alle Tage:** Admin → „Zurückgenommene Buchungen“ → „Übersicht laden“ zeigt nach Person, wer wie oft zurückgenommen hat (diese Saison oder alles), mit den häufigsten Getränken. Wurde vorher bei „Zu wenig gebucht“ auf „Tage prüfen“ getippt, sind Fälle bei fehlenden Getränken rot markiert.
+
+**Rückfragen an Mitglieder:** Fehlt beim Abgleich ein Getränk und hat jemand es an dem Tag zurückgenommen, gibt es im „Prüfen“-Hinweis den Knopf „Rückfrage an …“ (auch in der Übersicht bei markierten Fällen: „Fragen“). Der Text ist vorausgefüllt und lässt sich ändern. Das Mitglied sieht die Rückfrage oben in der App (mit Benachrichtigung und Zahl am App-Symbol) und antwortet mit „Ja, bitte nachbuchen“, „Nein, nur vertippt“ oder eigenem Text. Die Antwort steht beim Abgleich des Tages unter „Rückfragen“, der Admin bekommt einen Hinweis. Ohne Differenz gibt es keinen Rückfrage-Knopf.
 - Unten rechts erscheint beim Herunterscrollen ein gelber Knopf **nach oben**.
 - **Passwort ändern:** angemeldet auf „Passwort ändern“ neben „Abmelden“ tippen.
 - **Passwort vergessen?** E-Mail eintragen und auf „Passwort vergessen?“ tippen. Es kommt eine Mail von Firebase zum Zurücksetzen.
@@ -394,13 +398,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 62**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 62 auf 63):
-- in `index.html`: `const APP_VERSION = '62';`
-- in `sw.js`: `const VERSION = 'strichliste-v62';`
+Aktuell ist **Version 64**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 64 auf 65):
+- in `index.html`: `const APP_VERSION = '64';`
+- in `sw.js`: `const VERSION = 'strichliste-v64';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 62“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 64“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

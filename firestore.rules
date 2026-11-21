@@ -249,6 +249,19 @@ service cloud.firestore {
       allow create, update: if isSuper();
       allow delete: if isSuper();
     }
+    // Rückfragen der Admins an Mitglieder (bei fehlenden Getränken): Admins schreiben, das Mitglied liest und antwortet
+    match /asks/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isAdmin() && request.resource.data.by == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'day', 'ps', 'text', 'by', 'byName', 't', 'status', 'answer', 'answerAt'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 800
+        && request.resource.data.status == 'open';
+      allow update: if isAdmin() || (isActive() && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer', 'answerAt', 'status'])
+        && request.resource.data.answer is string && request.resource.data.answer.size() >= 1 && request.resource.data.answer.size() <= 600
+        && request.resource.data.status == 'answered');
+      allow delete: if isAdmin();
+    }
     // Tageszusammenfassungen für die tägliche Zählerprüfung: nur der Super-Admin
     match /dsum/{id} { allow read, write: if isSuper(); }
 

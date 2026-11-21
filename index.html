@@ -611,6 +611,7 @@ body.noauth main{display:none!important}
     <div class="note" id="msg" hidden></div>
     <div id="installNote" class="note install" hidden></div>
     <div id="dsNote" class="note" hidden></div>
+    <div id="askBox" hidden></div>
     <div id="last" hidden></div>
     <section id="listSec" hidden><h2 id="listHead">Deine Getränke heute</h2><div id="list"></div><div id="reqBox" class="reqbox" hidden></div></section>
     <section id="extraSec" hidden>
@@ -720,7 +721,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '62';
+const APP_VERSION = '64';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -898,7 +899,7 @@ function startUserListeners() {
   }, err => console.warn('groups', err));
   unsub.album = F.onSnapshot(dref('album', u.uid), snap => { S.album = snap.exists() ? (snap.data().r || {}) : {}; if (extraTab === 'album') renderExtra(); }, err => console.warn('album', err));
   ['cfgFeat', 'cfgContact', 'cfgBest'].forEach(stop);
-  listenMyReqs(); listenMyMsgs();
+  listenMyReqs(); listenMyMsgs(); listenMyAsks();
   unsub.cfgFeat = F.onSnapshot(dref('config', 'features'), snap => { S.features = snap.exists() ? snap.data() : {}; if (extraTab && !canSee(extraTab) && extraTab !== 'konto') extraTab = ''; renderAll(); renderExtra(); renderHist(); }, err => console.warn('features', err));
   stop('cfgTheme'); unsub.cfgTheme = F.onSnapshot(dref('config', 'theme'), snap => { S.theme = snap.exists() ? snap.data() : null; setThemeCfg(S.theme); if (S.isSuper) renderAdmin(); }, err => console.warn('theme', err));
   unsub.cfgContact = F.onSnapshot(dref('config', 'contact'), snap => { S.contact = snap.exists() ? snap.data() : null; renderAll(); }, err => console.warn('contact', err));
@@ -1016,13 +1017,14 @@ async function refreshRole(u) {
   if ((S.isAdmin || S.isBoard) && !unsub.days) startAdminListeners();
   if (S.isAdmin) listenActiveScans();
   if (S.isAdmin && !unsub.reqsAll) listenAdminReqs();
+  if (S.isAdmin && !unsub.asksAll) listenAdminAsks();
   if (S.isSuper && !unsub.inbox) listenInbox();
   autoApproveSelf();
   if (!S.isAdmin && !S.isBoard) stopAdminListeners();
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'cfgUndo', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
+  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'cfgUndo', 'album', 'drv', 'myReqs', 'myMsgs', 'myAsks'].forEach(stop); S.myReqs = []; S.myMsgs = []; S.myAsks = []; renderAskBox();
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -1035,7 +1037,7 @@ function listenActiveScans() {
     S.activeScans = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); checkLowStock(); checkOverScan(); checkSoldOut(); usedCheckSoon();
   }, err => console.warn('activeScans', err));
 }
-function stopAdminListeners() { stop('reqsAll'); S.reqs = []; stop('inbox'); S.inbox = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
+function stopAdminListeners() { stop('reqsAll'); S.reqs = []; stop('asksAll'); S.asks = []; stop('inbox'); S.inbox = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
   if (S.dayScansFor === S.selDay && unsub.dayScans) return;
   stop('dayScans'); stop('dayDrv'); stop('dayUndos'); S.dayScans = []; S.dayDrivers = []; S.dayUndos = []; S.dayScansFor = S.selDay;
@@ -3011,7 +3013,9 @@ function undoMissText(rows, undos) {
 function undoBlock(rows) {
   const U = S.dayUndos || []; if (!U.length) return '';
   const miss = new Set(rows.filter(r => r.diff != null && r.diff < 0).map(r => r.p.id)), warn = undoMissText(rows, U);
-  return (warn.length ? '<div class="note bad" style="margin-top:10px"><b>Prüfen:</b> ' + warn.map(esc).join('<br>') + '</div>' : '') +
+  const who = [...new Set(U.filter(u => miss.has(u.p)).map(u => u.uid))];
+  const askBtns = warn.length && S.isAdmin && who.length ? '<div class="row" style="margin-top:6px">' + who.map(uid => { const n = (U.find(u => u.uid === uid) || {}).name || uname(uid), sent = (S.asks || []).some(a => a.day === S.selDay && a.uid === uid); return '<button class="b sm" data-act="askNew" data-id="' + esc(uid + '|' + S.selDay) + '">' + (sent ? 'Nochmal fragen: ' : 'Rückfrage an ') + esc(n) + '</button>'; }).join('') + '</div>' : '';
+  return (warn.length ? '<div class="note bad" style="margin-top:10px"><b>Prüfen:</b> ' + warn.map(esc).join('<br>') + askBtns + '</div>' : '') + askList(S.selDay) +
     '<details class="pc" data-k="undoList"' + (warn.length ? ' open' : '') + '><summary><b>Rückgängig gemacht</b><small>' + U.length + '×</small></summary>' +
     U.map(u => { const hi = miss.has(u.p); return '<div class="rw"' + (hi ? ' style="background:rgba(198,40,40,.12);border-radius:8px;padding-left:6px"' : '') + '><span>' + fmtTime(u.t) + '</span><span>' + esc(u.name || uname(u.uid)) + '</span><small' + (hi ? ' style="color:var(--pen);font-weight:700"' : '') + '>' + esc(pname(u.p)) + (u.bt ? ' · nach ' + Math.max(0, Math.round((u.t - u.bt) / 1000)) + ' s' : '') + (hi ? ' · fehlt' : '') + '</small></div>'; }).join('') + '</details>';
 }
@@ -3043,6 +3047,121 @@ async function checkMissing() {
     missInfo = { t: Date.now(), list, n: S.days.filter(d => Object.keys(d.count || {}).some(k => d.count[k] != null)).length };
   } catch (err) { console.warn('miss', err); toast('Prüfen braucht Internet'); }
   missBusy = false; renderAdmin();
+}
+/* ---------- Rückfragen: Admin fragt ein Mitglied, wenn bei einem Getränk etwas fehlt und es Rückgängig getippt hat ---------- */
+const ASK_QUICK = ['Stimmt, ich habe doch etwas genommen – bitte nachbuchen.', 'Nein, das war nur ein Vertipper – ich habe nichts genommen.'];
+function askMissing(dayId) {
+  const d = S.days.find(x => x.id === dayId); if (!d) return [];
+  if (dayId === S.selDay && S.dayScansFor === dayId) return dayRows(d, S.dayScans).filter(r => r.diff != null && r.diff < 0).map(r => ({ pid: r.p.id, n: -r.diff }));
+  const x = missInfo && missInfo.list.find(y => y.day.id === dayId); return x ? x.items.filter(i => i.diff < 0).map(i => ({ pid: i.pid, n: -i.diff })) : [];
+}
+function askUndos(uid, dayId) {
+  const L = dayId === S.selDay && S.dayUndos ? S.dayUndos : (undoAll ? undoAll.list : []);
+  return L.filter(u => u.uid === uid && u.day === dayId);
+}
+function askDraft(uid, dayId) {
+  const d = S.days.find(x => x.id === dayId), miss = askMissing(dayId), U = askUndos(uid, dayId), name = ((S.users || {})[uid] || {}).name || (U[0] && U[0].name) || '';
+  const items = miss.filter(m => U.some(u => u.p === m.pid));
+  const parts = items.map(m => { const L = U.filter(u => u.p === m.pid); return pname(m.pid) + ': es fehlen ' + m.n + ', du hast ' + L.length + '× „Rückgängig“ getippt (' + L.map(u => fmtTime(u.t)).join(', ') + ' Uhr)'; });
+  return { name, pids: items.map(m => m.pid), text: 'Hallo ' + name.split(' ')[0] + ', beim Abgleich am ' + (d ? fmtDate(d.date) : '') + ' fehlt etwas.\n' + parts.join('\n') + '\nKann es sein, dass du doch etwas genommen hast? Antworte bitte kurz hier – dann buchen wir es nach. Danke!' };
+}
+function askOpen(uid, dayId) {
+  const dr = askDraft(uid, dayId);
+  if (!dr.pids.length) { toast('Rückfragen gehen nur bei Getränken, die fehlen und zurückgenommen wurden'); return; }
+  openModal('<h2>Rückfrage an ' + esc(dr.name) + '</h2><p style="font-size:.85rem;color:var(--mu)">Erscheint beim Mitglied oben in der App, mit Benachrichtigung. Die Antwort siehst du beim Abgleich des Tages.</p>' +
+    '<label class="f full">Text<textarea id="askTxt" rows="7" maxlength="800" class="ta">' + esc(dr.text) + '</textarea></label>' +
+    '<div class="row"><button class="b pri" id="askSend" data-uid="' + esc(uid) + '" data-day="' + esc(dayId) + '">Rückfrage senden</button></div>');
+}
+$('modalBody').addEventListener('click', e => {
+  const b = e.target.closest('#askSend'); if (!b) return;
+  const t = $('askTxt').value.trim(); if (!t) { toast('Bitte einen Text eingeben'); return; }
+  const uid = b.dataset.uid, day = b.dataset.day, dr = askDraft(uid, day);
+  fire(F.setDoc(dref('asks', newId('asks')), { uid, name: dr.name, day, ps: dr.pids, text: t.slice(0, 800), by: S.user.uid, byName: S.me || '', t: Date.now(), status: 'open', answer: '', answerAt: 0 }), 'Rückfrage');
+  logEv('buchung', 'Rückfrage an ' + dr.name + ' zu ' + dr.pids.map(pname).join(', '), day);
+  closeModal(); toast('Rückfrage an ' + dr.name + ' gesendet');
+});
+// Admins: alle Rückfragen (für Abgleich und Hinweis auf neue Antworten)
+function listenAdminAsks() {
+  stop('asksAll'); S.asks = []; let first = true;
+  unsub.asksAll = F.onSnapshot(F.query(col('asks'), F.orderBy('t', 'desc'), F.limit(150)), snap => {
+    const old = {}; (S.asks || []).forEach(a => { old[a.id] = a.answerAt || 0; });
+    S.asks = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    if (!first) S.asks.forEach(a => { if (a.answerAt && a.answerAt !== old[a.id] && a.by === S.user.uid) { toast('Antwort von ' + a.name + ' auf deine Rückfrage'); notifyBg('Antwort von ' + a.name, String(a.answer || '').slice(0, 140), 'ask-ans', 'admin'); } });
+    first = false; renderAdmin();
+  }, err => console.warn('asks', err));
+}
+const askAge = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+function askList(dayId) {
+  const L = (S.asks || []).filter(a => a.day === dayId).sort((a, b) => a.t - b.t); if (!L.length) return '';
+  return '<div style="margin-top:8px"><b>Rückfragen</b>' + L.map(a => '<div class="reqcard" style="border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:6px">' +
+    '<div style="display:flex;justify-content:space-between;gap:8px"><span>an <b>' + esc(a.name) + '</b> <small style="color:var(--mu)">von ' + esc(a.byName || '') + ' · ' + askAge(a.t) + '</small></span>' + (a.status === 'open' ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '<span class="tag act">beantwortet</span>') + '</div>' +
+    '<small style="color:var(--mu);white-space:pre-line">' + esc(a.text) + '</small>' +
+    (a.answer ? '<div class="reply"><b>' + esc(a.name) + '</b> <small>' + askAge(a.answerAt) + '</small><p>' + esc(a.answer).replace(/\n/g, '<br>') + '</p></div>' : '') +
+    (S.isAdmin ? '<div class="row" style="margin-top:4px">' + (a.answer ? '<button class="b sm" data-act="missFix" data-id="' + esc(a.day) + '">Nachtragen</button>' : '') + '<button class="b sm" data-act="askDel" data-id="' + a.id + '">Löschen</button></div>' : '') + '</div>').join('') + '</div>';
+}
+// Mitglieder: offene Rückfragen oben in der App beantworten
+function listenMyAsks() {
+  stop('myAsks'); S.myAsks = [];
+  if (!S.user) return;
+  let first = true;
+  unsub.myAsks = F.onSnapshot(F.query(col('asks'), F.where('uid', '==', S.user.uid)), snap => {
+    const old = new Set((S.myAsks || []).map(a => a.id));
+    S.myAsks = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.t - a.t);
+    if (!first) S.myAsks.forEach(a => { if (!old.has(a.id) && a.status === 'open') { toast('Rückfrage von ' + (a.byName || 'einem Admin') + ' – oben in der App'); notifyBg('Rückfrage von ' + (a.byName || 'einem Admin'), String(a.text || '').slice(0, 140), 'myask', 'home'); if (navigator.vibrate) navigator.vibrate(120); } });
+    first = false; renderAskBox(); updateBadge();
+  }, err => console.warn('myAsks', err));
+}
+function renderAskBox() {
+  const el = $('askBox'); if (!el) return;
+  const L = (S.myAsks || []).filter(a => a.status === 'open');
+  el.hidden = !L.length; if (!L.length) { el.innerHTML = ''; return; }
+  el.innerHTML = L.map(a => '<div class="note bad" style="margin-top:10px"><b>Rückfrage von ' + esc(a.byName || 'einem Admin') + '</b> <small>' + askAge(a.t) + '</small>' +
+    '<p style="margin:6px 0;white-space:pre-line">' + esc(a.text) + '</p>' +
+    '<div class="row" style="margin-top:4px">' + ASK_QUICK.map((q, i) => '<button class="b sm" data-ask="quick" data-i="' + i + '" data-id="' + a.id + '">' + (i ? 'Nein, nur vertippt' : 'Ja, bitte nachbuchen') + '</button>').join('') + '</div>' +
+    '<label class="f full" style="margin-top:6px">Oder eigene Antwort<textarea id="askA_' + a.id + '" rows="2" maxlength="600" class="ta"></textarea></label>' +
+    '<div class="row" style="margin-top:4px"><button class="b sm pri" data-ask="send" data-id="' + a.id + '">Antwort senden</button></div></div>').join('');
+}
+$('askBox').addEventListener('click', e => {
+  const b = e.target.closest('[data-ask]'); if (!b) return;
+  const id = b.dataset.id, ta = $('askA_' + id), own = ta ? ta.value.trim() : '';
+  const ans = b.dataset.ask === 'quick' ? ASK_QUICK[+b.dataset.i] + (own ? '\n' + own : '') : own;
+  if (!ans) { toast('Bitte eine Antwort eingeben'); return; }
+  fire(F.updateDoc(dref('asks', id), { answer: ans.slice(0, 600), answerAt: Date.now(), status: 'answered' }), 'Antwort');
+  const a = (S.myAsks || []).find(x => x.id === id); if (a) { a.status = 'answered'; renderAskBox(); updateBadge(); }
+  toast('Antwort gesendet – danke!');
+});
+/* ---------- Übersicht: zurückgenommene Buchungen über alle Tage, nach Person ---------- */
+let undoAll = null, undoAllBusy = false, undoAllPer = 'season';
+async function loadUndoAll() {
+  if (undoAllBusy) return; undoAllBusy = true; renderAdmin();
+  try { undoAll = { t: Date.now(), list: (await F.getDocs(col('undos'))).docs.map(d => Object.assign({ id: d.id }, d.data())) }; }
+  catch (err) { console.warn('undoAll', err); toast('Laden braucht Internet'); }
+  undoAllBusy = false; renderAdmin();
+}
+function undoAllSection() {
+  let h = '<section class="daylist"><h2>Zurückgenommene Buchungen' + (undoAll ? ' (' + undoAll.list.length + ')' : '') + '</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Wer wie oft „Rückgängig“ getippt hat – über alle Tage, nach Person. Gemerkt wird das seit Version 59.</div>';
+  h += '<div class="row" style="margin-top:0"><button class="b sm' + (undoAll ? '' : ' pri') + '" data-act="undoAllLoad"' + (undoAllBusy ? ' disabled' : '') + '>' + (undoAllBusy ? 'Lade …' : undoAll ? 'Neu laden' : 'Übersicht laden') + '</button>' +
+    (undoAll ? '<button class="b sm' + (undoAllPer === 'season' ? ' pri' : '') + '" data-act="undoAllPer" data-id="season">Diese Saison</button><button class="b sm' + (undoAllPer === 'all' ? ' pri' : '') + '" data-act="undoAllPer" data-id="all">Alles</button>' : '') + '</div>';
+  if (!undoAll) return h + '</section>';
+  const se = season(), dInfo = id => S.days.find(d => d.id === id) || null;
+  const dateOf = u => { const d = dInfo(u.day); return d && d.date ? d.date : isoOf(new Date(u.t)); };
+  const L = undoAll.list.filter(u => undoAllPer === 'all' || (dateOf(u) >= se.from && dateOf(u) <= se.to)).sort((a, b) => b.t - a.t);
+  // Tage/Getränke mit Fehlbestand aus „Zu wenig gebucht“ (falls geprüft)
+  const missKey = new Set(); if (missInfo) missInfo.list.forEach(x => x.items.forEach(i => { if (i.diff < 0) missKey.add(x.day.id + '|' + i.pid); }));
+  const isMiss = u => missKey.has(u.day + '|' + u.p);
+  if (!L.length) return h + '<div class="note ok" style="margin-top:8px">' + (undoAllPer === 'all' ? 'Bisher wurde nichts zurückgenommen.' : 'In dieser Saison (' + esc(se.label) + ') wurde nichts zurückgenommen.') + '</div></section>';
+  const by = {}; L.forEach(u => { const k = u.uid || u.name; (by[k] = by[k] || { name: u.name || uname(u.uid), L: [] }).L.push(u); });
+  const P = Object.values(by).sort((a, b) => b.L.length - a.L.length || a.name.localeCompare(b.name));
+  const nMiss = L.filter(isMiss).length, days = new Set(L.map(u => u.day)).size;
+  h += '<div class="note' + (nMiss ? ' bad' : '') + '" style="margin:8px 0">' + L.length + '× zurückgenommen von ' + P.length + (P.length === 1 ? ' Person' : ' Personen') + ' an ' + days + (days === 1 ? ' Tag' : ' Tagen') +
+    (missInfo ? (nMiss ? ' · <b>' + nMiss + '× bei einem Getränk, das am Tag fehlt</b>' : ' · keiner davon bei fehlenden Getränken') : '<br><small>Tipp: Erst oben bei „Zu wenig gebucht“ auf „Tage prüfen“ tippen – dann werden Fälle bei fehlenden Getränken rot markiert.</small>') + '</div>';
+  h += P.map(x => {
+    const m = x.L.filter(isMiss).length, top = {}; x.L.forEach(u => top[u.p] = (top[u.p] || 0) + 1);
+    const topS = Object.keys(top).sort((a, b) => top[b] - top[a]).slice(0, 3).map(k => pname(k) + ' ' + top[k] + '×').join(', ');
+    return '<details class="pc" data-k="undoP' + esc(x.name) + '"><summary><span><b>' + esc(x.name) + '</b><br><small>' + esc(topS) + '</small></span><small style="text-align:right"><b>' + x.L.length + '×</b>' + (m ? '<br><b style="color:var(--pen)">' + m + '× bei Fehlbestand</b>' : '') + '</small></summary>' +
+      x.L.map(u => { const hi = isMiss(u), d = dInfo(u.day); return '<div class="rw"' + (hi ? ' style="background:rgba(198,40,40,.12);border-radius:8px;padding-left:6px"' : '') + '><span>' + esc(fmtDate(dateOf(u))) + '<br><small>' + fmtTime(u.t) + ' Uhr</small></span><span>' + esc(pname(u.p)) + '<br><small>' + esc(d && d.place || '') + '</small></span><small' + (hi ? ' style="color:var(--pen);font-weight:700"' : '') + '>' + (u.bt ? 'nach ' + Math.max(0, Math.round((u.t - u.bt) / 1000)) + ' s' : '') + (hi ? '<br>fehlt' : '') + '</small><span style="display:flex;flex-direction:column;gap:4px"><button class="b sm" data-act="pickDay" data-id="' + esc(u.day) + '">Tag</button>' + (hi && S.isAdmin ? '<button class="b sm" data-act="askNew" data-id="' + esc(u.uid + '|' + u.day) + '">Fragen</button>' : '') + '</span></div>'; }).join('') + '</details>';
+  }).join('');
+  return h + '</section>';
 }
 function missSection() {
   let h = '<section class="daylist"><h2>Zu wenig gebucht' + (missInfo ? ' (' + missInfo.list.filter(x => x.miss).length + ')' : '') + '</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Tage, an denen nach dem Zurückzählen Flaschen fehlen: mitgenommen − gebucht − übrig. Berücksichtigt werden Tage, an denen „Übrig“ eingetragen ist.</div>';
@@ -3387,6 +3506,7 @@ function renderAdmin() {
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Gebinde als „Name Anzahl“, mehrere mit Semikolon, z. B. „Kasten 20; Kasten 24; Sixpack 6“.</div></section>';
 
   if (!RO && S.products.length) h += shopSection();
+  if (S.days.length) h += undoAllSection();
   if (S.days.length > 1 && !RO) {
     h += missSection();
     h += '<section class="daylist"><h2>Alle Tage</h2>' + S.days.map(d => {
@@ -3535,7 +3655,7 @@ $('adminBody').addEventListener('change', e => {
 
 const ROLE_LABEL = { '': 'Mitglied', admin: 'Getränke-Admin', vorstand: 'Vorstand' };
 // Vorstand: alles nur lesen – Eingaben werden zu Text, Knöpfe außer Excel verschwinden
-const RO_ACTS = ['xlAll', 'xlMonth', 'xlDay', 'xlGo', 'missCheck', 'pickDay'];
+const RO_ACTS = ['xlAll', 'xlMonth', 'xlDay', 'xlGo', 'missCheck', 'pickDay', 'undoAllLoad', 'undoAllPer'];
 function readOnly(el) {
   el.querySelectorAll('button').forEach(b => { if (!RO_ACTS.includes(b.dataset.act)) b.remove(); });
   el.querySelectorAll('input,select,textarea').forEach(x => {
@@ -4337,6 +4457,7 @@ function badgeCount() {
   let n = 0;
   n += (S.myMsgs || []).filter(m => m.replyAt && m.replyAt > msgSeen()).length;
   n += (S.myReqs || []).filter(r => r.status !== 'open' && (r.at || 0) > reqSeen()).length;
+  n += (S.myAsks || []).filter(a => a.status === 'open').length;
   if (S.isAdmin) n += (S.reqs || []).filter(r => r.status === 'open').length;
   if (S.isSuper) n += (S.inbox || []).filter(m => !m.read).length;
   return n;
@@ -4356,7 +4477,7 @@ function notifyBg(title, body, tag, go) {
   } catch (e) {}
 }
 // beim Öffnen der App die eigenen Benachrichtigungen (und damit den Punkt) entfernen
-const NOTE_TAGS = ['req-new', 'msg-new', 'myreq', 'myreply', 'soldout'];
+const NOTE_TAGS = ['req-new', 'msg-new', 'myreq', 'myreply', 'soldout', 'myask', 'ask-ans'];
 function clearNotes() {
   try { if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) navigator.serviceWorker.getRegistration().then(reg => { if (reg) NOTE_TAGS.forEach(t => reg.getNotifications({ tag: t }).then(L => L.forEach(n => n.close()))); }); } catch (e) {}
 }
@@ -4752,6 +4873,10 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'pickDay') { S.selDay = id; listenDayScans(); renderAdmin(); window.scrollTo(0, 0); }
   else if (a === 'missCheck') checkMissing();
+  else if (a === 'undoAllLoad') loadUndoAll();
+  else if (a === 'askNew') { const [uid, d] = id.split('|'); askOpen(uid, d); }
+  else if (a === 'askDel') { if (await ask('Rückfrage löschen?')) fire(F.deleteDoc(dref('asks', id)), 'Rückfrage löschen'); }
+  else if (a === 'undoAllPer') { undoAllPer = id; renderAdmin(); }
   else if (a === 'missFix') {
     S.selDay = id; listenDayScans(); renderAdmin();
     const sec = [...$('adminBody').querySelectorAll('section')].find(x => /^Buchung nachtragen/.test(((x.querySelector('h2') || {}).textContent || '').trim()));
@@ -4986,7 +5111,7 @@ adminBody.addEventListener('click', async e => {
    Sichert alle Daten, die sich nicht aus anderen neu berechnen lassen. Zähler und Bestenliste
    werden nach dem Import aus den Buchungen neu berechnet. Logins (Firebase Authentication) lassen sich nicht sichern. */
 const BACKUP_V = 4;
-const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['undos', 'Rückgängig-Protokoll'], ['avatars', 'Profilbilder']];
+const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['undos', 'Rückgängig-Protokoll'], ['asks', 'Rückfragen'], ['avatars', 'Profilbilder']];
 const bkCfg = () => Object.assign({ every: 30, t: 0 }, S.backupCfg || {});
 const bkAvPref = () => { try { return localStorage.getItem('strichliste_bkav') !== '0'; } catch (e) { return true; } };
 // Zeitstempel aus Firestore als { __ts: ms } speichern und beim Import zurückverwandeln
