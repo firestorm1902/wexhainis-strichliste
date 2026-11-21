@@ -55,6 +55,12 @@ service cloud.firestore {
       return step1(a, b, 'all') && step1(a, b, 'beer') && step1(a, b, 'c_radler') && step1(a, b, 'c_alkfrei') && step1(a, b, 'c_wein')
         && step1(a, b, 'c_wasser') && step1(a, b, 'c_soft') && step1(a, b, 'c_schnaps') && step1(a, b, 'c_sonst');
     }
+    function undoCfgDoc() { return /databases/$(database)/documents/config/undo; }
+    function undoOk(d) {
+      let c = exists(undoCfgDoc()) ? get(undoCfgDoc()).data : {};
+      return c.get('on', true) == true
+        && (!('at' in d) || !(d.at is timestamp) || request.time < d.at + duration.value(c.get('secs', 10) + 120, 's'));
+    }
     function boardEntryOk(a, b) { return step1(a, b, 'all') && step1(a, b, 'beer') && step1(a, b, 'na'); }
     // Bestenliste: nur der eigene Eintrag und die eigene Gruppe, jeweils ±1
     function boardOk(o, n) {
@@ -202,6 +208,15 @@ service cloud.firestore {
         && request.resource.data.diff(oldData()).affectedKeys().hasOnly([request.resource.data.last, 'last'])
         && step1(oldData(), request.resource.data, request.resource.data.last));
     }
+    // Rückgängig-Protokoll: wer wann was zurückgenommen hat (Admins und Vorstand lesen, nur der Super-Admin löscht)
+    match /undos/{id} {
+      allow read: if isReader();
+      allow create: if isActive() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'day', 'p', 't', 'bt'])
+        && request.resource.data.day is string && request.resource.data.p is string;
+      allow create, update: if isSuper();
+      allow delete: if isSuper();
+    }
     // Tageszusammenfassungen für die tägliche Zählerprüfung: nur der Super-Admin
     match /dsum/{id} { allow read, write: if isSuper(); }
 
@@ -272,8 +287,9 @@ service cloud.firestore {
         && (profile().get('minor', false) != true || !productIsAlc(request.resource.data.p))
       );
 
-      // Eigene Buchung zurücknehmen; Admins dürfen alles
-      allow delete: if isAdmin() || (isActive() && resource.data.uid == request.auth.uid);
+      // Eigene Buchung zurücknehmen – nur wenn der Super-Admin „Rückgängig“ erlaubt und nur kurz nach dem Buchen
+      // (eingestellte Sekunden + 2 Minuten Spielraum für langsames Netz); Admins dürfen alles
+      allow delete: if isAdmin() || (isActive() && resource.data.uid == request.auth.uid && undoOk(resource.data));
       allow update: if isAdmin();
     }
   }
