@@ -190,7 +190,17 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .top-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
 .acct-row{max-width:640px;margin:-4px auto 0;padding:0 16px 10px;display:flex;justify-content:flex-end}
 .acct-row:not(:has(#acctBtn:not([hidden]))){display:none}
-.acct{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.acct{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.acct .av{flex:none}
+.top{position:sticky;top:0;z-index:60}
+.acct-panel{max-width:608px;margin:0 auto 12px;background:var(--white);color:var(--ink);border:1.5px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);max-height:70vh;overflow:auto}
+@media (max-width:640px){.acct-panel{margin:0 12px 12px}}
+.ap-head{display:flex;align-items:center;gap:12px}
+.ap-who{flex:1;min-width:0;display:flex;flex-direction:column}
+.ap-who small{color:var(--mu);overflow:hidden;text-overflow:ellipsis}
+#camBox.off .vp{display:none}
+#camBox{scroll-margin-top:150px}
+#startBtn{font-size:1.05rem;padding:14px}
 .back{background:transparent;color:#fff;border-color:#fff}
 .net{font-size:.74rem;font-weight:700;border-radius:999px;padding:3px 9px;border:1.5px solid var(--wy);color:var(--wy);white-space:nowrap}
 .net.off{border-color:#ffb74d;color:#ffb74d}
@@ -561,7 +571,19 @@ body.noauth main{display:none!important}
     <h1 id="title"><span class="t1">Wexhainis</span><span class="t2">Getränke-Strichliste</span></h1>
     <div class="top-side"><span style="display:flex;gap:6px;align-items:center"><button class="b sm back" id="helpBtn" aria-label="Hilfe und Infos">?</button><button class="b sm back" id="themeBtn" aria-label="Hell- oder Nachtmodus">Auto</button><span class="net" id="net">…</span></span><button class="b sm back" id="backBtn" hidden>Zurück zum Scannen</button></div>
   </div>
-  <div class="acct-row"><button class="b sm back acct" id="acctBtn" hidden aria-haspopup="dialog"></button></div>
+  <div class="acct-row"><button class="b sm back acct" id="acctBtn" hidden aria-expanded="false" aria-controls="acctPanel"></button></div>
+  <div id="acctPanel" class="acct-panel" hidden>
+    <div class="ap-head"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild ändern"><span id="meAv"></span><i>Bild</i></button>
+      <span class="ap-who"><b id="meName"></b><small id="acctRoleT"></small><small id="meGrp"></small><small id="acctMail"></small></span>
+      <button class="b sm" id="acctClose" aria-label="Schließen">✕</button></div>
+    <div class="row" style="margin-top:10px"><button class="b sm" id="avPick">Profilbild ändern</button><button type="button" class="b sm" id="avDel" hidden>Bild entfernen</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm dng" id="logoutBtn">Abmelden</button></div>
+      <div id="pwSec" hidden class="grid2" style="margin-top:10px">
+        <label class="f full">Aktuelles Passwort<input id="pwOld" type="password" autocomplete="current-password"></label>
+        <label class="f">Neues Passwort<input id="pwNew" type="password" autocomplete="new-password"></label>
+        <label class="f">Wiederholen<input id="pwNew2" type="password" autocomplete="new-password"></label>
+        <div class="full row" style="margin-top:0"><button class="b pri" id="pwSave">Passwort speichern</button><button class="b" id="pwCancel">Abbrechen</button></div>
+      </div>
+  </div>
 </header>
 <div class="wrap">
 
@@ -590,7 +612,7 @@ body.noauth main{display:none!important}
       <div class="full"><button class="b pri" id="nameBtn">Namen festlegen</button></div></div>
     </section>
     <section style="border-top:0;padding-top:0" id="scanSec" hidden>
-      <div id="camBox">
+      <div id="camBox" class="off">
       <div class="vp">
         <div class="cam" id="camMain"></div>
         <div class="frame" id="frameMain" hidden></div>
@@ -598,19 +620,13 @@ body.noauth main{display:none!important}
         <div class="ph" id="phMain"><b>Getränk scannen</b><span>Kamera starten und den Barcode waagerecht in die Mitte halten.</span></div>
       </div>
       <div class="row">
-        <button class="b pri grow" id="startBtn">Kamera starten</button>
-        <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
+        <button class="b pri grow" id="startBtn">📷 Getränk scannen</button>
+        <button class="b grow" id="stopBtn" hidden>Scannen beenden</button>
       </div>
       </div>
-      <div class="me who" style="margin-top:10px;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild wählen"><span id="meAv"></span><i>Bild</i></button><span>Gebucht als <b id="meName" style="color:var(--ink)"></b><small id="meGrp" style="display:block;color:var(--mu)"></small><button type="button" class="linkbtn" id="avDel" hidden>Bild entfernen</button></span></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm partybtn" id="partyBtn" hidden>🪩 Party starten</button><button class="b sm" id="partyFxBtn" hidden>🎛 Effekte</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
+      <div class="me who" id="dayBtns" style="margin-top:10px;justify-content:flex-end"><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm partybtn" id="partyBtn" hidden>🪩 Party starten</button><button class="b sm" id="partyFxBtn" hidden>🎛 Effekte</button></span></div>
       <div class="note" id="youthNote" hidden style="margin-top:10px"><b>Jugendschutz:</b> Bier, Radler, Wein/Sekt und Schnaps sind für dich gesperrt.</div>
       <div class="note" id="drvNote" hidden style="margin-top:10px"><b>Du fährst heute.</b> Beim Scannen von Alkohol fragt die App nach. Gute Heimfahrt!</div>
-      <div id="pwSec" hidden class="grid2" style="margin-top:10px;border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--white)">
-        <label class="f full">Aktuelles Passwort<input id="pwOld" type="password" autocomplete="current-password"></label>
-        <label class="f">Neues Passwort<input id="pwNew" type="password" autocomplete="new-password"></label>
-        <label class="f">Wiederholen<input id="pwNew2" type="password" autocomplete="new-password"></label>
-        <div class="full row" style="margin-top:0"><button class="b pri" id="pwSave">Passwort speichern</button><button class="b" id="pwCancel">Abbrechen</button></div>
-      </div>
     </section>
     <div class="note" id="msg" hidden></div>
     <div id="installNote" class="note install" hidden></div>
@@ -725,7 +741,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '66';
+const APP_VERSION = '67';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1166,6 +1182,7 @@ function camStop() {
   if (cam.box) { cam.box.ph.hidden = false; cam.box.frame.hidden = true; if (cam.box.torch) { cam.box.torch.hidden = true; cam.box.torch.classList.remove('on'); } }
   cam.torch = false;
   cam.box = null; cam.handler = null;
+  setMainButtons();
 }
 function beep() {
   try { const A = window.AudioContext || window.webkitAudioContext; if (!beep.c) beep.c = new A(); const c = beep.c, o = c.createOscillator(), g = c.createGain();
@@ -1301,22 +1318,27 @@ $('aForgot').addEventListener('click', async () => {
 const acctRole = () => S.isSuper ? 'Super-Admin' : S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock) ? 'gesperrt' : S.isAdmin ? 'Getränke-Admin' : S.isBoard ? 'Vorstand' : isPending() ? 'wartet auf Freischaltung' : 'Mitglied';
 function renderAcct() {
   const b = $('acctBtn'); if (!b) return;
-  const on = !!(S.user && S.authReady); b.hidden = !on; if (!on) return;
+  const on = !!(S.user && S.authReady); b.hidden = !on; if (!on) { $('acctPanel').hidden = true; return; }
   const nm = S.me || (S.meDoc && S.meDoc.name) || (S.user.email || '').split('@')[0];
-  b.textContent = '👤 ' + nm + ' · ' + acctRole() + ' ▾'; b.setAttribute('aria-label', 'Konto: ' + nm + ', ' + acctRole() + ' – Konto anzeigen und abmelden');
+  b.innerHTML = avatarHTML(S.user.uid, nm, 22) + '<span style="overflow:hidden;text-overflow:ellipsis">' + esc(nm + ' · ' + acctRole()) + '</span> ▾'; b.setAttribute('aria-label', 'Konto: ' + nm + ', ' + acctRole() + ' – Profilbild, Passwort, Abmelden');
+  $('meName').textContent = nm; $('acctRoleT').textContent = acctRole(); $('acctMail').textContent = S.user.email || '';
+  if (S.user && !$('meAv').innerHTML) $('meAv').innerHTML = avatarHTML(S.user.uid, nm, 52);
 }
-$('acctBtn').addEventListener('click', async () => {
-  if (!S.user) return;
-  const nm = S.me || (S.meDoc && S.meDoc.name) || '–', grp = S.me ? gname(myGroup()) : '';
-  if (await ask('Name: ' + nm + '\nE-Mail: ' + (S.user.email || '–') + '\nRolle: ' + acctRole() + (grp ? '\nGruppe: ' + grp : ''), { title: 'Dein Konto', ok: 'Abmelden', cancel: 'Schließen', danger: true })) logout();
-});
+function acctPanel(open) {
+  const p = $('acctPanel'); open = open == null ? p.hidden : open;
+  p.hidden = !open; $('acctBtn').setAttribute('aria-expanded', String(open));
+  if (!open) $('pwCancel').click(); else renderAcct();
+}
+$('acctBtn').addEventListener('click', () => { if (S.user) acctPanel(); });
+$('acctClose').addEventListener('click', () => acctPanel(false));
+$('avPick').addEventListener('click', () => $('avIn').click());
 async function logout() {
   if (S.pending && !await ask(S.pending + ' Buchungen sind noch nicht gesendet und gehen beim Abmelden verloren. Trotzdem abmelden?')) return;
   if (cam.on) camStop();
   stopAdminListeners(); stopUserListeners();
   await F.signOut(auth); hidePasswords(); setView('scan');
 }
-$('logoutBtn').addEventListener('click', logout);
+$('logoutBtn').addEventListener('click', async () => { if (await ask('Wirklich abmelden?', { title: 'Abmelden', ok: 'Abmelden', danger: true })) { acctPanel(false); logout(); } });
 // Jede Person kann Easter Eggs für sich ausschalten (gilt für das Konto, auf allen Handys); Ton nur für dieses Handy
 const eggsOff = () => !!(S.meDoc && S.meDoc.eggoff);
 const soundOff = () => { try { return localStorage.getItem('strichliste_mute') === '1'; } catch (e) { return false; } };
@@ -2342,7 +2364,7 @@ let avTimer = null;
 function avatarsChanged() { clearTimeout(avTimer); avTimer = setTimeout(() => { renderHist(); renderMe(); renderAdmin(); if (!$('egg').hidden && curEgg) $('eggAv').innerHTML = avatarHTML(curEgg.uid, curEgg.name, 104); }, 50); }
 function renderMe() {
   if (!S.user || !S.me) return;
-  $('meAv').innerHTML = avatarHTML(S.user.uid, S.me, 44);
+  $('meAv').innerHTML = avatarHTML(S.user.uid, S.me, 52); renderAcct();
   $('avDel').hidden = !(AV[S.user.uid] && AV[S.user.uid].img);
 }
 async function makeAvatar(file) {
@@ -2860,7 +2882,7 @@ function renderHist() {
 }
 
 function setMsg(t) { $('msg').hidden = !t; $('msg').innerHTML = t || ''; }
-function setMainButtons() { const on = cam.on && cam.box === boxMain; $('startBtn').hidden = on; $('stopBtn').hidden = !on; }
+function setMainButtons() { const on = cam.on && cam.box === boxMain; $('startBtn').hidden = on; $('stopBtn').hidden = !on; $('camBox').classList.toggle('off', !on); }
 
 // Meldung unter dem Scanner: verschwindet nach 10 Sekunden (Countdown sichtbar)
 let lastTimer = null;
@@ -2950,7 +2972,11 @@ $('last').addEventListener('click', e => {
   hideLast(); toast('Buchung zurückgenommen');
 });
 $('list').addEventListener('click', e => { const b = e.target.closest('[data-plus]'); if (b) book(b.dataset.plus, 'manuell'); });
-$('startBtn').addEventListener('click', async () => { setMsg(''); const err = await camStart(boxMain, onMainCode); if (err) setMsg(err); setMainButtons(); });
+$('startBtn').addEventListener('click', async () => {
+  setMsg(''); $('camBox').classList.remove('off'); $('startBtn').hidden = true; $('stopBtn').hidden = false;
+  requestAnimationFrame(() => $('camBox').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  const err = await camStart(boxMain, onMainCode); if (err) setMsg(err); setMainButtons();
+});
 $('stopBtn').addEventListener('click', () => { camStop(); setMainButtons(); });
 
 function renderScan() {

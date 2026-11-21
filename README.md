@@ -104,8 +104,11 @@ Jedes Rückgängig wird gemerkt: wer, wann, welches Getränk, und wie viele Seku
 
 **Rückfragen an Mitglieder:** Fehlt beim Abgleich ein Getränk und hat jemand es an dem Tag zurückgenommen, gibt es im „Prüfen“-Hinweis den Knopf „Rückfrage an …“ (auch in der Übersicht bei markierten Fällen: „Fragen“). Der Text ist vorausgefüllt und lässt sich ändern. Das Mitglied sieht die Rückfrage oben in der App (mit Benachrichtigung und Zahl am App-Symbol) und antwortet mit „Ja, bitte nachbuchen“, „Nein, nur vertippt“ oder eigenem Text. Die Antwort steht beim Abgleich des Tages unter „Rückfragen“, der Admin bekommt einen Hinweis. Ohne Differenz gibt es keinen Rückfrage-Knopf. Antwortet das Mitglied mit „Ja, bitte nachbuchen“, erscheint beim Admin der Knopf „1× Pils nachbuchen“ (so oft wie zurückgenommen, höchstens so viele wie fehlen) – ein Tipp, kurze Bestätigung, fertig; danach steht dort „Nachgebucht“. Bei eigener Antwort führt „Nachtragen …“ zum Formular, bei „Nein, nur vertippt“ gibt es keinen Nachbuchen-Knopf.
 
-### Konto-Knopf oben
-Oben rechts steht „👤 Dein Name · Rolle ▾“. Antippen öffnet eine kurze Abfrage mit Name, E-Mail, Rolle und Gruppe und dem Knopf „Abmelden“. Der bisherige „Abmelden“-Knopf bleibt zusätzlich erhalten.
+### Konto-Bereich oben
+Der Kopf der App bleibt beim Scrollen oben stehen. Darin steht dein Profilbild mit „Name · Rolle ▾“. Antippen klappt den Konto-Bereich auf: Name, Rolle, Gruppe, E-Mail, **Profilbild ändern** (oder aufs Bild tippen), **Bild entfernen**, **Passwort ändern** und **Abmelden** (mit Rückfrage). Diese Knöpfe sind dafür von der Startseite verschwunden; dort bleiben nur „Ich fahre heute“, Easter Eggs und Party.
+
+### Scannen
+Auf der Startseite steht nur noch der Knopf **📷 Getränk scannen**. Antippen öffnet direkt das Scanfenster mit Kamera; „Scannen beenden“ klappt es wieder zu.
 - Unten rechts erscheint beim Herunterscrollen ein gelber Knopf **nach oben**.
 - **Passwort ändern:** angemeldet auf „Passwort ändern“ neben „Abmelden“ tippen.
 - **Passwort vergessen?** E-Mail eintragen und auf „Passwort vergessen?“ tippen. Es kommt eine Mail von Firebase zum Zurücksetzen.
@@ -401,13 +404,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 66**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 66 auf 67):
-- in `index.html`: `const APP_VERSION = '66';`
-- in `sw.js`: `const VERSION = 'strichliste-v66';`
+Aktuell ist **Version 67**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 67 auf 68):
+- in `index.html`: `const APP_VERSION = '67';`
+- in `sw.js`: `const VERSION = 'strichliste-v67';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 66“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 67“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
