@@ -215,6 +215,9 @@ input.n{min-width:3em}
 .ordshow{display:flex;flex-direction:column;align-items:center;gap:1px;flex:none}.ordshow input{width:22px;height:22px}.ordshow small{font-size:.65rem;color:var(--mu)}
 .ordrow.off .ordname{opacity:.45}
 .top.nostick{position:relative}
+.camhelp{display:flex;flex-direction:column;gap:4px}.camhelp>small{color:var(--mu)}.camhelp p{margin:2px 0}
+.camhelp ol{margin:4px 0 2px 1.2em;padding:0;display:flex;flex-direction:column;gap:5px}.camhelp li{line-height:1.35}
+.ph .camhelp{color:#fff;text-align:left;font-size:.85rem;padding:10px;max-height:100%;overflow:auto}.ph .camhelp>small{color:#ddd}
 html.txedit [data-tx],html.txedit .txc{outline:2px dashed var(--wy);outline-offset:2px;cursor:text}
 html.txedit.txpause [data-tx],html.txedit.txpause .txc{outline-color:rgba(245,192,0,.35);cursor:auto}
 .txbar{position:fixed;left:8px;right:8px;bottom:12px;z-index:110;display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--wy);color:#141414;border-radius:14px;padding:10px 12px;font-weight:600;font-size:.9rem;box-shadow:0 8px 24px rgba(0,0,0,.35)}
@@ -766,7 +769,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '72';
+const APP_VERSION = '73';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1184,7 +1187,7 @@ async function camStart(box, handler) {
   camStop();
   cam.handler = handler; cam.box = box;
   await window.__zxReady;
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return '<b>Kein Kamerazugriff:</b> Die Seite muss über HTTPS direkt in Safari oder Chrome geöffnet werden.';
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return await camHelp({ name: 'NoMedia' });
   cam.zx = buildReader(); cam.nat = null;
   if (!IS_IOS && 'BarcodeDetector' in window) { try { cam.nat = new BarcodeDetector(); } catch (e) {} }
   if (!cam.zx && !cam.nat) return '<b>Scanner-Bibliothek fehlt:</b> <code>index_min.js</code> (ZXing) neben die Seite legen.';
@@ -1203,9 +1206,75 @@ async function camStart(box, handler) {
     return null;
   } catch (e) {
     camStop();
-    return '<b>Kamera nicht verfügbar (' + esc((e && e.name) || 'Fehler') + '):</b> Erlaubnis prüfen (iPhone: Einstellungen → Safari → Kamera) und die Seite direkt im Browser öffnen.';
+    return await camHelp(e);
   }
 }
+/* ---------- Kamera-Hilfe: passend zu Gerät, Browser und Fehler ---------- */
+function camEnv() {
+  const ua = navigator.userAgent || '', ios = IS_IOS, android = /Android/i.test(ua);
+  const inApp = (/FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Snapchat|Line\/|MicroMessenger|TikTok|GSA\//i.test(ua) || (android && /; wv\)/.test(ua)));
+  const app = (ua.match(/WhatsApp|Instagram|Snapchat|TikTok|MicroMessenger/i) || [])[0] || (/FBAN|FBAV|FB_IAB/.test(ua) ? 'Facebook' : /GSA\//.test(ua) ? 'Google-App' : '');
+  let br = 'Browser';
+  if (ios) br = /CriOS/.test(ua) ? 'Chrome' : /FxiOS/.test(ua) ? 'Firefox' : /EdgiOS/.test(ua) ? 'Edge' : 'Safari';
+  else if (android) br = /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /Firefox/.test(ua) ? 'Firefox' : /EdgA/.test(ua) ? 'Edge' : /OPR|Opera/.test(ua) ? 'Opera' : /Chrome/.test(ua) ? 'Chrome' : 'Browser';
+  else br = /Edg\//.test(ua) ? 'Edge' : /Firefox/.test(ua) ? 'Firefox' : /Chrome/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : 'Browser';
+  return { ios, android, desktop: !ios && !android, inApp, app, br, pwa: !!window.__isStandalone };
+}
+function camPermSteps(v) {
+  const host = location.host, reload = v.pwa ? 'Die App ganz schließen (aus der Liste der offenen Apps wischen) und neu öffnen.' : 'Die Seite neu laden.';
+  if (v.ios) {
+    if (v.br === 'Chrome') return ['iPhone-<b>Einstellungen</b> → <b>Apps</b> → <b>Chrome</b> → <b>Kamera</b> einschalten.', reload];
+    if (v.br === 'Firefox') return ['iPhone-<b>Einstellungen</b> → <b>Apps</b> → <b>Firefox</b> → <b>Kamera</b> einschalten.', reload];
+    return (v.pwa ? [] : ['In Safari links in der Adressleiste auf <b>„aA“</b> (oder das Symbol daneben) tippen → <b>Website-Einstellungen</b> → <b>Kamera: Erlauben</b>.'])
+      .concat(['iPhone-<b>Einstellungen</b> → <b>Apps</b> → <b>Safari</b> → <b>Kamera</b> → <b>„Fragen“</b> oder <b>„Erlauben“</b>.', 'Falls „Kamera“ dort fehlt: <b>Einstellungen → Bildschirmzeit → Beschränkungen → Erlaubte Apps</b> → Kamera einschalten.', reload]);
+  }
+  if (v.android) {
+    const sys = (n) => 'Android-<b>Einstellungen</b> → <b>Apps</b> → <b>' + n + '</b> → <b>Berechtigungen</b> → <b>Kamera</b> → <b>„Während der Nutzung der App zulassen“</b>.';
+    if (v.br === 'Samsung Internet') return [v.pwa ? 'Samsung Internet öffnen → Menü <b>☰</b> → <b>Einstellungen</b> → <b>Websites und Downloads</b> → <b>Website-Berechtigungen</b> → <b>Kamera</b> → ' + host + ' erlauben.' : 'Links in der Adressleiste auf das <b>Schloss</b> tippen → <b>Berechtigungen</b> → <b>Kamera</b> erlauben.', sys('Samsung Internet'), reload];
+    if (v.br === 'Firefox') return ['Links in der Adressleiste auf das <b>Schloss</b> tippen → <b>Kamera</b> → <b>Zulassen</b>.', sys('Firefox'), reload];
+    return [v.pwa ? '<b>Chrome</b> öffnen → <b>⋮</b> → <b>Einstellungen</b> → <b>Website-Einstellungen</b> → <b>Kamera</b> → bei „Blockiert“ <b>' + host + '</b> antippen → <b>Zulassen</b>.'
+      : 'Links in der Adressleiste auf das Symbol <b>⚙︎/Schloss</b> tippen → <b>Berechtigungen</b> → <b>Kamera</b> → <b>Zulassen</b>.', sys(v.br === 'Browser' ? 'deinem Browser' : v.br), reload];
+  }
+  return ['In der Adressleiste auf das <b>Kamera- oder Schloss-Symbol</b> klicken → Kamera <b>erlauben</b>.', 'Bei Windows/macOS prüfen, ob der Browser in den Datenschutz-Einstellungen die Kamera nutzen darf.', reload];
+}
+async function camHelp(e) {
+  const v = camEnv(), n = (e && e.name) || 'Fehler';
+  let perm = ''; try { if (navigator.permissions) perm = (await navigator.permissions.query({ name: 'camera' })).state; } catch (err) {}
+  const who = (v.ios ? 'iPhone/iPad' : v.android ? 'Android' : 'Computer') + ' · ' + (v.inApp ? 'in ' + (v.app || 'einer App') + ' geöffnet' : v.br + (v.pwa ? ' (als App installiert)' : ''));
+  let title, why, steps;
+  if (v.inApp || n === 'NoMedia') {
+    title = 'Kamera geht hier nicht';
+    why = v.inApp ? 'Der Link wurde in ' + (v.app || 'einer anderen App') + ' geöffnet. Deren eingebauter Browser erlaubt meist keine Kamera.' : 'Dieser Browser bietet hier keinen Kamerazugriff an.';
+    steps = [v.ios ? 'Oben/unten auf <b>„…“</b> oder das Kompass-Symbol tippen → <b>„In Safari öffnen“</b>.' : 'Oben rechts auf <b>⋮</b> tippen → <b>„In Chrome öffnen“</b> bzw. <b>„Im Browser öffnen“</b>.',
+      'Oder den Link kopieren und in ' + (v.ios ? 'Safari' : 'Chrome') + ' einfügen: <button type="button" class="b sm" data-copylink>Link kopieren</button>', 'Am besten danach die Strichliste <b>als App installieren</b> – dann startet sie immer im richtigen Browser.'];
+  } else if (/NotAllowed|Security|PermissionDenied/.test(n)) {
+    title = 'Kamera nicht erlaubt';
+    why = perm === 'denied' ? 'Die Kamera ist für diese Seite gesperrt – vermutlich wurde einmal „Blockieren“ getippt. Das Handy fragt deshalb nicht mehr nach.' : 'Der Zugriff auf die Kamera wurde abgelehnt.';
+    steps = camPermSteps(v);
+  } else if (/NotReadable|TrackStart|Abort/.test(n)) {
+    title = 'Kamera ist gerade belegt';
+    why = 'Eine andere App nutzt die Kamera – oft ein laufendes Telefonat, ein Videoanruf oder die Kamera-App.';
+    steps = ['Telefonat/Videoanruf beenden bzw. andere Apps mit Kamera schließen.', v.pwa ? 'Die Strichliste ganz schließen und neu öffnen.' : 'Die Seite neu laden.', 'Hilft das nicht: Handy einmal neu starten.'];
+  } else if (/NotFound|DevicesNotFound|Overconstrained/.test(n)) {
+    title = 'Keine Kamera gefunden';
+    why = v.desktop ? 'An diesem Computer ist keine Kamera angeschlossen oder freigegeben.' : 'Das Gerät meldet keine passende Kamera.';
+    steps = ['Nimm zum Scannen ein Handy – oder buche ohne Kamera mit <b>+1</b> in der Liste unten.'];
+  } else {
+    title = 'Kamera startet nicht';
+    why = 'Unbekannter Fehler (' + esc(n) + ').';
+    steps = camPermSteps(v).concat(['Hilft nichts: Handy neu starten oder einen anderen Browser versuchen.']);
+  }
+  return '<div class="camhelp"><b>' + title + '</b><small>' + esc(who) + '</small><p>' + why + '</p><ol>' + steps.map(x => '<li>' + x + '</li>').join('') + '</ol>' +
+    '<div class="row" style="margin-top:6px"><button type="button" class="b sm pri" data-camretry>Nochmal versuchen</button></div>' +
+    '<small>Ohne Kamera geht es auch: in der Liste beim Getränk auf <b>+1</b> tippen.</small></div>';
+}
+document.addEventListener('click', async e => {
+  if (e.target.closest('[data-camretry]')) {
+    if (e.target.closest('#sheet')) { boxSheet.ph.innerHTML = '<b>Kamera startet …</b>'; const err = await camStart(boxSheet, onSheetCode); if (err) boxSheet.ph.innerHTML = err; }
+    else { setMsg(''); $('startBtn').click(); }
+  }
+  if (e.target.closest('[data-copylink]')) { const u = location.origin + location.pathname; try { await navigator.clipboard.writeText(u); toast('Link kopiert'); } catch (err) { prompt('Link kopieren:', u); } }
+});
 function camStop() {
   cam.on = false; clearTimeout(cam.timer); cam.timer = null;
   if (cam.stream) { cam.stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} }); cam.stream = null; }
@@ -3371,7 +3440,7 @@ async function openSheet(opts) {
   $('sheet').hidden = false; document.body.style.overflow = 'hidden'; document.body.classList.add('sheet-open'); $('sheet').querySelector('.sheet-in').scrollTop = 0;
   renderSheet();
   const err = await camStart(boxSheet, onSheetCode);
-  if (err) boxSheet.ph.innerHTML = '<span style="color:#fff">' + err + '</span>';
+  if (err) boxSheet.ph.innerHTML = err;
 }
 function closeSheet() {
   camStop(); boxSheet.ph.innerHTML = '<b>Kamera startet …</b>';

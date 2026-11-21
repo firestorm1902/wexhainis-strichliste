@@ -131,6 +131,8 @@ Auf der Startseite steht nur noch der Knopf **📷 Getränk scannen**. Antippen 
 - **Passwort vergessen?** E-Mail eintragen und auf „Passwort vergessen?“ tippen. Es kommt eine Mail von Firebase zum Zurücksetzen.
 - Oben neben „Strichliste“ steht der Netzstatus. „offline · 3 warten“ heißt: 3 Buchungen sind gespeichert und werden gesendet, sobald Netz da ist. In dieser Zeit nicht abmelden; die App warnt davor.
 
+Startet die Kamera nicht, zeigt die App eine Anleitung passend zu Gerät (Android, iPhone, Computer), Browser (Chrome, Samsung Internet, Firefox, Safari, als App installiert) und Fehler: Kamera nicht erlaubt, Kamera belegt (z. B. während eines Telefonats), keine Kamera, oder Link in WhatsApp/Instagram & Co. geöffnet (dann „Im Browser öffnen“ bzw. „Link kopieren“). Mit „Nochmal versuchen“ startet die Kamera erneut.
+
 - **Ich fahre heute:** In der Scan-Ansicht auf das Auto tippen. Dann fragt die App bei jedem alkoholischen Getränk nach („Du fährst heute – trotzdem buchen?“). Admins sehen in der Tagesübersicht, wer heute fährt. Gilt nur für den einen Tag.
 - **Ich fahre heute** zeigt beim Einschalten kurz ein Lenkrad mit „Gute Fahrt!“.
 - **Easter Eggs für sich einstellen:** Wer Easter Eggs sehen darf, hat neben „Ich fahre heute“ den Knopf „Easter Eggs: an“. Dort wählt man *An*, *An, ohne Ton* (nur dieses Handy) oder *Aus* (für das Konto auf allen Handys: keine Popups, kein Verlauf, keine Sammelalbum-Meldungen; gezählt wird trotzdem).
@@ -421,13 +423,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 72**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 72 auf 73):
-- in `index.html`: `const APP_VERSION = '72';`
-- in `sw.js`: `const VERSION = 'strichliste-v72';`
+Aktuell ist **Version 73**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 73 auf 74):
+- in `index.html`: `const APP_VERSION = '73';`
+- in `sw.js`: `const VERSION = 'strichliste-v73';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 72“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 73“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
