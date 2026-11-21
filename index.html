@@ -721,7 +721,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '64';
+const APP_VERSION = '65';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -876,7 +876,7 @@ function startUserListeners() {
     // ältere Konten: E-Mail nachtragen (erlaubt die Regel nur für die eigene Adresse)
     if (d && !d.email && u.email && !snap.metadata.fromCache) fire(F.updateDoc(dref('users', u.uid), { email: u.email.toLowerCase() }), 'E-Mail nachtragen');
     // Rolle oder Sperre geändert? Rechte neu prüfen
-    const key = d ? (d.role || '') + '|' + !!d.blocked + '|' + !!d.deleted : 'none';
+    const key = d ? (d.role || '') + '|' + !!d.blocked + '|' + !!d.slBlock + '|' + !!d.deleted : 'none';
     if (lastRoleKey !== null && key !== lastRoleKey && S.user === u) refreshRole(u);
     lastRoleKey = key;
     autoApproveSelf();
@@ -2432,7 +2432,7 @@ function mineIn(period) {
 
 function renderExtra() {
   const sec = $('extraSec');
-  const ok = S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.deleted));
+  const ok = S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock || S.meDoc.deleted));
   sec.hidden = !ok; if (!ok) return;
   $('extraTabs').querySelectorAll('button').forEach(b => { b.hidden = b.dataset.x !== 'konto' && !canSee(b.dataset.x); });
   if (extraTab && extraTab !== 'konto' && !canSee(extraTab)) extraTab = '';
@@ -2949,10 +2949,10 @@ function renderScan() {
   if (configured && S.authReady && !S.user) { $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; info.innerHTML = ''; return; }
   if (S.registering) { $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; info.innerHTML = '<div class="empty">Konto wird angelegt …</div>'; return; }
   if (!S.user || !S.activeLoaded || !S.meLoaded) { $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; info.innerHTML = '<div class="empty">Verbinde …' + (S.online ? '' : ' Beim allerersten Start wird einmal Internet benötigt.') + '</div>'; return; }
-  if (S.meDoc && (S.meDoc.deleted || S.meDoc.blocked)) {
+  if (S.meDoc && (S.meDoc.deleted || S.meDoc.blocked || S.meDoc.slBlock)) {
     if (cam.box === boxMain) camStop();
     $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; $('last').hidden = true;
-    info.innerHTML = '<div class="note bad"><b>' + (S.meDoc.deleted ? 'Dieses Konto wurde entfernt.' : 'Dein Konto ist gesperrt.') + '</b> Bitte wende dich an ' + esc(contactName(1)) + '.</div>' + contactHTML() + '<div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
+    info.innerHTML = '<div class="note bad"><b>' + (S.meDoc.deleted ? 'Dieses Konto wurde entfernt.' : S.meDoc.blocked ? 'Dein Konto ist gesperrt.' : 'Dein Konto ist für die Strichliste gesperrt.') + '</b> Bitte wende dich an ' + esc(contactName(1)) + '.</div>' + contactHTML() + '<div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
     return;
   }
   if (isPending()) {
@@ -3526,7 +3526,7 @@ function renderAdmin() {
         const me = u.uid === S.user.uid;
         const badges = (RO ? '' : me && S.isSuper ? '<span class="tag act">Super-Admin</span>' : u.role === 'admin' ? '<span class="tag act">Getränke-Admin</span>' : u.role === 'vorstand' ? '<span class="tag act">Vorstand</span>' : '') +
           (u.pending ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '') + (u.minor ? '<span class="tag" style="color:var(--pet)">U18</span>' : '') + (u.grp && gname(u.grp) ? '<span class="tag cls">' + esc(gname(u.grp)) + '</span>' : '') +
-          (u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : '') + (u.delreq && !RO ? '<span class="tag" style="color:var(--pen)">Löschung beantragt</span>' : '') +
+          (u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : u.slBlock ? '<span class="tag" style="color:var(--pen)">Strichliste gesperrt</span>' : '') + (u.delreq && !RO ? '<span class="tag" style="color:var(--pen)">Löschung beantragt</span>' : '') +
           (counts[u.name.toLowerCase()] > 1 ? '<span class="tag" style="color:var(--amb)">doppelt</span>' : '') + (me ? '<span class="tag cls">du</span>' : '');
         let inner = '<label class="f full">Name<input data-u="' + u.uid + '" value="' + esc(u.name) + '"></label>' +
           '<label class="f">Narrenfigur / Gruppe<select data-grp="' + u.uid + '"><option value="">keine</option>' + groupsAll().map(g => '<option value="' + esc(g.id) + '"' + (u.grp === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>').join('') + '</select></label>' +
@@ -3876,7 +3876,7 @@ function listenMyReqs() {
 }
 function renderReqBox() {
   const el = $('reqBox'); if (!el) return;
-  const ok = S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.deleted));
+  const ok = S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock || S.meDoc.deleted));
   el.hidden = !ok; if (!ok) return;
   const open = (S.myReqs || []).filter(r => r.status === 'open').length, fresh = (S.myReqs || []).filter(r => r.status !== 'open' && (r.at || 0) > reqSeen()).length;
   el.innerHTML = '<span>Etwas vergessen oder falsch gebucht?</span><button class="b sm" data-req="new">Korrektur beantragen</button>' +
