@@ -115,6 +115,9 @@ Admin → **Lager**: Bestand pro Getränk in Flaschen (mit Gebinden, z. B. „69
 - **Bedarf für die nächsten Ausflüge:** die frühere Einkaufslisten-Berechnung aus dem bisherigen Verbrauch.
 - **Verlauf:** die letzten Lagerbewegungen mit Person und Uhrzeit. Alles steckt auch im Backup.
 
+### Texte der Startseite ändern (Super-Admin)
+Konto-Bereich oben → **✏️ Texte bearbeiten**. Alle änderbaren Texte sind gestrichelt umrandet: Titel, „Getränk scannen“, „Ich fahre heute“, „Deine Getränke heute“, „Korrektur beantragen“, die Reiter (Bestenliste, Sammelalbum, Mein Konto, Rückblick), „Easter Eggs heute“ und die Hinweise im Scanfenster. Antippen, neuen Text eingeben, speichern – gilt sofort für alle. Leer lassen stellt den Standard wieder her. „Fertig“ beendet den Modus.
+
 ### Bereiche anordnen und umbenennen
 Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest (gilt auf allen seinen Geräten). Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard).
 
@@ -418,13 +421,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 68**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 68 auf 69):
-- in `index.html`: `const APP_VERSION = '68';`
-- in `sw.js`: `const VERSION = 'strichliste-v68';`
+Aktuell ist **Version 69**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 69 auf 70):
+- in `index.html`: `const APP_VERSION = '69';`
+- in `sw.js`: `const VERSION = 'strichliste-v69';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 68“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 69“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

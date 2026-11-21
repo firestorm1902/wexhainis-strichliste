@@ -213,6 +213,8 @@ input.n{min-width:3em}
 .ordbtns{display:flex;gap:4px;flex:none}.ordbtns .b{min-width:40px}
 .ordname{flex:1;min-width:0}.ordname input{width:100%}
 .top.nostick{position:relative}
+html.txedit [data-tx]{outline:2px dashed var(--wy);outline-offset:2px;cursor:text}
+.txbar{position:fixed;left:8px;right:8px;bottom:12px;z-index:110;display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--wy);color:#141414;border-radius:14px;padding:10px 12px;font-weight:600;font-size:.9rem;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .top-in{flex-wrap:wrap;row-gap:8px}
 #title .t1{font-size:min(2rem,9.5vw)}#title .t2{font-size:min(1.02rem,5vw)}
 .top-side{margin-left:auto}
@@ -587,7 +589,7 @@ body.noauth main{display:none!important}
 <body>
 <header class="top">
   <div class="top-in">
-    <h1 id="title"><span class="t1">Wexhainis</span><span class="t2">Getränke-Strichliste</span></h1>
+    <h1 id="title"><span class="t1" data-tx="t1">Wexhainis</span><span class="t2" data-tx="t2">Getränke-Strichliste</span></h1>
     <div class="top-side"><span style="display:flex;gap:6px;align-items:center"><button class="b sm back" id="helpBtn" aria-label="Hilfe und Infos">?</button><button class="b sm back" id="themeBtn" aria-label="Hell- oder Nachtmodus">Auto</button><span class="net" id="net">…</span></span><button class="b sm back" id="backBtn" hidden>Zurück zum Scannen</button></div>
   </div>
   <div class="acct-row"><button class="b sm back acct" id="acctBtn" hidden aria-expanded="false" aria-controls="acctPanel"></button></div>
@@ -595,7 +597,7 @@ body.noauth main{display:none!important}
     <div class="ap-head"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild ändern"><span id="meAv"></span><i>Bild</i></button>
       <span class="ap-who"><b id="meName"></b><small id="acctRoleT"></small><small id="meGrp"></small><small id="acctMail"></small></span>
       <button class="b sm" id="acctClose" aria-label="Schließen">✕</button></div>
-    <div class="row" style="margin-top:10px"><button class="b sm" id="avPick">Profilbild ändern</button><button type="button" class="b sm" id="avDel" hidden>Bild entfernen</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm dng" id="logoutBtn">Abmelden</button></div>
+    <div class="row" style="margin-top:10px"><button class="b sm" id="avPick">Profilbild ändern</button><button type="button" class="b sm" id="avDel" hidden>Bild entfernen</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="txBtn" hidden>✏️ Texte bearbeiten</button><button class="b sm dng" id="logoutBtn">Abmelden</button></div>
       <div id="pwSec" hidden class="grid2" style="margin-top:10px">
         <label class="f full">Aktuelles Passwort<input id="pwOld" type="password" autocomplete="current-password"></label>
         <label class="f">Neues Passwort<input id="pwNew" type="password" autocomplete="new-password"></label>
@@ -636,11 +638,11 @@ body.noauth main{display:none!important}
         <div class="cam" id="camMain"></div>
         <div class="frame" id="frameMain" hidden></div>
         <button type="button" class="torch" id="torchMain" hidden aria-pressed="false" aria-label="Taschenlampe">🔦</button>
-        <div class="ph" id="phMain"><b>Getränk scannen</b><span>Kamera starten und den Barcode waagerecht in die Mitte halten.</span></div>
+        <div class="ph" id="phMain"><b data-tx="scanPhT">Getränk scannen</b><span data-tx="scanPh">Kamera starten und den Barcode waagerecht in die Mitte halten.</span></div>
       </div>
       <div class="row">
-        <button class="b pri grow" id="startBtn">📷 Getränk scannen</button>
-        <button class="b grow" id="stopBtn" hidden>Scannen beenden</button>
+        <button class="b pri grow" id="startBtn" data-tx="scan">📷 Getränk scannen</button>
+        <button class="b grow" id="stopBtn" hidden data-tx="scanStop">Scannen beenden</button>
       </div>
       </div>
       <div class="me who" id="dayBtns" style="margin-top:10px;justify-content:flex-end"><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm partybtn" id="partyBtn" hidden>🪩 Party starten</button><button class="b sm" id="partyFxBtn" hidden>🎛 Effekte</button></span></div>
@@ -652,14 +654,14 @@ body.noauth main{display:none!important}
     <div id="dsNote" class="note" hidden></div>
     <div id="askBox" hidden></div>
     <div id="last" hidden></div>
-    <section id="listSec" hidden><h2 id="listHead">Deine Getränke heute</h2><div id="list"></div><div id="reqBox" class="reqbox" hidden></div></section>
+    <section id="listSec" hidden><h2 id="listHead" data-tx="listHead">Deine Getränke heute</h2><div id="list"></div><div id="reqBox" class="reqbox" hidden></div></section>
     <section id="extraSec" hidden>
       <div id="wrapBanner"></div>
-      <div class="mode xtabs" id="extraTabs"><button data-x="best">Bestenliste</button><button data-x="album">Sammelalbum</button><button data-x="konto">Mein Konto</button><button data-x="wrap">Rückblick</button></div>
+      <div class="mode xtabs" id="extraTabs"><button data-x="best" data-tx="tabBest">Bestenliste</button><button data-x="album" data-tx="tabAlbum">Sammelalbum</button><button data-x="konto" data-tx="tabKonto">Mein Konto</button><button data-x="wrap" data-tx="tabWrap">Rückblick</button></div>
       <div id="extra"></div>
     </section>
     <section id="histSec" hidden>
-      <h2>Easter Eggs heute</h2>
+      <h2 data-tx="eggsHead">Easter Eggs heute</h2>
       <div class="mode" id="histTabs" style="display:inline-flex;margin-bottom:8px"><button data-h="all" class="on">Für alle</button><button data-h="mine">Deine</button></div>
       <div id="hist"></div>
     </section>
@@ -760,7 +762,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '68';
+const APP_VERSION = '69';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -945,6 +947,7 @@ function startUserListeners() {
   stop('cfgParty'); unsub.cfgParty = F.onSnapshot(dref('config', 'party'), snap => { S.party = snap.exists() ? snap.data() : null; renderParty(); if (S.isAdmin) renderAdmin(); }, err => console.warn('party', err));
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
+  stop('cfgTexts'); unsub.cfgTexts = F.onSnapshot(dref('config', 'texts'), snap => setTexts(snap.exists() ? (snap.data().t || {}) : {}), err => console.warn('texts', err));
   stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; renderAdmin(); }, err => console.warn('sections', err));
   stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const o = snap.exists() ? snap.data().order : null; if (Array.isArray(o) && JSON.stringify(o) !== JSON.stringify(admOrder)) { admOrder = o; try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} renderAdmin(); } }, err => console.warn('prefs', err));
   stop('cfgUndo'); unsub.cfgUndo = F.onSnapshot(dref('config', 'undo'), snap => { S.undoCfg = snap.exists() ? snap.data() : null; if (S.isSuper) renderAdmin(); }, err => console.warn('undo', err));
@@ -1066,7 +1069,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'cfgUndo', 'cfgSecs', 'prefs', 'album', 'drv', 'myReqs', 'myMsgs', 'myAsks'].forEach(stop); S.myReqs = []; S.myMsgs = []; S.myAsks = []; renderAskBox();
+  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'cfgUndo', 'cfgSecs', 'cfgTexts', 'prefs', 'album', 'drv', 'myReqs', 'myMsgs', 'myAsks'].forEach(stop); S.myReqs = []; S.myMsgs = []; S.myAsks = []; renderAskBox();
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -1317,7 +1320,8 @@ async function loadPublicCfg() {
   if (!db || Date.now() - publicLoaded < 60000) return;
   publicLoaded = Date.now();
   try {
-    const [g, c, pv] = await Promise.all(['groups', 'contact', 'privacy'].map(id => F.getDoc(dref('config', id))));
+    const [g, c, pv, tt] = await Promise.all(['groups', 'contact', 'privacy', 'texts'].map(id => F.getDoc(dref('config', id)).catch(() => null)));
+    if (tt && tt.exists()) setTexts(tt.data().t || {});
     if (g.exists() && Array.isArray(g.data().list)) S.groups = g.data().list;
     if (c.exists()) S.contact = c.data();
     if (pv.exists()) S.privacy = pv.data();
@@ -1335,6 +1339,41 @@ $('aForgot').addEventListener('click', async () => {
   try { await F.sendPasswordResetEmail(auth, mail); toast('Falls es ein Konto gibt, kommt gleich eine E-Mail zum Zurücksetzen.'); }
   catch (err) { toast(err.code === 'auth/invalid-email' ? 'Die E-Mail-Adresse ist ungültig.' : 'Falls es ein Konto gibt, kommt gleich eine E-Mail zum Zurücksetzen.'); }
 });
+/* ---------- Texte der Startseite: der Super-Admin ändert sie direkt auf der Seite (config/texts) ---------- */
+const TX_DEF = { t1: 'Wexhainis', t2: 'Getränke-Strichliste', scan: '📷 Getränk scannen', scanStop: 'Scannen beenden', scanPhT: 'Getränk scannen', scanPh: 'Kamera starten und den Barcode waagerecht in die Mitte halten.',
+  drv: 'Ich fahre heute', drvOn: 'Fahrer ✓', listHead: 'Deine Getränke heute', reqQ: 'Etwas vergessen oder falsch gebucht?', reqBtn: 'Korrektur beantragen',
+  tabBest: 'Bestenliste', tabAlbum: 'Sammelalbum', tabKonto: 'Mein Konto', tabWrap: 'Rückblick', eggsHead: 'Easter Eggs heute' };
+const TX_DYN = ['drv', 'drvOn', 'listHead', 'reqQ', 'reqBtn']; // setzt der jeweilige Render-Code selbst
+S.texts = {}; try { S.texts = JSON.parse(localStorage.getItem('strichliste_texts') || '{}') || {}; } catch (e) {}
+const tx = k => ((S.texts || {})[k] || '').trim() || TX_DEF[k] || '';
+let txEdit = false;
+function applyTexts() {
+  document.querySelectorAll('[data-tx]').forEach(el => { const k = el.dataset.tx; if (!TX_DYN.includes(k) && TX_DEF[k] != null && el.textContent !== tx(k)) el.textContent = tx(k); });
+  if (S.texts && S.texts.t1) document.title = tx('t1') + ' ' + tx('t2');
+}
+function setTexts(t) {
+  S.texts = t || {}; try { localStorage.setItem('strichliste_texts', JSON.stringify(S.texts)); } catch (e) {}
+  applyTexts(); if (typeof renderScan === 'function') renderAll();
+}
+function txMode(on) {
+  txEdit = on; document.documentElement.classList.toggle('txedit', on);
+  let bar = $('txBar');
+  if (on && !bar) { bar = document.createElement('div'); bar.id = 'txBar'; bar.className = 'txbar'; bar.innerHTML = '<span>✏️ Texte bearbeiten: tippe auf einen gestrichelt umrandeten Text.</span><button class="b sm pri" id="txDone">Fertig</button>'; document.body.appendChild(bar); $('txDone').addEventListener('click', () => txMode(false)); }
+  if (bar) bar.hidden = !on;
+  if (on) { acctPanel(false); setView('scan'); }
+}
+document.addEventListener('click', async e => {
+  if (!txEdit || !S.isSuper) return;
+  const el = e.target.closest('[data-tx]'); if (!el || e.target.closest('#txBar')) return;
+  e.preventDefault(); e.stopPropagation();
+  const k = el.dataset.tx;
+  const v = await ask('Neuer Text (leer lassen = Standard):', { title: 'Text ändern', input: true, def: (S.texts || {})[k] || '', ph: TX_DEF[k], note: 'Standard: „' + TX_DEF[k] + '“ – gilt für alle.', ok: 'Speichern' });
+  if (v == null) return;
+  const t = Object.assign({}, S.texts || {}); const val = String(v).trim().slice(0, 120);
+  if (val && val !== TX_DEF[k]) t[k] = val; else delete t[k];
+  fire(F.setDoc(dref('config', 'texts'), { t, at: Date.now() }), 'Text speichern'); setTexts(t);
+  logEv('system', 'ändert Text „' + TX_DEF[k] + '“' + (val ? ' → „' + val + '“' : ' (Standard)')); toast('Gespeichert');
+}, true);
 /* ---------- Konto-Knopf oben: „👤 Name · Rolle ▾“ – kurze Abfrage mit Konto und „Abmelden“ ---------- */
 const acctRole = () => S.isSuper ? 'Super-Admin' : S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock) ? 'gesperrt' : S.isAdmin ? 'Getränke-Admin' : S.isBoard ? 'Vorstand' : isPending() ? 'wartet auf Freischaltung' : 'Mitglied';
 function renderAcct() {
@@ -1342,7 +1381,7 @@ function renderAcct() {
   const on = !!(S.user && S.authReady); b.hidden = !on; if (!on) { $('acctPanel').hidden = true; return; }
   const nm = S.me || (S.meDoc && S.meDoc.name) || (S.user.email || '').split('@')[0];
   b.innerHTML = avatarHTML(S.user.uid, nm, 22) + '<span style="overflow:hidden;text-overflow:ellipsis">' + esc(nm + ' · ' + acctRole()) + '</span> ▾'; b.setAttribute('aria-label', 'Konto: ' + nm + ', ' + acctRole() + ' – Profilbild, Passwort, Abmelden');
-  $('meName').textContent = nm; $('acctRoleT').textContent = acctRole(); $('acctMail').textContent = S.user.email || '';
+  $('meName').textContent = nm; $('acctRoleT').textContent = acctRole(); $('txBtn').hidden = !S.isSuper; if (!S.isSuper && txEdit) txMode(false); $('acctMail').textContent = S.user.email || '';
   if (S.user && !$('meAv').innerHTML) $('meAv').innerHTML = avatarHTML(S.user.uid, nm, 52);
 }
 function acctPanel(open) {
@@ -1353,6 +1392,7 @@ function acctPanel(open) {
 $('acctBtn').addEventListener('click', () => { if (S.user) acctPanel(); });
 $('acctClose').addEventListener('click', () => acctPanel(false));
 $('avPick').addEventListener('click', () => $('avIn').click());
+$('txBtn').addEventListener('click', () => txMode(!txEdit));
 async function logout() {
   if (S.pending && !await ask(S.pending + ' Buchungen sind noch nicht gesendet und gehen beim Abmelden verloren. Trotzdem abmelden?')) return;
   if (cam.on) camStop();
@@ -3038,7 +3078,7 @@ function renderScan() {
   $('drvNote').hidden = !S.driver;
   { const pb = $('partyBtn'), po = partyOn(); pb.hidden = !(S.isAdmin && partyAllowed()); pb.textContent = po ? '🪩 Party beenden' : '🪩 Party starten'; pb.classList.toggle('on', po); $('partyFxBtn').hidden = !(S.isAdmin && partyAllowed() && po); }
   { const b = $('eggPrefBtn'), on = !eggsOff(); b.hidden = !canSee('eggs'); b.textContent = 'Easter Eggs: ' + (on ? 'an' : 'aus') + (on && soundOff() ? ' (leise)' : ''); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
-  $('drvBtn').textContent = S.driver ? 'Fahrer ✓' : 'Ich fahre heute'; $('drvBtn').classList.toggle('pri', !!S.driver); $('drvBtn').setAttribute('aria-pressed', S.driver ? 'true' : 'false'); $('drvBtn').hidden = isMinor() || !show;
+  $('drvBtn').textContent = S.driver ? tx('drvOn') : tx('drv'); $('drvBtn').dataset.tx = S.driver ? 'drvOn' : 'drv'; $('drvBtn').classList.toggle('pri', !!S.driver); $('drvBtn').setAttribute('aria-pressed', S.driver ? 'true' : 'false'); $('drvBtn').hidden = isMinor() || !show;
   if (!show) {
     if (cam.box === boxMain) camStop();
     info.innerHTML = '<div class="note"><b>Gerade kein Tag zum Scannen freigegeben.</b> Ein Admin gibt den Tag frei, sobald es losgeht.</div>';
@@ -3052,7 +3092,7 @@ function renderScan() {
   const ids = new Set(Object.keys(day.load || {}).filter(k => day.load[k] > 0)); Object.keys(mine).forEach(k => ids.add(k));
   const list = [...ids].map(id => P(id)).filter(Boolean).filter(p => !(isMinor() && isAlc(catOf(p)))).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   const total = S.myScans.length, sum = S.myScans.reduce((a, s) => a + ((P(s.p) || {}).price || 0), 0);
-  $('listHead').textContent = 'Deine Getränke heute' + (total ? ' (' + total + (sum ? ', ' + money(sum) : '') + ')' : '');
+  $('listHead').textContent = tx('listHead') + (total ? ' (' + total + (sum ? ', ' + money(sum) : '') + ')' : '');
   $('list').innerHTML = list.length ? list.map(p => {
     const n = mine[p.id] || 0, loaded = (day.load || {})[p.id] > 0, full = bookFull(day, p.id);
     return '<div class="dr"><div class="nm"><b>' + esc(p.name) + '</b><small class="' + (loaded && !full ? '' : 'low') + '">' + (full ? 'ausgebucht · ' : loaded ? '' : 'nicht mitgenommen · ') + (p.price ? money(p.price) : '') + '</small></div>' +
@@ -4052,7 +4092,7 @@ function renderReqBox() {
   const ok = S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock || S.meDoc.deleted));
   el.hidden = !ok; if (!ok) return;
   const open = (S.myReqs || []).filter(r => r.status === 'open').length, fresh = (S.myReqs || []).filter(r => r.status !== 'open' && (r.at || 0) > reqSeen()).length;
-  el.innerHTML = '<span>Etwas vergessen oder falsch gebucht?</span><button class="b sm" data-req="new">Korrektur beantragen</button>' +
+  el.innerHTML = '<span data-tx="reqQ">' + esc(tx('reqQ')) + '</span><button class="b sm" data-req="new" data-tx="reqBtn">' + esc(tx('reqBtn')) + '</button>' +
     ((S.myReqs || []).length ? '<button class="linkbtn" data-req="mine">Meine Anträge' + (open ? ' (' + open + ' offen)' : '') + (fresh ? ' · ' + fresh + ' neu entschieden' : '') + '</button>' : '');
 }
 async function reqForm() {
@@ -5441,7 +5481,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('cont
 function stickyCheck() { const t = document.querySelector('header.top'); if (!t) return; t.classList.remove('nostick'); t.classList.toggle('nostick', t.offsetHeight > innerHeight * 0.3); }
 addEventListener('resize', stickyCheck);
 function renderAll() {
-  setTimeout(stickyCheck, 0);
+  setTimeout(stickyCheck, 0); applyTexts();
   renderAcct(); renderVersion(); renderDs(); renderInstall(); renderReqBox(); if (typeof renderParty === 'function' && S.party) renderParty();
   if (S.authReady && !S.user) loadPublicCfg();
   const noauth = configured && S.authReady && !S.user;
