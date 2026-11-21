@@ -29,6 +29,7 @@ Die Strichliste ist eine installierbare Web-App (PWA): Nach dem Installieren hat
 - **Updates:** Die installierte App prüft beim Öffnen und alle 30 Minuten auf eine neue Version. Ist eine da, erscheint unten „Neue Version da – Neu laden“.
 - **Schnellzugriffe:** Lange auf das Wespen-Symbol drücken (Android) zeigt **Getränk buchen** (startet die Kamera), **Mein Konto**, **Korrektur beantragen**, **Kontakt & Feedback** und **Admin-Bereich** (nur für Admins/Vorstand; andere bleiben auf der Startseite bzw. werden weitergeleitet). Jeden Schnellzugriff kann man auf den Startbildschirm ziehen – wie ein kleiner Widget-Knopf. Echte Startbildschirm-Widgets können Web-Apps auf Android und iPhone nicht anbieten.
 - **Zahl am App-Symbol:** Mitglieder sehen die Zahl neuer Antworten auf ihre Nachrichten und neu entschiedener Anträge; Getränke-Admins zusätzlich offene Korrekturanträge, der Super-Admin ungelesene Nachrichten im Posteingang. Auf dem iPhone (ab iOS 16.4, als App installiert) muss man dafür einmal „Erlauben“ tippen – die App fragt danach. Auf Android hängt die Anzeige vom Handy ab (manche zeigen nur einen Punkt).
+- **Benachrichtigungen und Punkt am Symbol (Android):** Läuft die App im Hintergrund, kommt eine Handy-Benachrichtigung – für Admins bei neuen Korrekturanträgen, für den Super-Admin bei neuen Nachrichten (auch Fehlermeldungen und Feedback), für Mitglieder, wenn über ihren Antrag entschieden oder ihre Nachricht beantwortet wurde (dazu „Getränke gehen zu Ende“ und „Zu viel gescannt“ für Admins). Dadurch erscheint auf Android der Punkt am App-Symbol; Antippen öffnet die passende Stelle, beim Öffnen der App verschwinden sie. Mitglieder werden nach dem ersten Antrag bzw. der ersten Nachricht einmal gefragt, ob sie das möchten; Admins erlauben es unter Admin → Daten. Ist die App ganz geschlossen, kommt nichts (dafür bräuchte es einen eigenen Server).
 
 ## Einrichtung (einmalig, ca. 15 Minuten)
 
@@ -92,7 +93,12 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
   - iPhone: Safari → Teilen → „Zum Home-Bildschirm“
   - Android: Chrome → Menü → „Zum Startbildschirm hinzufügen“
 - Man bleibt angemeldet, auch offline. Neues Handy oder Browserdaten gelöscht? Einfach mit derselben E-Mail **anmelden**, Name und Buchungen sind wieder da.
-- Nach jeder Buchung steht die Meldung mit „Rückgängig“ **10 Sekunden** lang da (Countdown), dann verschwindet sie.
+- Nach jeder Buchung steht die Meldung mit „Rückgängig“ eine Weile da (Countdown, Standard **10 Sekunden**), dann verschwindet sie. Ob es „Rückgängig“ gibt und wie lange, stellt der Super-Admin ein (siehe unten). Ist es ausgeschaltet, steht dort „Vertippt? Korrektur beantragen“.
+
+### Rückgängig einstellen und nachverfolgen (Super-Admin)
+Admin → **Einstellungen** → „Rückgängig nach dem Buchen“: an/aus und die Zeit (3–120 Sekunden). Der Server prüft das mit: Mitglieder können eine eigene Buchung nur löschen, solange Rückgängig an ist und höchstens die eingestellte Zeit plus 2 Minuten (für langsames Netz) vergangen ist. Dafür müssen die neuen `firestore.rules` veröffentlicht sein.
+
+Jedes Rückgängig wird gemerkt: wer, wann, welches Getränk, und wie viele Sekunden nach dem Buchen. Beim **Abgleich** eines Tages steht die Liste „Rückgängig gemacht“. Fehlen bei einem Getränk Flaschen und wurde es an dem Tag zurückgenommen, ist die Zeile rot markiert und oben steht „Prüfen: Pils: fehlt 1, aber 1× rückgängig gemacht (Anna 15:20)“. Beim **Tag abschließen** kommt dann eine Rückfrage mit diesem Hinweis. Auch „Zu wenig gebucht“ zeigt die Rückgängig-Fälle der betroffenen Tage. Das Protokoll kann nur der Super-Admin löschen; es steckt auch im Backup.
 - Unten rechts erscheint beim Herunterscrollen ein gelber Knopf **nach oben**.
 - **Passwort ändern:** angemeldet auf „Passwort ändern“ neben „Abmelden“ tippen.
 - **Passwort vergessen?** E-Mail eintragen und auf „Passwort vergessen?“ tippen. Es kommt eine Mail von Firebase zum Zurücksetzen.
@@ -101,7 +107,29 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 - **Ich fahre heute:** In der Scan-Ansicht auf das Auto tippen. Dann fragt die App bei jedem alkoholischen Getränk nach („Du fährst heute – trotzdem buchen?“). Admins sehen in der Tagesübersicht, wer heute fährt. Gilt nur für den einen Tag.
 - **Ich fahre heute** zeigt beim Einschalten kurz ein Lenkrad mit „Gute Fahrt!“.
 - **Easter Eggs für sich einstellen:** Wer Easter Eggs sehen darf, hat neben „Ich fahre heute“ den Knopf „Easter Eggs: an“. Dort wählt man *An*, *An, ohne Ton* (nur dieses Handy) oder *Aus* (für das Konto auf allen Handys: keine Popups, kein Verlauf, keine Sammelalbum-Meldungen; gezählt wird trotzdem).
-- **Nachtmodus:** Oben rechts zwischen *Auto*, *Hell* und *Nacht* umschalten. *Auto* wird dunkel, wenn das Handy dunkel eingestellt ist oder zwischen 19 und 7 Uhr.
+- **Nachtmodus:** Oben rechts zwischen *Auto*, *Hell* und *Nacht* umschalten. *Auto* wird dunkel, wenn das Handy dunkel eingestellt ist oder in der Nachtzeit (Standard 19 bis 7 Uhr).
+- **Nachtzeit einstellen (Super-Admin):** Admin → Einstellungen → **Nachtmodus**: Beginn und Ende wählen. Mit **„Nachtmodus in dieser Zeit für alle erzwingen“** ist die App in dieser Zeit für alle dunkel, auch bei „Hell“; der Knopf oben zeigt dann „Nacht 🔒“. Außerhalb der Zeit gilt wieder die eigene Wahl. Die Einstellung gilt nach kurzer Zeit auf allen Handys (auch auf dem Anmeldebildschirm, sobald das Handy sie einmal geladen hat).
+
+## Tage zum Scannen freigeben
+
+- Gebucht werden kann nur, wenn ein Admin einen Tag **zum Scannen freigegeben** hat (Admin → Tag). Sonst sehen Mitglieder „Gerade kein Tag zum Scannen freigegeben“.
+- **Zum Scannen freigeben** / **Scannen beenden**: Freigeben gilt für einen Tag; wird ein anderer freigegeben, endet der vorige. „Tag anlegen und freigeben“ macht beides in einem Schritt.
+- **Tag abschließen** beendet auch das Scannen. Ein abgeschlossener Tag ist nie freigegeben; wer ihn freigibt, öffnet ihn dabei wieder (mit Rückfrage).
+- Buchungen, die Handys offline gespeichert haben, werden auch nach dem Beenden noch übertragen und zählen zu ihrem Tag.
+
+## Nachtragen auf einen bestimmten Tag und „Zu wenig gebucht“
+
+- **Buchung nachtragen** hat oben die Auswahl **„Nachtragen auf Tag“** – auch frühere oder abgeschlossene Tage (mit Hinweis). Die Liste darunter heißt „Am 14.11. gebucht von …“.
+- **Zu wenig gebucht** (Admin, auch Vorstand): **„Tage prüfen“** rechnet für jeden Tag mit eingetragenem „Übrig“ pro Getränk *mitgenommen − gebucht − übrig*. Fehlende Flaschen erscheinen rot mit Betrag, zu viel Gebuchtes gelb. „Nachtragen auf diesen Tag“ springt direkt zum Nachtragen mit dem richtigen Tag. Gezählt wird per Zählabfrage – das kostet kaum Lesevorgänge.
+
+## Backup
+
+- **Backup speichern** (Admin → Daten) lädt eine JSON-Datei mit allem, was sich nicht neu berechnen lässt: Getränke (mit Sorte, Limits, Lager), Tage, Buchungen, Personen (mit Rolle, Gruppe, „unter 18“), alle Einstellungen (auch Gruppen, Fasnets-Titel, Easter-Egg-Regeln, Datenschutz, Nachtmodus), Korrekturanträge, Posteingang, Historie, Sammelalben, Easter-Egg-Verläufe, Fahrer-Markierungen und – abwählbar – Profilbilder. Nicht enthalten: Zähler und Bestenliste (werden nach dem Import neu berechnet) und die Logins (liegen bei Firebase Authentication). Vollständig wird es nur beim Super-Admin; Getränke-Admins fehlen Posteingang und Historie.
+- **Backup importieren** (Super-Admin) zeigt vorher, was in der Datei steckt, und schreibt alle Felder vollständig zurück. Gleiche Einträge werden überschrieben, andere bleiben. Die Historie wird nur ergänzt, nie geändert. Ältere Backups und Daten der Offline-Version lassen sich weiter importieren.
+- **Erinnerung:** Der Super-Admin stellt unter Daten ein, nach wie vielen Tagen ohne Backup erinnert wird (Standard 30, 0 = nie). Dann steht oben im Admin-Bereich „Zeit für ein Backup“ mit „Jetzt sichern“, und Admins bekommen einmal am Tag einen Hinweis.
+- Die Datei enthält persönliche Daten – sicher aufbewahren (nicht in die WhatsApp-Gruppe).
+
+- **Automatisches Backup vor dem Löschen (Super-Admin):** Bevor der Super-Admin etwas Größeres löscht – einen Tag mit Buchungen, eine Person (auf Wunsch mit Buchungen), einen Personeneintrag endgültig, alle erledigten Anträge oder Nachrichten, oder „Statistiken zurücksetzen“ –, kommen nacheinander: **Passwort erneut eingeben**, ein **automatisches Backup** (JSON-Datei im Download-Ordner, Name mit Datum und Uhrzeit) und eine **letzte Bestätigung**, die den Dateinamen nennt. Schlägt das Backup fehl, fragt die App, ob trotzdem ohne Backup weitergemacht werden soll. Getränke-Admins sind davon nicht betroffen.
 
 ## Bedienung
 
@@ -109,6 +137,7 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 - **Tippen:** Die Enter-Taste der Handy-Tastatur springt ins nächste Feld („Weiter“); im letzten Feld schickt sie ab (Anmelden, Antrag senden, Passwort speichern …) bzw. übernimmt die Eingabe. Zahlenfelder markieren beim Antippen ihren Inhalt, sodass man direkt überschreiben kann.
 - **Anzahl** (Korrekturantrag, Nachtragen, Einladen per Scan) hat **− / +** Knöpfe – meist braucht man die Tastatur gar nicht.
 - Auf Android verkleinert die Tastatur die Seite, sodass Fenster und Eingabefelder sichtbar bleiben.
+- **Taschenlampe 🔦:** Beim Scannen (Hauptseite und Admin-Scan) erscheint oben rechts im Kamerabild ein Lampen-Knopf, wenn Handy und Browser das Kameralicht freigeben (Android/Chrome meist ja, iPhone je nach iOS-Version). Die Wahl wird pro Gerät gemerkt – wer sie anlässt, hat beim nächsten Scannen gleich Licht. Beim Stoppen geht die Lampe aus.
 
 ## Partymodus 🪩
 
@@ -117,6 +146,8 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 - **Alle anderen** bekommen beim Start ein Fenster „🎉 Partymodus! … Willst du mitmachen?“ mit einer roten **Triggerwarnung** (wechselnde Farben und Bewegung; bei Lichtempfindlichkeit, Epilepsie oder Migräne nicht mitmachen) und **Mitmachen** / **Nein danke**. Die Warnung erscheint auch beim späteren Einsteigen. Wer mitmacht, bekommt einen bunten, sich drehenden Farbschleier mit Lichtflecken, Titel und Knöpfe wechseln die Farbe. Die App bleibt normal bedienbar.
 - Unten links erscheint ein Knopf **„🪩 Party: dabei / aus“** zum Aus- und wieder Einsteigen.
 - Die Farbwechsel sind bewusst sanft (kein schnelles Blitzen). Wer am Handy „Bewegung reduzieren“ eingeschaltet hat, bekommt einen ruhigen Farbschleier ohne Animation.
+
+- **Effekte (Admins):** Welche Animationen laufen, wählen Admins im Admin-Bereich unter „Partymodus“ oder während der Party auf der Startseite über **🎛 Effekte**: *Farbwirbel, Lichtspots, Discokugel, Laser, Konfetti, Emoji-Regen, Seifenblasen, Funkeln, Leuchtende Knöpfe*. Schnellwahl: *Alle an*, *Ruhig* (Farbwirbel, Lichtspots, Funkeln) und *Standard* (Farbwirbel, Lichtspots, Discokugel, Konfetti). Änderungen gelten sofort für alle, die mitmachen. Nichts davon blitzt; wer am Handy „Bewegung reduzieren“ eingestellt hat, sieht keine Animationen.
 
 ## Mehr: Bestenliste, Album, Mein Konto, Rückblick
 
@@ -128,6 +159,12 @@ Unter der Liste „Deine Getränke heute“ gibt es bis zu vier Reiter. Welche j
 | **Sammelalbum** | alle Easter Eggs als Abzeichen. Antippen zeigt, wie man es bekommt, und bei gesammelten wie oft und wann zuletzt. Minderjährige sehen nur die alkoholfreien. |
 | **Mein Konto** | eigene Getränke und Kosten der Saison (11.11. bis Aschermittwoch) pro Tag und Getränk, als Excel herunterladbar. |
 | **Rückblick** | die eigene Saison wie ein Jahresrückblick: Getränke, Tage, Lieblingsgetränk, stärkster Tag, Easter Eggs, Platz der Gruppe und ein Fasnets-Titel. **Als Bild teilen** erzeugt ein Bild für WhatsApp oder Instagram. Ab Aschermittwoch erscheint oben ein Hinweis. |
+
+## Fasnets-Titel im Rückblick
+
+- Im Rückblick bekommt jede Person einen **Fasnets-Titel**. Von oben nach unten gilt der erste Titel, dessen Bedingung passt; gezählt wird die Saison (11.11. bis Aschermittwoch). Unter dem Titel steht, warum man ihn hat, und **„Alle Titel ansehen“** zeigt die ganze Liste.
+- **Super-Admin:** Admin → **Fasnets-Titel (Rückblick)**: Titel umbenennen, an/aus, mit ↑/↓ sortieren, löschen, **Neuer Titel**. Bedingungen: keine Buchung, Getränke mindestens/höchstens, Tage dabei, Anteil alkoholfrei (%), Bier, Getränke einer Sorte, Lieblingssorte, am stärksten Tag, Easter Eggs gesammelt, Platz der Gruppe, Strichliste in €, immer (Auffang-Titel ganz unten).
+- Standard wie bisher: Noch ohne Strich → Vernunft-Wefzg (≥ 60 % alkoholfrei) → Treue Fasnetsseele (≥ 8 Tage) → Stammgast der Strichliste (≥ 40 Getränke) → Gmiatliche Wefzg. Zusätzlich vorbereitet, aber aus: Wasserratte, Durchhalte-Wefzg, Gruppen-Champion, Easter-Egg-Jäger, Seltener Gast. **„Standard-Titel zurückholen“** ergänzt gelöschte Standard-Titel, eigene bleiben.
 
 ## Einstellungen (Super-Admin)
 
@@ -156,7 +193,9 @@ Außerdem zeigt **Neu registriert** die letzten 25 Registrierungen mit Status (w
 
 - Mitglieder dürfen einen Zähler pro Schreibvorgang nur um genau 1 ändern und in der Bestenliste nur ihren eigenen Eintrag und ihre eigene Gruppe (Firebase-Regeln).
 - Admin-Handys gleichen alle 5 Minuten die Zähler des aktiven Tages mit den echten Buchungen ab und korrigieren sie. Größere Abweichungen (mehr als 2) landen in der Historie.
-- Das Handy des Super-Admins berechnet einmal am Tag alle Zähler „seit Beginn“ neu.
+- Das Handy des Super-Admins prüft einmal am Tag alle Zähler „seit Beginn“. Dafür liest es nur die Buchungen der Tage neu, an denen sich etwas geändert hat (neue oder spät synchronisierte Buchungen, Stornos und Nachträge durch Admins, die letzten 14 Tage). Pro Tag merkt es sich eine kleine Zusammenfassung (Sammlung `dsum`, nur für den Super-Admin lesbar); daraus entstehen alle Zähler und die Bestenliste. So bleibt der Verbrauch klein, auch nach vielen Jahren.
+- **Zähler neu berechnen** (Admin, nur Super-Admin) liest dagegen alle Buchungen einmal komplett – nur nötig, wenn etwas nicht stimmt. Nach einem Backup-Import passiert das automatisch bei der nächsten Prüfung.
+- Seit Version 46 braucht das die neue Regel für `dsum`: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen. Solange das fehlt, zeigt der Admin-Bereich einen roten Hinweis und die tägliche Prüfung ist ausgesetzt.
 
 ## Einkaufsliste
 
@@ -195,14 +234,18 @@ Der **?**-Knopf oben erklärt Mitgliedern, wofür die App ist und wie Buchen, Of
 
 ## Zu viel gescannt
 
-- Pro Getränk unter Admin → Getränke: **„Darf mehr gebucht werden (Flaschen)“**. Leer = 0.
+- Pro Getränk unter Admin → Getränke: **„Darf mehr gebucht werden (Flaschen)“**.
+  - **Zahl eingetragen (auch 0): harte Grenze.** Sind *mitgenommen + diese Zahl* gebucht, lässt sich das Getränk nicht mehr buchen – weder per Scan noch mit „+1“. Mitglieder sehen „ausgebucht“ und „Bitte beim Getränke-Admin melden“. 0 heißt: Schluss, sobald alles Mitgenommene gebucht ist. Wurde das Getränk heute gar nicht mitgenommen, ist es gesperrt.
+  - **Ausgebucht-Meldung:** Sobald ein Getränk mit Grenze voll ist, bekommen alle Admin-Handys oben die rot-schwarze Leiste „Getränk ausgebucht“ mit Ton und Vibration – und eine Handy-Benachrichtigung, wenn die App im Hintergrund läuft. Wird wieder Platz frei (Storno, mehr eingeladen), meldet sich das Getränk beim nächsten Vollwerden erneut.
+  - **Leer: keine Grenze.** Es wird nur gemeldet (siehe unten).
+  - Die Grenze greift erst, wenn für den Tag etwas als mitgenommen eingetragen ist. Admins können weiterhin nachtragen. Gezählt wird in `dused` (pro Tag und Getränk); Admin-Handys gleichen den Zähler laufend mit den echten Buchungen ab. Handys ohne Netz kennen den aktuellen Stand nicht – dort kann es einzelne Buchungen über der Grenze geben, die dann wie bisher gemeldet werden.
 - Werden an einem Tag mehr Flaschen gebucht als *mitgenommen + dieser Wert*, bekommen **alle Admin-Handys** oben eine rot-schwarze Meldung mit Ton: welches Getränk, wie viele zu viel und **wer** die Buchungen über der Grenze gemacht hat. „Ansehen“ öffnet im Admin den Bereich **„Zu viel gescannt“** mit Uhrzeit und Person jeder überzähligen Buchung.
 - Getränke, die an dem Tag gar nicht mitgenommen wurden und keinen Wert haben, lösen keine Meldung aus (dafür gibt es den Hinweis „nicht mitgenommen“).
 - Wie bei „Getränke gehen zu Ende“: Die Meldung kommt nur, solange die App auf dem Admin-Handy offen ist (mit erlaubten Benachrichtigungen auch im Hintergrund).
 
 ## Korrektur- und Nachbuchungsanträge
 
-- **Mitglieder:** unter „Deine Getränke heute“ und in „Mein Konto“ auf **Korrektur beantragen**: *Nachbuchen* oder *Stornieren*, Tag (die letzten Ausflüge), Getränk, Anzahl (bis 20) und eine Bemerkung. Beim **Stornieren** stehen nur Getränke zur Auswahl, die man an dem Tag selbst gebucht hat, und höchstens so viele, wie gebucht wurden (abzüglich schon beantragter Stornos). Unter **Meine Anträge** steht der Status; offene Anträge lassen sich zurückziehen. Wird entschieden, kommt eine Meldung.
+- **Mitglieder:** unter „Deine Getränke heute“ und in „Mein Konto“ auf **Korrektur beantragen**: *Nachbuchen* oder *Stornieren*, Tag (die letzten Ausflüge), Getränk, Anzahl (bis 20 pro Antrag – für mehr einen zweiten Antrag stellen) und eine Bemerkung. Beim **Stornieren** stehen nur Getränke zur Auswahl, die man an dem Tag selbst gebucht hat, und höchstens so viele, wie gebucht wurden (abzüglich schon beantragter Stornos). Unter **Meine Anträge** steht der Status; offene Anträge lassen sich zurückziehen. Wird entschieden, kommt eine Meldung.
 - **Getränke-Admins und Super-Admin:** oben im Admin **Korrekturanträge** mit **Genehmigen** / **Ablehnen** (mit Begründung). Genehmigen bucht nach bzw. storniert die jüngsten passenden Buchungen und zieht die Zähler mit. Neue Anträge melden sich mit einem Hinweis. Erledigte stehen aufklappbar darunter, alles steht auch in der Historie.
 - **Super-Admin:** kann jeden Antrag löschen (Knopf „Löschen“ an jedem Antrag) und unter „Erledigt“ alle erledigten auf einmal. Gelöscht wird nur der Antrag – Buchungen, die durch eine Genehmigung entstanden oder storniert wurden, bleiben, wie sie sind. Das Löschen steht in der Historie.
 - Jugendschutz gilt auch hier: Minderjährige können keinen Alkohol nachbuchen lassen. Der Vorstand sieht die Anträge nicht.
@@ -343,19 +386,21 @@ Hinweise:
 
 ## Kosten und Grenzen (kostenloser Spark-Tarif)
 
-- **Datenbank:** 50.000 Lesevorgänge und 20.000 Schreibvorgänge pro Tag. Jede Buchung kostet mit Easter-Egg-Zählern etwa vier Schreib- und zwei Lesevorgänge; Mitglieder lesen nur ihre eigenen Buchungen. Für 20–30 Handys und bis zu einigen tausend Getränken am Tag reicht das deutlich.
+- **Datenbank:** 50.000 Lesevorgänge und 20.000 Schreibvorgänge pro Tag (Zurücksetzen gegen 9 Uhr deutscher Zeit). Jede Buchung kostet etwa vier Schreibvorgänge (also bis ca. 5.000 Buchungen am Tag) und auf jedem Admin-Handy, das gerade offen ist, einen Lesevorgang. Jedes Öffnen der App kostet ein Mitglied etwa 30–50 Lesevorgänge; ein Admin-Handy, das nach längerer Pause den Admin-Bereich öffnet, liest die Buchungen des Tages und die Mitgliederliste neu.
+- **Faustregel:** bis ca. 60 Handys mit 3–4 Admin-Handys und 1.500 Getränken am Tag passt es gut. Darüber: nur so viele Admins wie nötig, oder den Blaze-Tarif (Abrechnung nach Verbrauch, mit Budget-Warnung) nehmen.
+- Ist das Tageskontingent aufgebraucht, sperrt Firebase bis zum Zurücksetzen; Buchungen bleiben auf den Handys gespeichert und werden danach gesendet.
 - **Anmeldung:** bis zu 100 neue Konten pro Stunde und Internetanschluss. Das genügt auch, wenn sich alle gleichzeitig im selben WLAN registrieren.
 - **E-Mails:** 150 „Passwort vergessen“-Mails pro Tag.
 
 ## Update der App
 
-Aktuell ist **Version 42**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 42 auf 43):
-- in `index.html`: `const APP_VERSION = '42';`
-- in `sw.js`: `const VERSION = 'strichliste-v42';`
+Aktuell ist **Version 59**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 59 auf 60):
+- in `index.html`: `const APP_VERSION = '59';`
+- in `sw.js`: `const VERSION = 'strichliste-v59';`
 
-Seit Version 40 gelten neue Regeln (Partymodus nur, wenn erlaubt). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 42“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 59“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
