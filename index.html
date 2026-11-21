@@ -188,6 +188,9 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 #title .t1{font-size:2rem;font-weight:700;color:var(--wy);text-transform:uppercase;letter-spacing:.01em}
 #title .t2{font-size:1.02rem;font-weight:500;color:#fff;margin-top:4px}
 .top-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.acct-row{max-width:640px;margin:-4px auto 0;padding:0 16px 10px;display:flex;justify-content:flex-end}
+.acct-row:not(:has(#acctBtn:not([hidden]))){display:none}
+.acct{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 .back{background:transparent;color:#fff;border-color:#fff}
 .net{font-size:.74rem;font-weight:700;border-radius:999px;padding:3px 9px;border:1.5px solid var(--wy);color:var(--wy);white-space:nowrap}
 .net.off{border-color:#ffb74d;color:#ffb74d}
@@ -558,6 +561,7 @@ body.noauth main{display:none!important}
     <h1 id="title"><span class="t1">Wexhainis</span><span class="t2">Getränke-Strichliste</span></h1>
     <div class="top-side"><span style="display:flex;gap:6px;align-items:center"><button class="b sm back" id="helpBtn" aria-label="Hilfe und Infos">?</button><button class="b sm back" id="themeBtn" aria-label="Hell- oder Nachtmodus">Auto</button><span class="net" id="net">…</span></span><button class="b sm back" id="backBtn" hidden>Zurück zum Scannen</button></div>
   </div>
+  <div class="acct-row"><button class="b sm back acct" id="acctBtn" hidden aria-haspopup="dialog"></button></div>
 </header>
 <div class="wrap">
 
@@ -721,7 +725,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '65';
+const APP_VERSION = '66';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1019,6 +1023,7 @@ async function refreshRole(u) {
   if (S.isAdmin && !unsub.reqsAll) listenAdminReqs();
   if (S.isAdmin && !unsub.asksAll) listenAdminAsks();
   if (S.isSuper && !unsub.inbox) listenInbox();
+  renderAcct();
   autoApproveSelf();
   if (!S.isAdmin && !S.isBoard) stopAdminListeners();
   renderAll();
@@ -1291,6 +1296,19 @@ $('aForgot').addEventListener('click', async () => {
   if (!mail) { toast('Bitte zuerst die E-Mail-Adresse eintragen'); $('aMail').focus(); return; }
   try { await F.sendPasswordResetEmail(auth, mail); toast('Falls es ein Konto gibt, kommt gleich eine E-Mail zum Zurücksetzen.'); }
   catch (err) { toast(err.code === 'auth/invalid-email' ? 'Die E-Mail-Adresse ist ungültig.' : 'Falls es ein Konto gibt, kommt gleich eine E-Mail zum Zurücksetzen.'); }
+});
+/* ---------- Konto-Knopf oben: „👤 Name · Rolle ▾“ – kurze Abfrage mit Konto und „Abmelden“ ---------- */
+const acctRole = () => S.isSuper ? 'Super-Admin' : S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock) ? 'gesperrt' : S.isAdmin ? 'Getränke-Admin' : S.isBoard ? 'Vorstand' : isPending() ? 'wartet auf Freischaltung' : 'Mitglied';
+function renderAcct() {
+  const b = $('acctBtn'); if (!b) return;
+  const on = !!(S.user && S.authReady); b.hidden = !on; if (!on) return;
+  const nm = S.me || (S.meDoc && S.meDoc.name) || (S.user.email || '').split('@')[0];
+  b.textContent = '👤 ' + nm + ' · ' + acctRole() + ' ▾'; b.setAttribute('aria-label', 'Konto: ' + nm + ', ' + acctRole() + ' – Konto anzeigen und abmelden');
+}
+$('acctBtn').addEventListener('click', async () => {
+  if (!S.user) return;
+  const nm = S.me || (S.meDoc && S.meDoc.name) || '–', grp = S.me ? gname(myGroup()) : '';
+  if (await ask('Name: ' + nm + '\nE-Mail: ' + (S.user.email || '–') + '\nRolle: ' + acctRole() + (grp ? '\nGruppe: ' + grp : ''), { title: 'Dein Konto', ok: 'Abmelden', cancel: 'Schließen', danger: true })) logout();
 });
 async function logout() {
   if (S.pending && !await ask(S.pending + ' Buchungen sind noch nicht gesendet und gehen beim Abmelden verloren. Trotzdem abmelden?')) return;
@@ -2967,7 +2985,7 @@ function renderScan() {
     info.innerHTML = ''; return;
   }
   $('nameSec').hidden = true;
-  $('meName').textContent = S.me; renderMe();
+  $('meName').textContent = S.me; renderMe(); renderAcct();
   $('meGrp').textContent = gname(myGroup());
   $('youthNote').hidden = !isMinor();
   $('drvNote').hidden = !S.driver;
@@ -3090,6 +3108,13 @@ function listenAdminAsks() {
     first = false; renderAdmin();
   }, err => console.warn('asks', err));
 }
+const askYes = a => String(a.answer || '').startsWith(ASK_QUICK[0]);
+const askNo = a => String(a.answer || '').startsWith(ASK_QUICK[1]);
+// Vorschlag fürs Nachbuchen: je Getränk so oft wie zurückgenommen, höchstens so viele wie fehlen
+function askPlan(a) {
+  const miss = askMissing(a.day), U = askUndos(a.uid, a.day);
+  return (a.ps || []).map(pid => { const m = (miss.find(x => x.pid === pid) || {}).n || 0, u = U.filter(x => x.p === pid).length; return { pid, n: Math.max(1, Math.min(u || 1, m || u || 1)) }; });
+}
 const askAge = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 function askList(dayId) {
   const L = (S.asks || []).filter(a => a.day === dayId).sort((a, b) => a.t - b.t); if (!L.length) return '';
@@ -3097,7 +3122,8 @@ function askList(dayId) {
     '<div style="display:flex;justify-content:space-between;gap:8px"><span>an <b>' + esc(a.name) + '</b> <small style="color:var(--mu)">von ' + esc(a.byName || '') + ' · ' + askAge(a.t) + '</small></span>' + (a.status === 'open' ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '<span class="tag act">beantwortet</span>') + '</div>' +
     '<small style="color:var(--mu);white-space:pre-line">' + esc(a.text) + '</small>' +
     (a.answer ? '<div class="reply"><b>' + esc(a.name) + '</b> <small>' + askAge(a.answerAt) + '</small><p>' + esc(a.answer).replace(/\n/g, '<br>') + '</p></div>' : '') +
-    (S.isAdmin ? '<div class="row" style="margin-top:4px">' + (a.answer ? '<button class="b sm" data-act="missFix" data-id="' + esc(a.day) + '">Nachtragen</button>' : '') + '<button class="b sm" data-act="askDel" data-id="' + a.id + '">Löschen</button></div>' : '') + '</div>').join('') + '</div>';
+    (a.booked ? '<div class="note ok" style="margin-top:6px">Nachgebucht: ' + esc(Object.keys(a.bookedN || {}).map(k => a.bookedN[k] + '× ' + pname(k)).join(', ')) + ' <small>(' + esc(a.bookedBy || '') + ', ' + askAge(a.booked) + ')</small></div>' : '') +
+    (S.isAdmin ? '<div class="row" style="margin-top:4px">' + (a.answer && !a.booked ? (askYes(a) ? '<button class="b sm pri" data-act="askBook" data-id="' + a.id + '">' + esc(askPlan(a).map(x => x.n + '× ' + pname(x.pid)).join(', ')) + ' nachbuchen</button>' : !askNo(a) ? '<button class="b sm" data-act="missFix" data-id="' + esc(a.day) + '">Nachtragen …</button>' : '') : '') + '<button class="b sm" data-act="askDel" data-id="' + a.id + '">Löschen</button></div>' : '') + '</div>').join('') + '</div>';
 }
 // Mitglieder: offene Rückfragen oben in der App beantworten
 function listenMyAsks() {
@@ -4875,6 +4901,19 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'missCheck') checkMissing();
   else if (a === 'undoAllLoad') loadUndoAll();
   else if (a === 'askNew') { const [uid, d] = id.split('|'); askOpen(uid, d); }
+  else if (a === 'askBook') {
+    const q = (S.asks || []).find(x => x.id === id); if (!q || q.booked) return;
+    const d = S.days.find(x => x.id === q.day), plan = askPlan(q), u = S.users[q.uid] || {}, name = u.name || q.name;
+    if (!d) { toast('Tag nicht gefunden'); return; }
+    const bad = plan.find(x => u.minor && isAlc(catOf(P(x.pid)))); if (bad) { toast('Jugendschutz: ' + pname(bad.pid) + ' ist für ' + name + ' gesperrt'); return; }
+    if (!await ask(plan.map(x => x.n + '× ' + pname(x.pid)).join(', ') + ' für ' + name + ' auf ' + dayLabel(d) + ' nachbuchen?', { title: 'Nachbuchen', ok: 'Nachbuchen' })) return;
+    const b2 = F.writeBatch(db), bookedN = {}; let k = 0;
+    plan.forEach(x => { bookedN[x.pid] = x.n; for (let i = 0; i < x.n; i++) b2.set(dref('scans', newId('scans')), { uid: q.uid, day: d.id, p: x.pid, src: 'nachgetragen', t: Date.now() + k++, at: F.serverTimestamp(), who: name }); });
+    fire(b2.commit(), 'Nachbuchen');
+    fire(F.updateDoc(dref('asks', q.id), { booked: Date.now(), bookedN, bookedBy: S.me || '' }), 'Rückfrage');
+    plan.forEach(x => { adjustCounters(q.uid, d.id, x.pid, x.n); logEv('buchung', 'trägt nach (Rückfrage): ' + x.n + '× ' + pname(x.pid) + ' für ' + name, d.id); });
+    toast(plan.map(x => x.n + '× ' + pname(x.pid)).join(', ') + ' für ' + name + ' nachgebucht');
+  }
   else if (a === 'askDel') { if (await ask('Rückfrage löschen?')) fire(F.deleteDoc(dref('asks', id)), 'Rückfrage löschen'); }
   else if (a === 'undoAllPer') { undoAllPer = id; renderAdmin(); }
   else if (a === 'missFix') {
@@ -5200,7 +5239,7 @@ function renderVersion() {
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
 function renderAll() {
-  renderVersion(); renderDs(); renderInstall(); renderReqBox(); if (typeof renderParty === 'function' && S.party) renderParty();
+  renderAcct(); renderVersion(); renderDs(); renderInstall(); renderReqBox(); if (typeof renderParty === 'function' && S.party) renderParty();
   if (S.authReady && !S.user) loadPublicCfg();
   const noauth = configured && S.authReady && !S.user;
   document.body.classList.toggle('noauth', noauth);
