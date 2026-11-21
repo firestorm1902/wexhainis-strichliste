@@ -46,8 +46,10 @@ service cloud.firestore {
     }
     // Jugendschutz: alkoholische Sorten
     function alcCats() { return ['bier', 'radler', 'wein', 'schnaps']; }
+    // für Jugendliche gesperrt: pro Getränk einstellbar (u18), sonst alle alkoholischen Sorten
     function productIsAlc(pid) {
-      return get(/databases/$(database)/documents/products/$(pid)).data.get('cat', 'sonst') in alcCats();
+      let p = get(/databases/$(database)/documents/products/$(pid)).data;
+      return p.get('u18', p.get('cat', 'sonst') in alcCats()) == true;
     }
     // Nur für die Strichliste gesperrt (slBlock, setzt nur der Super-Admin) – der Stundentracker bleibt nutzbar
     function slActive() { return isActive() && profile().get('slBlock', false) != true; }

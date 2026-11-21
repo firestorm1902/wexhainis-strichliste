@@ -778,7 +778,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '74';
+const APP_VERSION = '75';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1768,6 +1768,8 @@ const allRules = () => {
 };
 // Jugendschutz / Fahrer / Gruppe des eigenen Kontos
 const isMinor = () => !!(S.meDoc && S.meDoc.minor);
+// Pro Getränk einstellbar, ob es für Jugendliche gesperrt ist (products.u18); ohne Einstellung: alle alkoholischen Sorten
+const u18Blocked = p => !!p && (p.u18 != null ? p.u18 === true : isAlc(catOf(p)));
 const isPending = () => !!(S.meDoc && S.meDoc.pending === true) && !S.isAdmin;
 const myGroup = () => (S.meDoc && S.meDoc.grp) || '';
 // Easter Eggs mit Alkoholbezug (für Minderjährige ausgeblendet)
@@ -3206,8 +3208,8 @@ async function book(pid, src) {
     if (navigator.vibrate) navigator.vibrate([60, 60, 60]); return;
   }
   const cat = catOf(P(pid));
-  if (isMinor() && isAlc(cat)) {
-    showLast('last unk', '<div><b>' + esc(pname(pid)) + ' ist für dich gesperrt</b><span>Jugendschutz – nimm doch ein Wasser oder einen Softdrink.</span></div><small class="last-cd"></small>');
+  if (isMinor() && u18Blocked(P(pid))) {
+    showLast('last unk', '<div><b>' + esc(pname(pid)) + ' kann gerade nicht gebucht werden</b><span>Bitte beim Getränke-Admin melden.</span></div><small class="last-cd"></small>');
     if (navigator.vibrate) navigator.vibrate([60, 60, 60]); return;
   }
   if (S.driver && isAlc(cat) && !(await ask(pname(pid) + ' enthält Alkohol. Trotzdem buchen?', { title: 'Du fährst heute 🚗', ok: 'Trotzdem buchen', cancel: 'Lieber nicht' }))) return;
@@ -3282,7 +3284,7 @@ function renderScan() {
   $('nameSec').hidden = true;
   $('meName').textContent = S.me; renderMe(); renderAcct();
   $('meGrp').textContent = gname(myGroup());
-  $('youthNote').hidden = !isMinor();
+  $('youthNote').hidden = true; // Jugendliche sollen nicht sehen, dass sie markiert sind
   $('drvNote').hidden = !S.driver;
   { const pb = $('partyBtn'), po = partyOn(); pb.hidden = !(S.isAdmin && partyAllowed()); pb.textContent = po ? '🪩 Party beenden' : '🪩 Party starten'; pb.classList.toggle('on', po); $('partyFxBtn').hidden = !(S.isAdmin && partyAllowed() && po); }
   { const b = $('eggPrefBtn'), on = !eggsOff(); b.hidden = !canSee('eggs'); b.textContent = 'Easter Eggs: ' + (on ? 'an' : 'aus') + (on && soundOff() ? ' (leise)' : ''); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
@@ -3298,7 +3300,7 @@ function renderScan() {
   // eigene Buchungen pro Getränk
   const mine = {}; S.myScans.forEach(s => { mine[s.p] = (mine[s.p] || 0) + 1; });
   const ids = new Set(Object.keys(day.load || {}).filter(k => day.load[k] > 0)); Object.keys(mine).forEach(k => ids.add(k));
-  const list = [...ids].map(id => P(id)).filter(Boolean).filter(p => !(isMinor() && isAlc(catOf(p)))).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const list = [...ids].map(id => P(id)).filter(Boolean).filter(p => !(isMinor() && u18Blocked(p))).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   const total = S.myScans.length, sum = S.myScans.reduce((a, s) => a + ((P(s.p) || {}).price || 0), 0);
   $('listHead').textContent = tx('listHead') + (total ? ' (' + total + (sum ? ', ' + money(sum) : '') + ')' : '');
   $('list').innerHTML = list.length ? list.map(p => {
@@ -3807,12 +3809,13 @@ function renderAdmin() {
   }
 
   h += '<section><h2>Getränke (' + S.products.length + ')</h2>' + S.products.map(p =>
-    '<details class="pc" data-k="' + p.id + '"><summary><b>' + esc(p.name) + '</b><small>' + esc(CATS.find(c => c[0] === catOf(p))[1]) + ' · ' + (p.price ? money(p.price) : 'ohne Preis') + (p.low ? ' · warnt ab ' + p.low : '') + (p.over != null && p.over !== '' ? ' · Grenze +' + p.over : '') + ((p.packs || []).length ? ' · ' + esc(p.packs.map(k => k.n + 'er').join(', ')) : '') + '</small></summary>' +
+    '<details class="pc" data-k="' + p.id + '"><summary><b>' + esc(p.name) + '</b><small>' + esc(CATS.find(c => c[0] === catOf(p))[1]) + (u18Blocked(p) ? ' · U18 gesperrt' : '') + ' · ' + (p.price ? money(p.price) : 'ohne Preis') + (p.low ? ' · warnt ab ' + p.low : '') + (p.over != null && p.over !== '' ? ' · Grenze +' + p.over : '') + ((p.packs || []).length ? ' · ' + esc(p.packs.map(k => k.n + 'er').join(', ')) : '') + '</small></summary>' +
     '<div class="grid2"><label class="f full">Name<input data-p="name" data-id="' + p.id + '" value="' + esc(p.name) + '"></label>' +
     '<label class="f full">Barcodes (Flasche und Kasten, mit Komma)<input data-p="codes" data-id="' + p.id + '" value="' + esc((p.codes || []).join(', ')) + '" inputmode="numeric"></label>' +
     '<label class="f">Preis pro Flasche in €<input data-p="price" data-id="' + p.id + '" value="' + (p.price ? String(p.price).replace('.', ',') : '') + '" inputmode="decimal"></label>' +
     '<label class="f">Gebinde<input data-p="packs" data-id="' + p.id + '" value="' + esc(packsText(p.packs)) + '" placeholder="Kasten 20; Sixpack 6"></label>' +
     '<label class="f">Sorte (für die Easter Eggs)' + catSelect('data-p="cat" data-id="' + p.id + '"', p.cat, p.name) + '</label>' +
+    '<label class="chk full"><input type="checkbox" data-u18="' + p.id + '"' + (u18Blocked(p) ? ' checked' : '') + '> Für Jugendliche (U18) gesperrt' + (p.u18 == null ? ' <small style="color:var(--mu)">– automatisch nach Sorte</small>' : '') + '</label>' +
     '<label class="f">Warnen ab Rest (Flaschen)<input data-p="low" data-id="' + p.id + '" value="' + (p.low || '') + '" inputmode="numeric" placeholder="z. B. 6"></label>' +
     '<label class="f">Darf mehr gebucht werden (Flaschen)<input data-p="over" data-id="' + p.id + '" value="' + (p.over != null ? p.over : '') + '" inputmode="numeric" placeholder="leer = keine Grenze"></label><div class="f" style="font-size:.78rem;color:var(--mu);align-self:end">' + (p.over != null && p.over !== '' ? (+p.over ? 'Gesperrt, sobald mitgenommen + ' + p.over + ' gebucht ist.' : 'Gesperrt, sobald alles Mitgenommene gebucht ist.') : 'Keine Grenze – Admins bekommen nur eine Meldung, wenn mehr gebucht wird als mitgenommen.') + '</div>' +
     '<div class="full row" style="margin-top:0"><button class="b sm" data-act="assign" data-id="' + p.id + '">Barcode scannen</button><button class="b sm dng" data-act="delProd" data-id="' + p.id + '">Löschen</button></div></div></details>').join('') +
@@ -4312,7 +4315,7 @@ async function reqForm() {
   if (S.activeDay && !list.some(d => d.id === S.activeDay.id)) list.unshift(S.activeDay);
   reqDays = list;
   if (!reqDays.length) { toast('Noch keine Tage vorhanden'); return; }
-  const minor = isMinor(), prods = S.products.filter(p => !(minor && isAlc(catOf(p))));
+  const minor = isMinor(), prods = S.products.filter(p => !(minor && u18Blocked(p)));
   openModal('<h2>Korrektur beantragen</h2><p style="font-size:.88rem;color:var(--mu)">Ein Admin prüft deinen Antrag und genehmigt oder lehnt ihn ab. Du bekommst Bescheid.</p><div class="grid2">' +
     '<div class="mode full" id="rqType" style="display:flex"><button data-rt="add" class="on" style="flex:1">Nachbuchen</button><button data-rt="del" style="flex:1">Stornieren</button></div>' +
     '<label class="f full">Tag<select id="rqDay">' + reqDays.map(d => '<option value="' + d.id + '"' + (d.id === S.active ? ' selected' : '') + '>' + esc(fmtDate(d.date) + (d.place ? ' – ' + d.place : '')) + '</option>').join('') + '</select></label>' +
@@ -4377,7 +4380,7 @@ document.addEventListener('click', async e => {
     const type = (document.querySelector('#rqType .on') || {}).dataset.rt || 'add', day = $('rqDay').value, p = $('rqP').value, n = parseInt($('rqN').value), note = $('rqNote').value.trim().slice(0, 200);
     if (!p) { toast('Bitte ein Getränk wählen'); return; }
     if (!(n >= 1 && n <= REQ_MAX)) { toast('Pro Antrag 1 bis ' + REQ_MAX + ' – für mehr einen zweiten Antrag stellen'); $('rqN').value = Math.min(REQ_MAX, Math.max(1, n || 1)); return; }
-    if (type === 'add' && isMinor() && isAlc(catOf(P(p)))) { toast('Jugendschutz: nicht möglich'); return; }
+    if (type === 'add' && isMinor() && u18Blocked(P(p))) { toast('Das geht leider nicht – bitte beim Getränke-Admin melden'); return; }
     if (type === 'del') {
       const m = await myDayCounts(day);
       if (!m) { toast('Deine Buchungen konnten nicht geprüft werden – bitte mit Internet erneut versuchen'); return; }
@@ -4441,7 +4444,7 @@ $('adminBody').addEventListener('click', async e => {
     fin('no', reason.trim().slice(0, 200)); logEv('buchung', 'lehnt Antrag ab: ' + reqTxt(r) + ' von ' + r.name + (reason ? ' („' + reason + '“)' : ''), r.day); toast('Abgelehnt'); return;
   }
   const u = S.users[r.uid] || {};
-  if (u.minor && r.type === 'add' && isAlc(catOf(P(r.p)))) { toast('Jugendschutz: ' + pname(r.p) + ' ist für ' + r.name + ' gesperrt'); return; }
+  if (u.minor && r.type === 'add' && u18Blocked(P(r.p))) { toast('Jugendschutz: ' + pname(r.p) + ' ist für ' + r.name + ' gesperrt'); return; }
   if (!P(r.p)) { toast('Getränk gibt es nicht mehr'); return; }
   if (r.type === 'add') {
     const bt = F.writeBatch(db);
@@ -5315,6 +5318,7 @@ adminBody.addEventListener('change', e => {
   if (t.dataset.sel === 'day') { S.selDay = t.value; showNewDay = false; listenDayScans(); renderAdmin(); return; }
   if (t.id === 'nbWho') { nbSel = t.value; renderAdmin(); return; }
   if (t.dataset.grp) { const uid = t.dataset.grp; fire(F.updateDoc(dref('users', uid), { grp: t.value ? t.value : F.deleteField() }), 'Gruppe'); logEv('person', uname(uid) + ': Gruppe → ' + (gname(t.value) || 'keine')); toast(uname(uid) + ': ' + (gname(t.value) || 'keine Gruppe')); return; }
+  if (t.dataset.u18) { const pid = t.dataset.u18, pr = P(pid); if (pr) pr.u18 = t.checked; fire(F.updateDoc(dref('products', pid), { u18: t.checked }), 'Jugendschutz'); logEv('getraenk', pname(pid) + ': für Jugendliche ' + (t.checked ? 'gesperrt' : 'freigegeben')); toast(pname(pid) + (t.checked ? ': für U18 gesperrt' : ': für U18 freigegeben')); renderAdmin(); return; }
   if (t.dataset.minor) { const uid = t.dataset.minor; fire(F.updateDoc(dref('users', uid), { minor: t.checked }), 'Jugendschutz'); logEv('person', uname(uid) + ': ' + (t.checked ? 'als minderjährig markiert' : 'nicht mehr minderjährig')); toast(uname(uid) + (t.checked ? ': Jugendschutz an' : ': Jugendschutz aus')); return; }
   if (t.dataset.gr) { const id = t.dataset.gr, name = t.value.trim().slice(0, 40); if (!name) { renderAdmin(); return; } saveGroups(groupsAll().map(g => g.id === id ? { id, name } : g)); logEv('person', 'benennt Gruppe um: ' + name); return; }
   if (t.id === 'xlFrom' || t.id === 'xlTo') { if (t.value) { if (t.id === 'xlFrom') xlFrom = t.value; else xlTo = t.value; } return; }
@@ -5385,7 +5389,7 @@ adminBody.addEventListener('click', async e => {
     const q = (S.asks || []).find(x => x.id === id); if (!q || q.booked) return;
     const d = S.days.find(x => x.id === q.day), plan = askPlan(q), u = S.users[q.uid] || {}, name = u.name || q.name;
     if (!d) { toast('Tag nicht gefunden'); return; }
-    const bad = plan.find(x => u.minor && isAlc(catOf(P(x.pid)))); if (bad) { toast('Jugendschutz: ' + pname(bad.pid) + ' ist für ' + name + ' gesperrt'); return; }
+    const bad = plan.find(x => u.minor && u18Blocked(P(x.pid))); if (bad) { toast('Jugendschutz: ' + pname(bad.pid) + ' ist für ' + name + ' gesperrt'); return; }
     if (!await ask(plan.map(x => x.n + '× ' + pname(x.pid)).join(', ') + ' für ' + name + ' auf ' + dayLabel(d) + ' nachbuchen?', { title: 'Nachbuchen', ok: 'Nachbuchen' })) return;
     const b2 = F.writeBatch(db), bookedN = {}; let k = 0;
     plan.forEach(x => { bookedN[x.pid] = x.n; for (let i = 0; i < x.n; i++) b2.set(dref('scans', newId('scans')), { uid: q.uid, day: d.id, p: x.pid, src: 'nachgetragen', t: Date.now() + k++, at: F.serverTimestamp(), who: name }); });
@@ -5458,7 +5462,7 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'addBooking' && day) {
     const uid = $('nbWho').value, pid = $('nbP').value, n = Math.min(100, parseInt($('nbN').value) || 0);
     if (!uid || !pid || n < 1) { toast('Person, Getränk und Anzahl wählen'); return; }
-    if ((S.users[uid] || {}).minor && isAlc(catOf(P(pid)))) { toast('Jugendschutz: ' + pname(pid) + ' ist für ' + uname(uid) + ' gesperrt'); return; }
+    if ((S.users[uid] || {}).minor && u18Blocked(P(pid))) { toast('Jugendschutz: ' + pname(pid) + ' ist für ' + uname(uid) + ' gesperrt'); return; }
     const name = (S.users[uid] || {}).name || '';
     const b2 = F.writeBatch(db);
     for (let i = 0; i < n; i++) b2.set(dref('scans', newId('scans')), { uid, day: day.id, p: pid, src: 'nachgetragen', t: Date.now() + i, at: F.serverTimestamp(), who: name });
