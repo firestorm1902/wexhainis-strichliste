@@ -215,7 +215,8 @@ input.n{min-width:3em}
 .ordshow{display:flex;flex-direction:column;align-items:center;gap:1px;flex:none}.ordshow input{width:22px;height:22px}.ordshow small{font-size:.65rem;color:var(--mu)}
 .ordrow.off .ordname{opacity:.45}
 .top.nostick{position:relative}
-html.txedit [data-tx]{outline:2px dashed var(--wy);outline-offset:2px;cursor:text}
+html.txedit [data-tx],html.txedit .txc{outline:2px dashed var(--wy);outline-offset:2px;cursor:text}
+html.txedit.txpause [data-tx],html.txedit.txpause .txc{outline-color:rgba(245,192,0,.35);cursor:auto}
 .txbar{position:fixed;left:8px;right:8px;bottom:12px;z-index:110;display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--wy);color:#141414;border-radius:14px;padding:10px 12px;font-weight:600;font-size:.9rem;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .top-in{flex-wrap:wrap;row-gap:8px}
 #title .t1{font-size:min(2rem,9.5vw)}#title .t2{font-size:min(1.02rem,5vw)}
@@ -764,7 +765,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '70';
+const APP_VERSION = '71';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -949,7 +950,7 @@ function startUserListeners() {
   stop('cfgParty'); unsub.cfgParty = F.onSnapshot(dref('config', 'party'), snap => { S.party = snap.exists() ? snap.data() : null; renderParty(); if (S.isAdmin) renderAdmin(); }, err => console.warn('party', err));
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
-  stop('cfgTexts'); unsub.cfgTexts = F.onSnapshot(dref('config', 'texts'), snap => setTexts(snap.exists() ? (snap.data().t || {}) : {}), err => console.warn('texts', err));
+  stop('cfgTexts'); unsub.cfgTexts = F.onSnapshot(dref('config', 'texts'), snap => setTexts(snap.exists() ? (snap.data().t || {}) : {}, snap.exists() ? (snap.data().g || []) : []), err => console.warn('texts', err));
   stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; renderAdmin(); }, err => console.warn('sections', err));
   stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const d = snap.exists() ? snap.data() : {}, o = d.order, hd = d.hidden; let ch = false;
     if (Array.isArray(o) && JSON.stringify(o) !== JSON.stringify(admOrder)) { admOrder = o; try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} ch = true; }
@@ -1326,7 +1327,7 @@ async function loadPublicCfg() {
   publicLoaded = Date.now();
   try {
     const [g, c, pv, tt] = await Promise.all(['groups', 'contact', 'privacy', 'texts'].map(id => F.getDoc(dref('config', id)).catch(() => null)));
-    if (tt && tt.exists()) setTexts(tt.data().t || {});
+    if (tt && tt.exists()) setTexts(tt.data().t || {}, tt.data().g || []);
     if (g.exists() && Array.isArray(g.data().list)) S.groups = g.data().list;
     if (c.exists()) S.contact = c.data();
     if (pv.exists()) S.privacy = pv.data();
@@ -1351,32 +1352,93 @@ const TX_DEF = { t1: 'Wexhainis', t2: 'Getränke-Strichliste', scan: '📷 Getr�
 const TX_DYN = ['drv', 'drvOn', 'listHead', 'reqQ', 'reqBtn']; // setzt der jeweilige Render-Code selbst
 S.texts = {}; try { S.texts = JSON.parse(localStorage.getItem('strichliste_texts') || '{}') || {}; } catch (e) {}
 const tx = k => ((S.texts || {})[k] || '').trim() || TX_DEF[k] || '';
-let txEdit = false;
+let txEdit = false, txPause = false;
+function txBarText() {
+  document.documentElement.classList.toggle('txpause', txPause);
+  $('txHint').textContent = txPause ? '👆 Bedienen: öffne Reiter oder Fenster, dann „Bearbeiten“.' : '✏️ Tippe auf einen umrandeten Text.';
+  $('txPause').textContent = txPause ? '✏️ Bearbeiten' : '👆 Bedienen';
+}
+/* Zusätzlich: fast jeder feste Text der Mitglieder-Seiten (auch Hinweise, Reiter-Inhalte, Fenster wie „Korrektur beantragen“)
+   lässt sich ändern. Gemerkt wird „Originaltext → neuer Text“ (config/texts.g); Texte mit Ziffern (Mengen, Preise, Daten),
+   Eingabefelder, die Getränkeliste und der Admin-Bereich sind ausgenommen. */
+S.textsG = {}; try { S.textsG = JSON.parse(localStorage.getItem('strichliste_textsg') || '{}') || {}; } catch (e) {}
+const TXG_SKIP = '#adminBody, #acctPanel, #acctBtn, #themeBtn, #net, #eggPrefBtn, .day-head, #txBar, #toast, #list, #meName, #ver, .avlist, .board, script, style, textarea, select, option, input, [data-tx], .av, #egg';
+const txgOk = t => t.length >= 2 && /[A-Za-zÄÖÜäöüß]/.test(t) && !/\d/.test(t) && t.length <= 400;
+function txgNodes(root) {
+  const out = [], w = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => {
+    const p = n.parentElement; if (!p || p.closest(TXG_SKIP)) return NodeFilter.FILTER_REJECT;
+    const o = n.__txo != null ? n.__txo : n.nodeValue.trim(); return txgOk(o) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } });
+  while (w.nextNode()) out.push(w.currentNode);
+  return out;
+}
+let txgBusy = false;
+function applyTextsG() {
+  const G = S.textsG || {}, any = Object.keys(G).length;
+  if (!any && !txEdit) return;
+  txgBusy = true;
+  txgNodes().forEach(n => {
+    const cur = n.nodeValue.trim();
+    if (n.__txo == null || (cur !== n.__txn && cur !== n.__txo)) n.__txo = cur; // neu gerendert → Original merken
+    const want = G[n.__txo] || n.__txo;
+    if (cur !== want) { n.nodeValue = n.nodeValue.replace(cur, want); }
+    n.__txn = want;
+    if (txEdit && n.parentElement) n.parentElement.classList.add('txc');
+  });
+  txgBusy = false;
+}
+let txgRaf = 0;
+new MutationObserver(() => { if (txgBusy || txgRaf || (!txEdit && !Object.keys(S.textsG || {}).length)) return; txgRaf = requestAnimationFrame(() => { txgRaf = 0; applyTextsG(); }); })
+  .observe(document.body, { childList: true, subtree: true, characterData: true });
 function applyTexts() {
   document.querySelectorAll('[data-tx]').forEach(el => { const k = el.dataset.tx; if (!TX_DYN.includes(k) && TX_DEF[k] != null && el.textContent !== tx(k)) el.textContent = tx(k); });
   if (S.texts && S.texts.t1) document.title = tx('t1') + ' ' + tx('t2');
+  applyTextsG();
 }
-function setTexts(t) {
+function setTexts(t, g) {
   S.texts = t || {}; try { localStorage.setItem('strichliste_texts', JSON.stringify(S.texts)); } catch (e) {}
+  if (g) { S.textsG = {}; g.forEach(x => { if (x && x.o) S.textsG[x.o] = x.n; }); try { localStorage.setItem('strichliste_textsg', JSON.stringify(S.textsG)); } catch (e) {} }
   applyTexts(); if (typeof renderScan === 'function') renderAll();
 }
+const txgList = () => Object.keys(S.textsG || {}).map(o => ({ o, n: S.textsG[o] }));
+function txSave() { fire(F.setDoc(dref('config', 'texts'), { t: S.texts || {}, g: txgList(), at: Date.now() }), 'Text speichern'); }
 function txMode(on) {
   txEdit = on; document.documentElement.classList.toggle('txedit', on);
   let bar = $('txBar');
-  if (on && !bar) { bar = document.createElement('div'); bar.id = 'txBar'; bar.className = 'txbar'; bar.innerHTML = '<span>✏️ Texte bearbeiten: tippe auf einen gestrichelt umrandeten Text.</span><button class="b sm pri" id="txDone">Fertig</button>'; document.body.appendChild(bar); $('txDone').addEventListener('click', () => txMode(false)); }
+  if (on && !bar) { bar = document.createElement('div'); bar.id = 'txBar'; bar.className = 'txbar'; bar.innerHTML = '<span id="txHint"></span><span style="display:flex;gap:6px"><button class="b sm" id="txPause"></button><button class="b sm pri" id="txDone">Fertig</button></span>'; document.body.appendChild(bar);
+    $('txDone').addEventListener('click', () => txMode(false));
+    $('txPause').addEventListener('click', () => { txPause = !txPause; txBarText(); }); }
+  txPause = false; if (on) txBarText();
   if (bar) bar.hidden = !on;
-  if (on) { acctPanel(false); setView('scan'); }
+  if (!on) document.querySelectorAll('.txc').forEach(x => x.classList.remove('txc'));
+  if (on) { acctPanel(false); setView('scan'); applyTextsG(); }
 }
 document.addEventListener('click', async e => {
-  if (!txEdit || !S.isSuper) return;
-  const el = e.target.closest('[data-tx]'); if (!el || e.target.closest('#txBar')) return;
+  if (!txEdit || txPause || !S.isSuper) return;
+  if (e.target.closest('#txBar, #dlg')) return;
+  const el = e.target.closest('[data-tx]');
+  if (!el) { // freier Text: getippten Textknoten finden
+    const cands = txgNodes(e.target.closest('.txc') || e.target);
+    let node = null;
+    try { const r = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null; if (r && r.startContainer.nodeType === 3 && cands.includes(r.startContainer)) node = r.startContainer; } catch (err) {}
+    node = node || cands[0];
+    if (!node) return;
+    e.preventDefault(); e.stopPropagation();
+    const o = node.__txo || node.nodeValue.trim();
+    const v = await ask('Neuer Text (leer lassen = Original):', { title: 'Text ändern', input: true, def: (S.textsG || {})[o] || o, note: 'Original: „' + o + '“ – gilt überall, wo genau dieser Text steht, für alle.', ok: 'Speichern' });
+    if (v == null) return;
+    const val = String(v).trim().slice(0, 400);
+    S.textsG = Object.assign({}, S.textsG || {}); if (val && val !== o) S.textsG[o] = val; else delete S.textsG[o];
+    try { localStorage.setItem('strichliste_textsg', JSON.stringify(S.textsG)); } catch (err) {}
+    txSave(); applyTextsG(); logEv('system', 'ändert Text „' + o.slice(0, 60) + '“' + (val && val !== o ? ' → „' + val.slice(0, 60) + '“' : ' (Original)')); toast('Gespeichert');
+    return;
+  }
   e.preventDefault(); e.stopPropagation();
   const k = el.dataset.tx;
   const v = await ask('Neuer Text (leer lassen = Standard):', { title: 'Text ändern', input: true, def: (S.texts || {})[k] || '', ph: TX_DEF[k], note: 'Standard: „' + TX_DEF[k] + '“ – gilt für alle.', ok: 'Speichern' });
   if (v == null) return;
   const t = Object.assign({}, S.texts || {}); const val = String(v).trim().slice(0, 120);
   if (val && val !== TX_DEF[k]) t[k] = val; else delete t[k];
-  fire(F.setDoc(dref('config', 'texts'), { t, at: Date.now() }), 'Text speichern'); setTexts(t);
+  S.texts = t; txSave(); setTexts(t);
   logEv('system', 'ändert Text „' + TX_DEF[k] + '“' + (val ? ' → „' + val + '“' : ' (Standard)')); toast('Gespeichert');
 }, true);
 /* ---------- Konto-Knopf oben: „👤 Name · Rolle ▾“ – kurze Abfrage mit Konto und „Abmelden“ ---------- */

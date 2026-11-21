@@ -116,7 +116,7 @@ Admin → **Lager**: Bestand pro Getränk in Flaschen (mit Gebinden, z. B. „69
 - **Verlauf:** die letzten Lagerbewegungen mit Person und Uhrzeit. Alles steckt auch im Backup.
 
 ### Texte der Startseite ändern (Super-Admin)
-Konto-Bereich oben → **✏️ Texte bearbeiten**. Alle änderbaren Texte sind gestrichelt umrandet: Titel, „Getränk scannen“, „Ich fahre heute“, „Deine Getränke heute“, „Korrektur beantragen“, die Reiter (Bestenliste, Sammelalbum, Mein Konto, Rückblick), „Easter Eggs heute“ und die Hinweise im Scanfenster. Antippen, neuen Text eingeben, speichern – gilt sofort für alle. Leer lassen stellt den Standard wieder her. „Fertig“ beendet den Modus.
+Konto-Bereich oben → **✏️ Texte bearbeiten**. Alle änderbaren Texte sind gestrichelt umrandet: Titel, „Getränk scannen“, „Ich fahre heute“, „Deine Getränke heute“, „Korrektur beantragen“, die Reiter (Bestenliste, Sammelalbum, Mein Konto, Rückblick), „Easter Eggs heute“ und die Hinweise im Scanfenster. Antippen, neuen Text eingeben, speichern – gilt sofort für alle. Leer lassen stellt den Standard wieder her. „Fertig“ beendet den Modus. Darüber hinaus ist fast jeder feste Text der Mitglieder-Seiten änderbar: Hinweise, Texte in den Reitern (Bestenliste, Sammelalbum, Mein Konto, Rückblick) und in Fenstern wie „Korrektur beantragen“ oder „Kontakt & Feedback“. Mit **👆 Bedienen** lassen sich Reiter und Fenster öffnen, mit **✏️ Bearbeiten** geht es weiter. Ein geänderter Text gilt überall, wo genau dieser Originaltext steht. Ausgenommen sind Zahlen, Preise, Daten, Namen, Getränke und der Admin-Bereich (dort: „⇅ Anordnen“).
 
 ### Bereiche anordnen und umbenennen
 Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest und blendet mit dem Häkchen „zeigen“ Bereiche aus, die er nicht braucht (gilt nur für ihn, auf allen seinen Geräten). Der Knopf zeigt, wie viele ausgeblendet sind; „Alles zurücksetzen“ holt alles zurück. Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard).
@@ -421,13 +421,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 70**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 70 auf 71):
-- in `index.html`: `const APP_VERSION = '70';`
-- in `sw.js`: `const VERSION = 'strichliste-v70';`
+Aktuell ist **Version 71**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 71 auf 72):
+- in `index.html`: `const APP_VERSION = '71';`
+- in `sw.js`: `const VERSION = 'strichliste-v71';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 70“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 71“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
