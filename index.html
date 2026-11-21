@@ -778,7 +778,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '75';
+const APP_VERSION = '76';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3860,7 +3860,8 @@ function renderAdmin() {
         if (S.isSuper && !me) {
           inner += '<label class="f">Rolle<select data-role="' + u.uid + '"><option value=""' + (!u.role ? ' selected' : '') + '>Mitglied</option><option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Getränke-Admin</option><option value="vorstand"' + (u.role === 'vorstand' ? ' selected' : '') + '>Vorstand (nur lesen)</option></select></label><div></div>' +
             '<div class="full row" style="margin-top:0">' +
-            (u.blocked ? '<button class="b sm" data-act="unblock" data-id="' + u.uid + '">Entsperren</button>' : '<button class="b sm" data-act="block" data-id="' + u.uid + '">Sperren</button>') +
+            (u.blocked ? '<span style="font-size:.8rem;color:var(--mu);align-self:center">In allen Apps gesperrt – nur in WexSuperAdmin änderbar</span>'
+              : u.slBlock ? '<button class="b sm" data-act="unblock" data-id="' + u.uid + '">Für Strichliste entsperren</button>' : '<button class="b sm" data-act="block" data-id="' + u.uid + '">Für Strichliste sperren</button>') +
             (u.email ? '<button class="b sm" data-act="resetPw" data-id="' + u.uid + '">Passwort-Mail senden</button>' : '') +
             '<button class="b sm dng" data-act="removeUser" data-id="' + u.uid + '">Entfernen</button></div>';
         }
@@ -4146,7 +4147,7 @@ function newRegsSection() {
   const L = Object.keys(S.users).map(uid => Object.assign({ uid }, S.users[uid])).filter(u => u.t && uid_ok(u)).sort((a, b) => b.t - a.t).slice(0, 25);
   function uid_ok(u) { return u.uid !== (S.user && S.user.uid); }
   if (!L.length) return '';
-  const st = u => u.deleted ? (u.pending ? '<span class="tag" style="color:var(--pen)">abgelehnt</span>' : '<span class="tag cls">entfernt</span>') : u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : u.pending ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '<span class="tag act">aktiv</span>';
+  const st = u => u.deleted ? (u.pending ? '<span class="tag" style="color:var(--pen)">abgelehnt</span>' : '<span class="tag cls">entfernt</span>') : u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : u.slBlock ? '<span class="tag" style="color:var(--pen)">Strichliste gesperrt</span>' : u.pending ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '<span class="tag act">aktiv</span>';
   const nNew = L.filter(u => u.t > seen).length;
   return '<section><h2>Neu registriert (' + nNew + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Die letzten 25 Registrierungen, neueste zuerst. Seit deinem letzten „Gesehen“ neu: <b>' + nNew + '</b>.</div>' +
     L.map(u => '<div class="rw"><span style="display:flex;align-items:center">' + avatarHTML(u.uid, u.name, 30) + '</span><span>' + (u.t > seen ? '<b>' + esc(u.name || '') + '</b> <span class="tag" style="color:var(--amb)">neu</span>' : esc(u.name || '')) + '<br><small>' + esc(u.email || '') + ' · ' + new Date(u.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</small></span>' + st(u) + '</div>').join('') +
@@ -5481,10 +5482,12 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'block' || a === 'unblock') {
     const u = S.users[id]; if (!u) return;
-    if (a === 'block' && !await ask('„' + u.name + '“ sperren? Die Person kann dann nichts mehr buchen.')) return;
-    fire(F.updateDoc(dref('users', id), { blocked: a === 'block' }), a === 'block' ? 'Sperren' : 'Entsperren');
-    logEv('person', (a === 'block' ? 'sperrt ' : 'entsperrt ') + u.name);
-    toast(a === 'block' ? u.name + ' gesperrt' : u.name + ' entsperrt');
+    if (u.blocked) { toast('In allen Apps gesperrt – das geht nur in WexSuperAdmin'); return; }
+    // nur für die Strichliste (slBlock) – andere Apps wie der Stundentracker bleiben unberührt
+    if (a === 'block' && !await ask('„' + u.name + '“ für die Strichliste sperren? Die Person kann dann hier nichts mehr buchen. Andere Apps (z. B. Stundentracker) bleiben nutzbar.', { ok: 'Sperren', danger: true })) return;
+    fire(F.updateDoc(dref('users', id), { slBlock: a === 'block' }), a === 'block' ? 'Sperren' : 'Entsperren');
+    logEv('person', (a === 'block' ? 'sperrt ' : 'entsperrt ') + u.name + ' für die Strichliste');
+    toast(a === 'block' ? u.name + ' für die Strichliste gesperrt' : u.name + ' entsperrt');
   }
   else if (a === 'resetPw') {
     const u = S.users[id]; if (!u || !u.email) return;

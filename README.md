@@ -107,6 +107,9 @@ Jedes Rückgängig wird gemerkt: wer, wann, welches Getränk, und wie viele Seku
 ### Konto-Bereich oben
 Der Kopf der App bleibt beim Scrollen oben stehen. Darin steht dein Profilbild mit „Name · Rolle ▾“. Antippen klappt den Konto-Bereich auf: Name, Rolle, Gruppe, E-Mail, **📷 Foto aufnehmen** (öffnet direkt die Frontkamera), **🖼️ Bild wählen** (Galerie; auch durch Tippen aufs Bild), **Bild entfernen**, **Passwort ändern** und **Abmelden** (mit Rückfrage). Diese Knöpfe sind dafür von der Startseite verschwunden; dort bleiben nur „Ich fahre heute“, Easter Eggs und Party.
 
+### Sperren
+Admin → **Personen** → **„Für Strichliste sperren“** sperrt die Person nur hier (`slBlock`); andere Apps wie der Stundentracker bleiben nutzbar. Eine Sperre für alle Apps (`blocked`) lässt sich nur in WexSuperAdmin setzen oder aufheben – in der Strichliste steht dann „In allen Apps gesperrt“.
+
 ### Jugendschutz (U18)
 Admin → **Personen**: „minderjährig (U18)“ markiert eine Person. Admin → **Getränke**: pro Getränk „Für Jugendliche (U18) gesperrt“ – ohne Einstellung sind automatisch alle alkoholischen Sorten gesperrt; man kann aber z. B. ein Radler freigeben oder einen Energydrink sperren. Die markierten Personen erfahren davon nichts: gesperrte Getränke erscheinen bei ihnen einfach nicht in der Liste, und beim Scannen steht nur „kann gerade nicht gebucht werden – bitte beim Getränke-Admin melden“. Der Server prüft die Sperre ebenfalls.
 
@@ -429,13 +432,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 75**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 75 auf 76):
-- in `index.html`: `const APP_VERSION = '75';`
-- in `sw.js`: `const VERSION = 'strichliste-v75';`
+Aktuell ist **Version 76**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 76 auf 77):
+- in `index.html`: `const APP_VERSION = '76';`
+- in `sw.js`: `const VERSION = 'strichliste-v76';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 75“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 76“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
