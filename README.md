@@ -118,8 +118,11 @@ Admin → **Lager**: Bestand pro Getränk in Flaschen (mit Gebinden, z. B. „69
 ### Texte der Startseite ändern (Super-Admin)
 Konto-Bereich oben → **✏️ Texte bearbeiten**. Alle änderbaren Texte sind gestrichelt umrandet: Titel, „Getränk scannen“, „Ich fahre heute“, „Deine Getränke heute“, „Korrektur beantragen“, die Reiter (Bestenliste, Sammelalbum, Mein Konto, Rückblick), „Easter Eggs heute“ und die Hinweise im Scanfenster. Antippen, neuen Text eingeben, speichern – gilt sofort für alle. Leer lassen stellt den Standard wieder her. „Fertig“ beendet den Modus. Darüber hinaus ist fast jeder feste Text der Mitglieder-Seiten änderbar: Hinweise, Texte in den Reitern (Bestenliste, Sammelalbum, Mein Konto, Rückblick) und in Fenstern wie „Korrektur beantragen“ oder „Kontakt & Feedback“. Mit **👆 Bedienen** lassen sich Reiter und Fenster öffnen, mit **✏️ Bearbeiten** geht es weiter. Ein geänderter Text gilt überall, wo genau dieser Originaltext steht. Ausgenommen sind Zahlen, Preise, Daten, Namen, Getränke und der Admin-Bereich (dort: „⇅ Anordnen“).
 
+### Glocke für Admins
+Gibt es im Admin-Bereich etwas zu tun, steht oben neben dem Namen eine **🔔 mit Zahl**: neue Anmeldungen, Löschanträge, offene Korrekturanträge, Antworten auf eigene Rückfragen und (Super-Admin) ungelesene Nachrichten. Antippen zeigt die Liste; ein Eintrag springt direkt in den passenden Bereich. **Später erinnern**: in 1, 3 oder 8 Stunden oder morgen früh – spätestens am nächsten Morgen um 8 Uhr meldet sich die Glocke wieder (mit Hinweis), solange noch etwas offen ist. Neue Aufgaben zeigt sie auch während der Pause sofort.
+
 ### Bereiche anordnen und umbenennen
-Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest und blendet mit dem Häkchen „zeigen“ Bereiche aus, die er nicht braucht (gilt nur für ihn, auf allen seinen Geräten). Der Knopf zeigt, wie viele ausgeblendet sind; „Alles zurücksetzen“ holt alles zurück. Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard).
+Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest und blendet mit dem Häkchen „zeigen“ Bereiche aus, die er nicht braucht (gilt nur für ihn, auf allen seinen Geräten). Der Knopf zeigt, wie viele ausgeblendet sind; „Alles zurücksetzen“ holt alles zurück. Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard), mit dem Häkchen **„Admins“** Bereiche für alle anderen Admins und den Vorstand ausblenden und mit **„Speichern + als Standard für alle“** die Standard-Reihenfolge festlegen. Wer keine eigene Reihenfolge hat (oder „Auf Standard zurücksetzen“ tippt), bekommt diese.
 
 ### Große Schrift
 Die App passt sich an die Schriftgröße des Handys an: Formulare stapeln sich, wenn der Platz nicht reicht, Zahlenfelder bleiben lesbar, der Kopf bricht um und klebt nur dann oben, wenn er nicht zu viel Platz wegnimmt.
@@ -423,13 +426,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 73**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 73 auf 74):
-- in `index.html`: `const APP_VERSION = '73';`
-- in `sw.js`: `const VERSION = 'strichliste-v73';`
+Aktuell ist **Version 74**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 74 auf 75):
+- in `index.html`: `const APP_VERSION = '74';`
+- in `sw.js`: `const VERSION = 'strichliste-v74';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 73“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 74“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

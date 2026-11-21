@@ -188,8 +188,15 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 #title .t1{font-size:2rem;font-weight:700;color:var(--wy);text-transform:uppercase;letter-spacing:.01em}
 #title .t2{font-size:1.02rem;font-weight:500;color:#fff;margin-top:4px}
 .top-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
-.acct-row{max-width:640px;margin:-4px auto 0;padding:0 16px 10px;display:flex;justify-content:flex-end}
-.acct-row:not(:has(#acctBtn:not([hidden]))){display:none}
+.acct-row{max-width:640px;margin:-4px auto 0;padding:0 16px 10px;display:flex;justify-content:flex-end;gap:8px}
+.bell{position:relative;flex:none;font-size:1.05rem;padding:4px 10px}.bell em{font-style:normal;font-weight:800;font-size:.75rem;margin-left:3px}
+.bell.ring{background:var(--wy);color:#141414;border-color:var(--wy);animation:bellRing 2.4s ease-in-out 2}
+.bell.snz{opacity:.55}
+@keyframes bellRing{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(14deg)}20%{transform:rotate(-12deg)}30%{transform:rotate(8deg)}40%{transform:rotate(-5deg)}}
+@media (prefers-reduced-motion:reduce){.bell.ring{animation:none}}
+.bellrow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:10px 2px;color:var(--ink);font:inherit;cursor:pointer}
+.bellrow span:nth-child(2){flex:1;min-width:0}.bellrow small{color:var(--mu);flex:none}
+.acct-row:not(:has(.b:not([hidden])))  {display:none}
 .acct{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
 .acct .av{flex:none}
 .top{position:sticky;top:0;z-index:60}
@@ -214,6 +221,8 @@ input.n{min-width:3em}
 .ordname{flex:1;min-width:0}.ordname input{width:100%}
 .ordshow{display:flex;flex-direction:column;align-items:center;gap:1px;flex:none}.ordshow input{width:22px;height:22px}.ordshow small{font-size:.65rem;color:var(--mu)}
 .ordrow.off .ordname{opacity:.45}
+#adminBody > section{scroll-margin-top:calc(var(--toph,140px) + 60px)}
+h2.allhid::after{content:' · für Admins ausgeblendet';font-size:.7rem;color:var(--mu);font-weight:500}
 .top.nostick{position:relative}
 .camhelp{display:flex;flex-direction:column;gap:4px}.camhelp>small{color:var(--mu)}.camhelp p{margin:2px 0}
 .camhelp ol{margin:4px 0 2px 1.2em;padding:0;display:flex;flex-direction:column;gap:5px}.camhelp li{line-height:1.35}
@@ -598,7 +607,7 @@ body.noauth main{display:none!important}
     <h1 id="title"><span class="t1" data-tx="t1">Wexhainis</span><span class="t2" data-tx="t2">Getränke-Strichliste</span></h1>
     <div class="top-side"><span style="display:flex;gap:6px;align-items:center"><button class="b sm back" id="helpBtn" aria-label="Hilfe und Infos">?</button><button class="b sm back" id="themeBtn" aria-label="Hell- oder Nachtmodus">Auto</button><span class="net" id="net">…</span></span><button class="b sm back" id="backBtn" hidden>Zurück zum Scannen</button></div>
   </div>
-  <div class="acct-row"><button class="b sm back acct" id="acctBtn" hidden aria-expanded="false" aria-controls="acctPanel"></button></div>
+  <div class="acct-row"><button class="b sm back bell" id="bellBtn" hidden aria-haspopup="dialog" aria-label="Offene Aufgaben">🔔<em id="bellN"></em></button><button class="b sm back acct" id="acctBtn" hidden aria-expanded="false" aria-controls="acctPanel"></button></div>
   <div id="acctPanel" class="acct-panel" hidden>
     <div class="ap-head"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild ändern"><span id="meAv"></span><i>Bild</i></button>
       <span class="ap-who"><b id="meName"></b><small id="acctRoleT"></small><small id="meGrp"></small><small id="acctMail"></small></span>
@@ -769,7 +778,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '73';
+const APP_VERSION = '74';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -955,9 +964,9 @@ function startUserListeners() {
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
   stop('cfgTexts'); unsub.cfgTexts = F.onSnapshot(dref('config', 'texts'), snap => setTexts(snap.exists() ? (snap.data().t || {}) : {}, snap.exists() ? (snap.data().g || []) : []), err => console.warn('texts', err));
-  stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; renderAdmin(); }, err => console.warn('sections', err));
+  stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; S.secCfg = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('sections', err));
   stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const d = snap.exists() ? snap.data() : {}, o = d.order, hd = d.hidden; let ch = false;
-    if (Array.isArray(o) && JSON.stringify(o) !== JSON.stringify(admOrder)) { admOrder = o; try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} ch = true; }
+    if (Array.isArray(o) && JSON.stringify(o) !== JSON.stringify(admOrder)) { admOrder = o; admOrderMine = o; try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} ch = true; }
     if (Array.isArray(hd) && JSON.stringify(hd) !== JSON.stringify(admHidden)) { admHidden = hd; try { localStorage.setItem(HID_KEY, JSON.stringify(hd)); } catch (e) {} ch = true; }
     if (ch) renderAdmin(); }, err => console.warn('prefs', err));
   stop('cfgUndo'); unsub.cfgUndo = F.onSnapshot(dref('config', 'undo'), snap => { S.undoCfg = snap.exists() ? snap.data() : null; if (S.isSuper) renderAdmin(); }, err => console.warn('undo', err));
@@ -1511,6 +1520,65 @@ document.addEventListener('click', async e => {
   S.texts = t; txSave(); setTexts(t);
   logEv('system', 'ändert Text „' + TX_DEF[k] + '“' + (val ? ' → „' + val + '“' : ' (Standard)')); toast('Gespeichert');
 }, true);
+/* ---------- Glocke für Admins: offene Aufgaben im Admin-Bereich ----------
+   Später erinnern: 1, 3 oder 8 Stunden bzw. morgen früh – höchstens bis zum nächsten Morgen (8 Uhr).
+   Neue Aufgaben während der Pause zeigt die Glocke trotzdem sofort. */
+const BELL_KEY = 'strichliste_bell';
+let bellSnooze = { until: 0, keys: [] }; try { bellSnooze = Object.assign(bellSnooze, JSON.parse(localStorage.getItem(BELL_KEY) || '{}')); } catch (e) {}
+let bellWasSnoozed = false;
+function bellItems() {
+  if (!S.isAdmin || !S.user) return [];
+  const out = [], U = S.users || {};
+  Object.keys(U).forEach(k => { const u = U[k]; if (u.deleted) return;
+    if (u.pending === true && k !== S.user.uid) out.push({ key: 'reg:' + k, sec: 'Neue Anmeldungen', icon: '🆕', t: 'Neue Anmeldung: ' + (u.name || u.email || '') });
+    if (u.delreq) out.push({ key: 'del:' + k, sec: 'Löschanträge', icon: '🗑', t: 'Löschantrag: ' + (u.name || '') }); });
+  (S.reqs || []).filter(r => r.status === 'open').forEach(r => out.push({ key: 'req:' + r.id, sec: 'Korrekturanträge', icon: '📝', t: 'Antrag von ' + (r.name || '') + ': ' + reqTxt(r) }));
+  (S.asks || []).filter(a => a.answer && !a.booked && a.by === S.user.uid).forEach(a => out.push({ key: 'ask:' + a.id + ':' + a.answerAt, sec: 'Abgleich', day: a.day, icon: '💬', t: 'Antwort von ' + a.name + ': ' + String(a.answer).slice(0, 60) }));
+  if (S.isSuper) (S.inbox || []).filter(m => !m.read).forEach(m => out.push({ key: 'msg:' + m.id, sec: 'Posteingang', icon: '✉️', t: 'Nachricht von ' + (m.name || '') }));
+  return out;
+}
+const bellNext8 = () => { const d = new Date(); d.setDate(d.getDate() + (d.getHours() >= 8 ? 1 : 0)); d.setHours(8, 0, 0, 0); return d.getTime(); };
+function bellVisible(items) {
+  const snoozed = bellSnooze.until > Date.now();
+  return snoozed ? items.filter(i => !bellSnooze.keys.includes(i.key)) : items;
+}
+function renderBell() {
+  const b = $('bellBtn'); if (!b) return;
+  const items = bellItems(), vis = bellVisible(items), snoozed = bellSnooze.until > Date.now();
+  b.hidden = !S.isAdmin || !items.length;
+  if (b.hidden) return;
+  $('bellN').textContent = vis.length || '';
+  b.classList.toggle('ring', vis.length > 0); b.classList.toggle('snz', !vis.length && snoozed);
+  b.setAttribute('aria-label', vis.length ? vis.length + ' offene Aufgaben' : 'Offene Aufgaben – Erinnerung pausiert');
+  if (bellWasSnoozed && !snoozed && items.length) { toast('Erinnerung: noch ' + items.length + ' offen im Admin-Bereich'); notifyBg('Noch offen im Admin-Bereich', items.slice(0, 3).map(i => i.t).join(' · '), 'bell', 'admin'); }
+  bellWasSnoozed = snoozed;
+}
+setInterval(renderBell, 60000);
+function bellHTML() {
+  const items = bellItems(), snoozed = bellSnooze.until > Date.now();
+  return '<h2>🔔 Offen im Admin-Bereich (' + items.length + ')</h2>' +
+    (snoozed ? '<div class="note" style="margin:6px 0">Erinnerung pausiert bis ' + new Date(bellSnooze.until).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) + ' Uhr. Neues zeigt die Glocke trotzdem.</div>' : '') +
+    (items.length ? items.map((i, n) => '<button type="button" class="bellrow" data-bell="' + n + '"><span>' + i.icon + '</span><span>' + esc(i.t) + '</span><small>' + esc(secTitle(i.sec) || i.sec) + ' ›</small></button>').join('') : '<div class="empty">Alles erledigt. 👍</div>') +
+    (items.length ? '<h3 class="sub3" style="margin-top:12px">Später erinnern</h3><div class="row" style="margin-top:4px">' + [[1, 'in 1 Std.'], [3, 'in 3 Std.'], [8, 'in 8 Std.'], [0, 'morgen früh']].map(([h, l]) => '<button class="b sm" data-snooze="' + h + '">' + l + '</button>').join('') + (snoozed ? '<button class="b sm" data-snooze="-1">Jetzt wieder erinnern</button>' : '') + '</div>' +
+      '<small style="color:var(--mu)">Spätestens am nächsten Morgen um 8 Uhr erinnert die Glocke wieder, solange etwas offen ist.</small>' : '');
+}
+function admGoto(sec, dayId) {
+  closeModal(); setView('admin');
+  if (dayId && S.selDay !== dayId) { S.selDay = dayId; listenDayScans(); }
+  admSet(sec, true); renderAdmin();
+  setTimeout(() => { const h = document.querySelector('#adminBody h2[data-adm="' + sec + '"]'); if (h) { h.parentElement.classList.remove('closed'); const t = document.querySelector('header.top'), off = t && !t.classList.contains('nostick') ? t.offsetHeight + 10 : 10; window.scrollTo({ top: h.parentElement.getBoundingClientRect().top + scrollY - off, behavior: 'instant' }); } else toast('Bereich „' + sec + '“ ist ausgeblendet – über ⇅ Anordnen einblenden'); }, 80);
+}
+$('bellBtn').addEventListener('click', () => openModal(bellHTML()));
+$('modalBody').addEventListener('click', e => {
+  const r = e.target.closest('[data-bell]'); if (r) { const i = bellItems()[+r.dataset.bell]; if (i) admGoto(i.sec, i.day); return; }
+  const z = e.target.closest('[data-snooze]'); if (!z) return;
+  const h = +z.dataset.snooze;
+  if (h < 0) bellSnooze = { until: 0, keys: [] };
+  else bellSnooze = { until: Math.min(h ? Date.now() + h * 3600000 : bellNext8(), bellNext8()), keys: bellItems().map(i => i.key) };
+  try { localStorage.setItem(BELL_KEY, JSON.stringify(bellSnooze)); } catch (err) {}
+  bellWasSnoozed = bellSnooze.until > Date.now();
+  closeModal(); renderBell(); toast(h < 0 ? 'Erinnerung wieder an' : 'Erinnere dich ' + (h ? 'in ' + h + ' Std.' : 'morgen früh') + (h && Date.now() + h * 3600000 > bellNext8() ? ' (spätestens morgen 8 Uhr)' : ''));
+});
 /* ---------- Konto-Knopf oben: „👤 Name · Rolle ▾“ – kurze Abfrage mit Konto und „Abmelden“ ---------- */
 const acctRole = () => S.isSuper ? 'Super-Admin' : S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock) ? 'gesperrt' : S.isAdmin ? 'Getränke-Admin' : S.isBoard ? 'Vorstand' : isPending() ? 'wartet auf Freischaltung' : 'Mitglied';
 function renderAcct() {
@@ -3637,6 +3705,7 @@ function summary(rows) {
 }
 
 function renderAdmin() {
+  renderBell();
   if ($('v-admin').hidden) return;
   const el = $('adminBody');
   if (!configured) { el.innerHTML = '<div class="setup"><b>Firebase ist noch nicht eingerichtet.</b><span>Trage die Zugangsdaten in <code>index.html</code> ein (siehe <code>README.md</code>).</span></div>'; return; }
@@ -4830,7 +4899,7 @@ function notifyBg(title, body, tag, go) {
   } catch (e) {}
 }
 // beim Öffnen der App die eigenen Benachrichtigungen (und damit den Punkt) entfernen
-const NOTE_TAGS = ['req-new', 'msg-new', 'myreq', 'myreply', 'soldout', 'myask', 'ask-ans'];
+const NOTE_TAGS = ['req-new', 'msg-new', 'myreq', 'myreply', 'soldout', 'myask', 'ask-ans', 'bell'];
 function clearNotes() {
   try { if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) navigator.serviceWorker.getRegistration().then(reg => { if (reg) NOTE_TAGS.forEach(t => reg.getNotifications({ tag: t }).then(L => L.forEach(n => n.close()))); }); } catch (e) {}
 }
@@ -4869,6 +4938,7 @@ const ADM_SHORT = { 'Zu viel gescannt': 'Zu viel', 'Posteingang': 'Posteingang',
    Überschriften: vom Super-Admin umbenennbar (config/sections). Schlüssel bleibt immer der ursprüngliche Titel. */
 const ORD_KEY = 'strichliste_admorder';
 let admOrder = []; try { admOrder = JSON.parse(localStorage.getItem(ORD_KEY) || '[]'); } catch (e) {}
+var admOrderMine = admOrder;
 let admSeen = [];
 const HID_KEY = 'strichliste_admhidden';
 let admHidden = []; try { admHidden = JSON.parse(localStorage.getItem(HID_KEY) || '[]'); } catch (e) {}
@@ -4877,7 +4947,10 @@ function saveAdmHidden(list) {
   if (S.user) fire(F.setDoc(dref('prefs', S.user.uid), { hidden: list, t: Date.now() }, { merge: true }), 'Ausblenden');
 }
 const secTitle = k => ((S.secTitles || {})[k] || '').trim();
+const secDefOrder = () => (S.secCfg && Array.isArray(S.secCfg.order)) ? S.secCfg.order : [];
+const secAllHidden = () => (S.secCfg && Array.isArray(S.secCfg.hidden)) ? S.secCfg.hidden : [];
 function admArrange(el, secs) {
+  const admOrder = (typeof admOrderMine !== 'undefined' && admOrderMine.length) ? admOrderMine : secDefOrder();
   if (!admOrder.length) return secs;
   const rank = k => { const i = admOrder.indexOf(k); return i < 0 ? null : i; };
   const known = secs.filter(x => rank(x.firstElementChild.dataset.adm) != null).sort((a, b) => rank(a.firstElementChild.dataset.adm) - rank(b.firstElementChild.dataset.adm));
@@ -4887,7 +4960,7 @@ function admArrange(el, secs) {
   return out;
 }
 function saveAdmOrder(list) {
-  admOrder = list; try { localStorage.setItem(ORD_KEY, JSON.stringify(list)); } catch (e) {}
+  admOrder = list; admOrderMine = list; try { localStorage.setItem(ORD_KEY, JSON.stringify(list)); } catch (e) {}
   if (S.user) fire(F.setDoc(dref('prefs', S.user.uid), { order: list, t: Date.now() }, { merge: true }), 'Reihenfolge');
 }
 function adminNav(el, navX) {
@@ -4898,7 +4971,9 @@ function adminNav(el, navX) {
   secs = admArrange(el, secs);
   admSeen = secs.map(x => x.firstElementChild.dataset.adm);
   // ausgeblendete Bereiche: nur für diesen Admin, über „Anordnen“ wieder einblendbar
-  const hid = secs.filter(x => admHidden.includes(x.firstElementChild.dataset.adm));
+  const allHid = S.isSuper ? [] : secAllHidden();
+  secs.forEach(x => x.firstElementChild.classList.toggle('allhid', S.isSuper && secAllHidden().includes(x.firstElementChild.dataset.adm)));
+  const hid = secs.filter(x => admHidden.includes(x.firstElementChild.dataset.adm) || allHid.includes(x.firstElementChild.dataset.adm));
   hid.forEach(x => x.remove()); secs = secs.filter(x => !hid.includes(x));
   const items = secs.map((sec, i) => {
     const h2 = sec.firstElementChild, k = h2.dataset.adm, open = admOpen(k);
@@ -4915,9 +4990,11 @@ function adminNav(el, navX) {
 function ordHTML() {
   const L = admSeen.slice();
   return '<h2>Bereiche anordnen</h2><p style="font-size:.85rem;color:var(--mu)">Reihenfolge und Häkchen „zeigen“ gelten nur für dich' + (S.isSuper ? '. Die Überschriften änderst du als Super-Admin für alle (leer = Standard).' : '.') + '</p>' +
-    '<div id="ordList">' + L.map((k, i) => '<div class="ordrow' + (admHidden.includes(k) ? ' off' : '') + '" data-k="' + esc(k) + '"><label class="ordshow" title="anzeigen"><input type="checkbox" data-ordshow' + (admHidden.includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' anzeigen"><small>zeigen</small></label><span class="ordbtns"><button type="button" class="b sm" data-ord="up" aria-label="nach oben"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="b sm" data-ord="down" aria-label="nach unten"' + (i < L.length - 1 ? '' : ' disabled') + '>↓</button></span>' +
+    (S.isSuper ? '<p style="font-size:.85rem;color:var(--mu)">„Admins“ = für alle anderen Admins und den Vorstand sichtbar. „Als Standard für alle“ speichert diese Reihenfolge für alle, die keine eigene haben.</p>' : '') +
+    '<div id="ordList">' + L.map((k, i) => '<div class="ordrow' + (admHidden.includes(k) ? ' off' : '') + '" data-k="' + esc(k) + '"><label class="ordshow" title="anzeigen"><input type="checkbox" data-ordshow' + (admHidden.includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' anzeigen"><small>' + (S.isSuper ? 'ich' : 'zeigen') + '</small></label>' +
+      (S.isSuper ? '<label class="ordshow" title="für alle Admins"><input type="checkbox" data-ordall' + (secAllHidden().includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' für alle Admins"><small>Admins</small></label>' : '') + '<span class="ordbtns"><button type="button" class="b sm" data-ord="up" aria-label="nach oben"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="b sm" data-ord="down" aria-label="nach unten"' + (i < L.length - 1 ? '' : ' disabled') + '>↓</button></span>' +
       (S.isSuper ? '<label class="f ordname"><small>' + esc(k) + '</small><input data-ordt="' + esc(k) + '" maxlength="40" value="' + esc(secTitle(k)) + '" placeholder="' + esc(k) + '"></label>' : '<span class="ordname">' + esc(secTitle(k) || k) + '</span>') + '</div>').join('') + '</div>' +
-    '<div class="row"><button class="b pri" id="ordSave">Speichern</button><button class="b" id="ordReset">Alles zurücksetzen</button></div>';
+    '<div class="row"><button class="b pri" id="ordSave">Speichern</button>' + (S.isSuper ? '<button class="b" id="ordDef">Speichern + als Standard für alle</button>' : '') + '<button class="b" id="ordReset">' + (secDefOrder().length ? 'Auf Standard zurücksetzen' : 'Alles zurücksetzen') + '</button></div>';
 }
 $('modalBody').addEventListener('change', e => { const c = e.target.closest('[data-ordshow]'); if (c) c.closest('.ordrow').classList.toggle('off', !c.checked); });
 $('modalBody').addEventListener('click', e => {
@@ -4929,8 +5006,18 @@ $('modalBody').addEventListener('click', e => {
     const rows = [...list.children]; rows.forEach((r, i) => { r.querySelector('[data-ord=up]').disabled = !i; r.querySelector('[data-ord=down]').disabled = i === rows.length - 1; });
     m.focus(); return;
   }
-  if (e.target.id === 'ordSave') {
+  if (e.target.id === 'ordSave' || e.target.id === 'ordDef') {
     const keys = [...$('ordList').children].map(r => r.dataset.k);
+    if (S.isSuper) {
+      const allHid = [...$('ordList').children].filter(r => { const c = r.querySelector('[data-ordall]'); return c && !c.checked; }).map(r => r.dataset.k).concat(secAllHidden().filter(k => !keys.includes(k)));
+      const cfg = { hidden: allHid };
+      if (e.target.id === 'ordDef') cfg.order = keys.concat(secDefOrder().filter(k => !keys.includes(k)));
+      if (JSON.stringify(allHid) !== JSON.stringify(secAllHidden()) || cfg.order) {
+        S.secCfg = Object.assign({}, S.secCfg || {}, cfg);
+        fire(F.setDoc(dref('config', 'sections'), Object.assign({}, cfg, { t: Date.now() }), { merge: true }), 'Bereiche für alle');
+        logEv('system', (cfg.order ? 'legt Standard-Reihenfolge fest' : '') + (cfg.order && allHid.length ? ', ' : '') + (allHid.length ? 'blendet für alle aus: ' + allHid.join(', ') : ''));
+      }
+    }
     const merged = keys.concat(admOrder.filter(k => !keys.includes(k))); // auch gerade nicht sichtbare Bereiche behalten
     saveAdmOrder(merged);
     const shownNow = [...$('ordList').children].filter(r => r.querySelector('[data-ordshow]').checked).map(r => r.dataset.k);
@@ -4939,7 +5026,7 @@ $('modalBody').addEventListener('click', e => {
     if (S.isSuper) {
       const t = {}; $('ordList').querySelectorAll('[data-ordt]').forEach(i => { const v = i.value.trim(); if (v && v !== i.dataset.ordt) t[i.dataset.ordt] = v; });
       const old = JSON.stringify(S.secTitles || {}); S.secTitles = Object.assign({}, S.secTitles || {}); Object.keys(S.secTitles).forEach(k => { if (keys.includes(k)) delete S.secTitles[k]; }); Object.assign(S.secTitles, t);
-      if (JSON.stringify(S.secTitles) !== old) { fire(F.setDoc(dref('config', 'sections'), { titles: S.secTitles, t: Date.now() }), 'Überschriften'); logEv('system', 'ändert Überschriften im Admin-Bereich'); }
+      if (JSON.stringify(S.secTitles) !== old) { fire(F.setDoc(dref('config', 'sections'), { titles: S.secTitles, t: Date.now() }, { merge: true }), 'Überschriften'); logEv('system', 'ändert Überschriften im Admin-Bereich'); }
     }
     closeModal(); renderAdmin(); toast('Gespeichert');
   }
@@ -5631,10 +5718,10 @@ function renderVersion() {
   $('dsLink').onclick = () => openModal(privacyHTML());
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
-function stickyCheck() { const t = document.querySelector('header.top'); if (!t) return; t.classList.remove('nostick'); t.classList.toggle('nostick', t.offsetHeight > innerHeight * 0.3); }
+function stickyCheck() { const t = document.querySelector('header.top'); if (!t) return; t.classList.remove('nostick'); t.classList.toggle('nostick', t.offsetHeight > innerHeight * 0.3); document.documentElement.style.setProperty('--toph', (t.classList.contains('nostick') ? 0 : t.offsetHeight) + 'px'); }
 addEventListener('resize', stickyCheck);
 function renderAll() {
-  setTimeout(stickyCheck, 0); applyTexts();
+  setTimeout(stickyCheck, 0); applyTexts(); renderBell();
   renderAcct(); renderVersion(); renderDs(); renderInstall(); renderReqBox(); if (typeof renderParty === 'function' && S.party) renderParty();
   if (S.authReady && !S.user) loadPublicCfg();
   const noauth = configured && S.authReady && !S.user;
