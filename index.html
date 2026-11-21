@@ -214,6 +214,7 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 input.n{min-width:3em}
 .mode{flex-wrap:wrap}.mode button{flex:1 1 auto;min-height:2.4rem;white-space:normal}
 .lgmode button{padding:8px 6px}
+.packl{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 8px}
 .lgday{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0}
 .lgtab td:nth-child(2){white-space:normal}
 .ordrow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
@@ -778,7 +779,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '76';
+const APP_VERSION = '77';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -964,6 +965,7 @@ function startUserListeners() {
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
   stop('cfgTexts'); unsub.cfgTexts = F.onSnapshot(dref('config', 'texts'), snap => setTexts(snap.exists() ? (snap.data().t || {}) : {}, snap.exists() ? (snap.data().g || []) : []), err => console.warn('texts', err));
+  stop('cfgPack'); unsub.cfgPack = F.onSnapshot(dref('config', 'packlist'), snap => { S.packlist = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('packlist', err));
   stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; S.secCfg = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('sections', err));
   stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const d = snap.exists() ? snap.data() : {}, o = d.order, hd = d.hidden; let ch = false;
     if (Array.isArray(o) && JSON.stringify(o) !== JSON.stringify(admOrder)) { admOrder = o; admOrderMine = o; try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} ch = true; }
@@ -1043,7 +1045,7 @@ function startAdminListeners() {
   let knownPending = null;
   unsub.users = F.onSnapshot(col('users'), snap => {
     S.users = {}; snap.docs.forEach(d => { S.users[d.id] = d.data(); });
-    const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !S.users[k].deleted && k !== (S.user && S.user.uid));
+    const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !goneSL(S.users[k]) && k !== (S.user && S.user.uid));
     if (knownPending && pend.some(k => !knownPending.includes(k))) { toast('Neue Anmeldung wartet auf Freischaltung'); if (navigator.vibrate) navigator.vibrate(120); }
     knownPending = pend;
     renderAdmin();
@@ -1088,7 +1090,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'cfgUndo', 'cfgSecs', 'cfgTexts', 'prefs', 'album', 'drv', 'myReqs', 'myMsgs', 'myAsks'].forEach(stop); S.myReqs = []; S.myMsgs = []; S.myAsks = []; renderAskBox();
+  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'cfgUndo', 'cfgSecs', 'cfgTexts', 'cfgPack', 'prefs', 'album', 'drv', 'myReqs', 'myMsgs', 'myAsks'].forEach(stop); S.myReqs = []; S.myMsgs = []; S.myAsks = []; renderAskBox();
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -1529,7 +1531,7 @@ let bellWasSnoozed = false;
 function bellItems() {
   if (!S.isAdmin || !S.user) return [];
   const out = [], U = S.users || {};
-  Object.keys(U).forEach(k => { const u = U[k]; if (u.deleted) return;
+  Object.keys(U).forEach(k => { const u = U[k]; if (goneSL(u)) return;
     if (u.pending === true && k !== S.user.uid) out.push({ key: 'reg:' + k, sec: 'Neue Anmeldungen', icon: '🆕', t: 'Neue Anmeldung: ' + (u.name || u.email || '') });
     if (u.delreq) out.push({ key: 'del:' + k, sec: 'Löschanträge', icon: '🗑', t: 'Löschantrag: ' + (u.name || '') }); });
   (S.reqs || []).filter(r => r.status === 'open').forEach(r => out.push({ key: 'req:' + r.id, sec: 'Korrekturanträge', icon: '📝', t: 'Antrag von ' + (r.name || '') + ': ' + reqTxt(r) }));
@@ -1768,6 +1770,8 @@ const allRules = () => {
 };
 // Jugendschutz / Fahrer / Gruppe des eigenen Kontos
 const isMinor = () => !!(S.meDoc && S.meDoc.minor);
+// aus der Strichliste entfernt (slGone) oder in WexSuperAdmin gelöscht (deleted)
+const goneSL = u => !!(u && (u.deleted || u.slGone));
 // Pro Getränk einstellbar, ob es für Jugendliche gesperrt ist (products.u18); ohne Einstellung: alle alkoholischen Sorten
 const u18Blocked = p => !!p && (p.u18 != null ? p.u18 === true : isAlc(catOf(p)));
 const isPending = () => !!(S.meDoc && S.meDoc.pending === true) && !S.isAdmin;
@@ -2200,7 +2204,7 @@ function eggPreview(day, scans) {
     parts.sort((a, b) => a.k - b.k);
     return { x, parts, soon: parts.length ? parts[0].k : 1e9 };
   }).sort((a, b) => a.soon - b.soon || a.x.name.localeCompare(b.x.name, 'de'));
-  const idle = Object.keys(S.users).filter(u => !S.users[u].deleted && !per[u]).length;
+  const idle = Object.keys(S.users).filter(u => !goneSL(S.users[u]) && !per[u]).length;
   const firstBeer = meRules.find(r => r.kind === 'count' && r.n === 1);
   h += '<h2 style="margin-top:14px;font-size:1.05rem">Pro Person</h2>' + (people.length ? people.map(({ x, parts }) =>
     '<div class="rw" style="align-items:flex-start"><span style="min-width:0;display:flex;gap:8px;align-items:flex-start">' + avatarHTML(x.uid, x.name, 32) + '<span><b>' + esc(x.name) + '</b><br><small>' + cval(x.m, 'bier') + ' Bier · ' + x.m.all + ' Getränke heute</small></span></span>' +
@@ -2274,7 +2278,7 @@ function rulesEditor() {
 function groupsEditor() {
   const L = groupsAll();
   return '<section><h2>Gruppen (Narrenfiguren)</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Zuordnung der Personen unter „Personen“. Für Bestenliste und Gruppen-Easter-Eggs.</div>' +
-    L.map(g => '<div class="rw"><input data-gr="' + esc(g.id) + '" value="' + esc(g.name) + '" aria-label="Gruppenname" style="flex:1;padding:6px 8px"><small>' + Object.values(S.users).filter(u => u.grp === g.id && !u.deleted).length + ' Pers.</small><button class="b sm dng" data-act="grDel" data-id="' + esc(g.id) + '">Löschen</button></div>').join('') +
+    L.map(g => '<div class="rw"><input data-gr="' + esc(g.id) + '" value="' + esc(g.name) + '" aria-label="Gruppenname" style="flex:1;padding:6px 8px"><small>' + Object.values(S.users).filter(u => u.grp === g.id && !goneSL(u)).length + ' Pers.</small><button class="b sm dng" data-act="grDel" data-id="' + esc(g.id) + '">Löschen</button></div>').join('') +
     '<div class="row"><input id="grNew" placeholder="Neue Gruppe" style="flex:1"><button class="b sm" data-act="grAdd">Hinzufügen</button></div></section>';
 }
 function saveGroups(list) { S.groups = list; fire(F.setDoc(dref('config', 'groups'), { list, t: Date.now() }), 'Gruppen speichern'); renderAll(); }
@@ -3267,7 +3271,7 @@ function renderScan() {
   if (S.meDoc && (S.meDoc.deleted || S.meDoc.blocked || S.meDoc.slBlock)) {
     if (cam.box === boxMain) camStop();
     $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; $('last').hidden = true;
-    info.innerHTML = '<div class="note bad"><b>' + (S.meDoc.deleted ? 'Dieses Konto wurde entfernt.' : S.meDoc.blocked ? 'Dein Konto ist gesperrt.' : 'Dein Konto ist für die Strichliste gesperrt.') + '</b> Bitte wende dich an ' + esc(contactName(1)) + '.</div>' + contactHTML() + '<div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
+    info.innerHTML = '<div class="note bad"><b>' + (S.meDoc.deleted ? 'Dieses Konto wurde entfernt.' : S.meDoc.slGone ? 'Dein Konto wurde aus der Strichliste entfernt.' : S.meDoc.blocked ? 'Dein Konto ist gesperrt.' : 'Dein Konto ist für die Strichliste gesperrt.') + '</b> Bitte wende dich an ' + esc(contactName(1)) + '.</div>' + contactHTML() + '<div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
     return;
   }
   if (isPending()) {
@@ -3512,6 +3516,34 @@ async function openSheet(opts) {
   const err = await camStart(boxSheet, onSheetCode);
   if (err) boxSheet.ph.innerHTML = err;
 }
+/* ---------- Mindestens mitnehmen: pro Getränk (products.must) und eine Packliste (config/packlist) ----------
+   Beim Einladen (Fertig), beim Freigeben und im Bereich „Mitnehmen“ weist die App auf Vergessenes hin. Abgehakt wird pro Tag (days.packed). */
+const packItems = () => ((S.packlist || {}).items || []).filter(Boolean);
+function mustMissing(day) {
+  if (!day) return { drinks: [], items: [] };
+  const load = day.load || {}, packed = day.packed || {};
+  const drinks = S.products.filter(p => p.must > 0 && (load[p.id] || 0) < p.must).map(p => ({ p, have: load[p.id] || 0, need: p.must }));
+  return { drinks, items: packItems().filter(x => !packed[x]) };
+}
+const mustText = m => m.drinks.map(x => x.p.name + ': ' + x.have + ' von mindestens ' + x.need + ' (fehlen ' + (x.need - x.have) + ')').concat(m.items.map(x => x + ' – nicht abgehakt'));
+function mustBlock(day) {
+  if (!day) return '';
+  const m = mustMissing(day), any = S.products.some(p => p.must > 0) || packItems().length;
+  if (!any) return '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Tipp: Unter „Getränke“ lässt sich pro Getränk „Mindestens mitnehmen“ eintragen, unten eine Packliste – dann erinnert die App beim Einladen.</div>';
+  const packed = day.packed || {};
+  return (m.drinks.length || m.items.length ? '<div class="note bad" style="margin-bottom:8px"><b>Noch nicht dabei:</b><br>' + mustText(m).map(esc).join('<br>') + '</div>' : '<div class="note ok" style="margin-bottom:8px">Alles Nötige ist eingeladen. 👍</div>') +
+    (packItems().length ? '<div class="packl">' + packItems().map(x => '<label class="chk"><input type="checkbox" data-pack="' + esc(x) + '"' + (packed[x] ? ' checked' : '') + '> ' + esc(x) + '</label>').join('') + '</div>' : '');
+}
+function packEditor() {
+  return '<details class="pc" data-k="packEdit"><summary><b>Packliste bearbeiten</b><small>' + packItems().length + ' Dinge</small></summary>' +
+    '<label class="f full" style="margin-top:8px">Was immer mit muss (eine Zeile pro Sache)<textarea id="packTxt" rows="5" class="ta" placeholder="Flaschenöffner&#10;Becher&#10;Eis&#10;Kasse">' + esc(packItems().join('\n')) + '</textarea></label>' +
+    '<div class="row"><button class="b sm pri" data-act="packSave">Packliste speichern</button></div>' +
+    '<small style="color:var(--mu)">Mindestmengen pro Getränk stehen unter „Getränke“ bei jedem Getränk.</small></details>';
+}
+async function mustCheck(day, what) {
+  const m = mustMissing(day); if (!m.drinks.length && !m.items.length) return true;
+  return await ask('Vergessen? ' + what + '\n\n' + mustText(m).join('\n'), { title: 'Noch nicht alles dabei', ok: 'Trotzdem weiter', cancel: 'Zurück', danger: true });
+}
 function closeSheet() {
   camStop(); boxSheet.ph.innerHTML = '<b>Kamera startet …</b>';
   $('sheet').hidden = true; document.body.style.overflow = ''; document.body.classList.remove('sheet-open');
@@ -3596,7 +3628,11 @@ function renderSheet() {
   }
   keepState(body, h);
 }
-$('sheetClose').addEventListener('click', closeSheet);
+$('sheetClose').addEventListener('click', async () => {
+  const day = selDayObj();
+  if (sh.mode === 'load' && day && !(await mustCheck(day, 'Beim Einladen fehlt noch:'))) return;
+  closeSheet();
+});
 $('sheetMode').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) { sh.mode = b.dataset.m; sh.last = null; renderSheet(); } });
 $('sheetBody').addEventListener('change', e => {
   if (e.target.id === 'qMinus') { sh.minus = e.target.checked; renderSheet(); }
@@ -3723,12 +3759,12 @@ function renderAdmin() {
   const RO = !S.isAdmin; // Vorstand: nur lesen
   let h = backupReminder();
   if (S.isSuper) {
-    const dr = Object.keys(S.users).filter(k => S.users[k].delreq && !S.users[k].deleted);
-    if (dr.length) h += '<section><h2>Löschanträge (' + dr.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Diese Personen möchten ihr Konto löschen lassen. Vorher offene Beträge abrechnen. „Entfernen“ fragt, ob die Buchungen mit gelöscht werden; das Login löschst du danach in der Firebase-Konsole.</div>' +
-      dr.map(k => '<div class="rw"><span style="display:flex;align-items:center">' + avatarHTML(k, S.users[k].name, 30) + '</span><span>' + esc(S.users[k].name || '') + '<br><small>beantragt am ' + new Date(S.users[k].delreq).toLocaleDateString('de-DE') + '</small></span><button class="b sm dng" data-act="removeUser" data-id="' + k + '">Entfernen</button></div>').join('') + '</section>';
+    const dr = Object.keys(S.users).filter(k => S.users[k].delreq && !goneSL(S.users[k]));
+    if (dr.length) h += '<section><h2>Löschanträge (' + dr.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Diese Personen möchten ihr Konto löschen lassen. Gelöscht werden Konten nur in <b>WexSuperAdmin</b> – vorher hier offene Beträge abrechnen.</div>' +
+      dr.map(k => '<div class="rw"><span style="display:flex;align-items:center">' + avatarHTML(k, S.users[k].name, 30) + '</span><span>' + esc(S.users[k].name || '') + '<br><small>beantragt am ' + new Date(S.users[k].delreq).toLocaleDateString('de-DE') + '</small></span><small>in WexSuperAdmin löschen</small></div>').join('') + '</section>';
     h += newRegsSection() + dsSection();
   }
-  const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !S.users[k].deleted && k !== S.user.uid);
+  const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !goneSL(S.users[k]) && k !== S.user.uid);
   if (S.isSuper) h += inboxSection();
   if (!RO) h += reqSection();
   if (pend.length && !RO) h += '<section><h2>Neue Anmeldungen (' + pend.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erst nach dem Freischalten kann die Person buchen.</div>' +
@@ -3762,8 +3798,8 @@ function renderAdmin() {
     h += overSection(day, scans);
     if ((S.dayDrivers || []).length) h += '<div class="note">Fahrer heute: <b>' + S.dayDrivers.map(x => esc(uname(x.uid) !== '(Person)' ? uname(x.uid) : x.name || '')).join(', ') + '</b></div>';
     if (!RO && canSee('eggs')) h += eggPreview(day, scans);
-    if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2><div class="row" style="margin-top:0">' +
-      '<button class="b pri grow" data-act="sheetLoad">Einladen per Scan</button><button class="b grow" data-act="sheetCount">Rest zählen per Scan</button></div></section>';
+    if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2>' + mustBlock(day) + '<div class="row" style="margin-top:0">' +
+      '<button class="b pri grow" data-act="sheetLoad">Einladen per Scan</button><button class="b grow" data-act="sheetCount">Rest zählen per Scan</button></div>' + packEditor() + '</section>';
     h += '<section><h2>Abgleich</h2>' + (rows.length ? '<div class="tw"><table><thead><tr><th>Getränk</th><th>Mit</th><th>Gebucht</th><th>Soll</th><th>Übrig</th><th>Diff.</th></tr></thead><tbody>' +
       rows.map(r => '<tr><td>' + esc(r.p.name) + '</td><td><input class="n" inputmode="numeric" data-load="' + r.p.id + '" value="' + r.l + '" aria-label="Mitgenommen ' + esc(r.p.name) + '"></td><td>' + r.u + '</td><td class="' + (lowLevel(r) ? 'bad' : '') + '">' + r.s + (lowLevel(r) ? ' <span class="lowtag">' + (lowLevel(r) === 'leer' ? 'leer' : 'knapp') + '</span>' : '') + '</td>' +
         '<td><input class="n" inputmode="numeric" data-cnt="' + r.p.id + '" value="' + (r.c == null ? '' : r.c) + '" aria-label="Übrig ' + esc(r.p.name) + '"></td>' +
@@ -3782,7 +3818,7 @@ function renderAdmin() {
         Object.keys(per).sort((a, b) => per[b].n - per[a].n).map(k => '<div class="rw"><span></span><span>' + esc(k) + '</span><small>' + per[k].n + ' Getränke' + (per[k].v ? ' · ' + money(per[k].v) : '') + '</small></div>').join('') + '</section>';
     }
 
-    const people = Object.keys(S.users).filter(uid => !S.users[uid].deleted).map(uid => ({ uid, name: S.users[uid].name || '' })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    const people = Object.keys(S.users).filter(uid => !goneSL(S.users[uid])).map(uid => ({ uid, name: S.users[uid].name || '' })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
     if (people.length && S.products.length && !RO) {
       const dd = selDayObj(), dShort = dd ? fmtDate(dd.date).replace(/^\S+ /, '').replace(/\d{4}$/, '') : '';
       h += '<section><h2>Buchung nachtragen</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Für jemanden, der vergessen hat zu scannen – auch für frühere Tage.</div><div class="grid2">' +
@@ -3815,6 +3851,7 @@ function renderAdmin() {
     '<label class="f">Preis pro Flasche in €<input data-p="price" data-id="' + p.id + '" value="' + (p.price ? String(p.price).replace('.', ',') : '') + '" inputmode="decimal"></label>' +
     '<label class="f">Gebinde<input data-p="packs" data-id="' + p.id + '" value="' + esc(packsText(p.packs)) + '" placeholder="Kasten 20; Sixpack 6"></label>' +
     '<label class="f">Sorte (für die Easter Eggs)' + catSelect('data-p="cat" data-id="' + p.id + '"', p.cat, p.name) + '</label>' +
+    '<label class="f">Mindestens mitnehmen (Flaschen)<input data-p="must" data-id="' + p.id + '" value="' + (p.must || '') + '" inputmode="numeric" placeholder="leer = egal"></label>' +
     '<label class="chk full"><input type="checkbox" data-u18="' + p.id + '"' + (u18Blocked(p) ? ' checked' : '') + '> Für Jugendliche (U18) gesperrt' + (p.u18 == null ? ' <small style="color:var(--mu)">– automatisch nach Sorte</small>' : '') + '</label>' +
     '<label class="f">Warnen ab Rest (Flaschen)<input data-p="low" data-id="' + p.id + '" value="' + (p.low || '') + '" inputmode="numeric" placeholder="z. B. 6"></label>' +
     '<label class="f">Darf mehr gebucht werden (Flaschen)<input data-p="over" data-id="' + p.id + '" value="' + (p.over != null ? p.over : '') + '" inputmode="numeric" placeholder="leer = keine Grenze"></label><div class="f" style="font-size:.78rem;color:var(--mu);align-self:end">' + (p.over != null && p.over !== '' ? (+p.over ? 'Gesperrt, sobald mitgenommen + ' + p.over + ' gebucht ist.' : 'Gesperrt, sobald alles Mitgenommene gebucht ist.') : 'Keine Grenze – Admins bekommen nur eine Meldung, wenn mehr gebucht wird als mitgenommen.') + '</div>' +
@@ -3841,7 +3878,7 @@ function renderAdmin() {
   }
 
   const all = Object.keys(S.users).map(uid => Object.assign({ uid, name: '', email: '', t: 0 }, S.users[uid])).sort((a, b) => a.name.localeCompare(b.name, 'de'));
-  const ulist = all.filter(u => !u.deleted && !(RO && (u.pending || u.blocked))), gone = all.filter(u => u.deleted);
+  const ulist = all.filter(u => !goneSL(u) && !(RO && (u.pending || u.blocked))), gone = all.filter(u => goneSL(u));
   if (all.length) {
     const counts = {}; ulist.forEach(u => { const k = u.name.toLowerCase(); counts[k] = (counts[k] || 0) + 1; });
     const consoleUrl = 'https://console.firebase.google.com/project/' + encodeURIComponent(firebaseConfig.projectId) + '/authentication/users';
@@ -3863,14 +3900,14 @@ function renderAdmin() {
             (u.blocked ? '<span style="font-size:.8rem;color:var(--mu);align-self:center">In allen Apps gesperrt – nur in WexSuperAdmin änderbar</span>'
               : u.slBlock ? '<button class="b sm" data-act="unblock" data-id="' + u.uid + '">Für Strichliste entsperren</button>' : '<button class="b sm" data-act="block" data-id="' + u.uid + '">Für Strichliste sperren</button>') +
             (u.email ? '<button class="b sm" data-act="resetPw" data-id="' + u.uid + '">Passwort-Mail senden</button>' : '') +
-            '<button class="b sm dng" data-act="removeUser" data-id="' + u.uid + '">Entfernen</button></div>';
+            '<button class="b sm dng" data-act="removeUser" data-id="' + u.uid + '">Aus Strichliste entfernen</button></div>';
         }
         if (AV[u.uid] && AV[u.uid].img) inner += '<div class="full row" style="margin-top:0;align-items:center">' + avatarHTML(u.uid, u.name, 64) + '<button class="b sm dng" data-act="delAv" data-id="' + u.uid + '">Profilbild entfernen</button></div>';
         return '<details class="pc" data-k="u' + u.uid + '"><summary><span style="display:flex;align-items:center">' + avatarHTML(u.uid, u.name, 32) + '<b>' + esc(u.name || '(ohne Namen)') + '</b></span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' + badges + '</span></summary><div class="grid2">' + inner + '</div></details>';
       }).join('') +
       (S.isSuper && gone.length ? '<details class="pc" data-k="gone"><summary><b>Entfernte Konten (' + gone.length + ')</b><small>wiederherstellen</small></summary>' +
-        gone.map(u => '<div class="rw"><span></span><span>' + esc(u.name) + '<br><small>' + esc(u.email) + '</small></span><button class="b sm" data-act="restoreUser" data-id="' + u.uid + '">Wiederherstellen</button><button class="b sm dng" data-act="purgeUser" data-id="' + u.uid + '">Eintrag löschen</button></div>').join('') + '</details>' : '') +
-      (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Entfernen sperrt das Konto in der App. Das Login selbst (E-Mail und Passwort) löschst du in der <a href="' + consoleUrl + '" target="_blank" rel="noopener">Firebase-Konsole → Authentication → Nutzer</a> über das Menü „⋮“ der Person.</div>' : '') +
+        gone.map(u => '<div class="rw"><span></span><span>' + esc(u.name) + '<br><small>' + esc(u.email) + '</small></span>' + (u.deleted ? '<small>in WexSuperAdmin gelöscht</small>' : '<button class="b sm" data-act="restoreUser" data-id="' + u.uid + '">Wiederherstellen</button>') + '</div>').join('') + '</details>' : '') +
+      (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">„Aus Strichliste entfernen“ wirkt nur hier: Die Person kann nicht mehr buchen und verschwindet aus den Listen; der Stundentracker bleibt nutzbar. Konten löschen geht nur in WexSuperAdmin.</div>' : '') +
       '</section>';
   }
   if (S.isSuper) h += settingsSection() + groupsEditor() + titlesEditor() + rulesEditor() + historySection();
@@ -4095,7 +4132,7 @@ function readOnly(el) {
 // Super-Admin: wer hat den Datenschutzhinweis bestätigt?
 let dsFilter = 'open';
 function dsSection() {
-  const L = Object.keys(S.users).map(uid => Object.assign({ uid }, S.users[uid])).filter(u => !u.deleted && !u.pending).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+  const L = Object.keys(S.users).map(uid => Object.assign({ uid }, S.users[uid])).filter(u => !goneSL(u) && !u.pending).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
   if (!L.length) return '';
   const ok = L.filter(dsConfirmed), open = L.filter(u => !dsConfirmed(u)), show = dsFilter === 'open' ? open : L;
   const d = t => new Date(t).toLocaleDateString('de-DE');
@@ -4116,7 +4153,7 @@ $('adminBody').addEventListener('click', async e => {
   const f = e.target.closest('[data-dsf]'); if (f) { dsFilter = f.dataset.dsf; renderAdmin(); return; }
   const r = e.target.closest('[data-dsr]');
   if (r) {
-    const ids = r.dataset.dsr === '*' ? Object.keys(S.users).filter(k => { const u = S.users[k]; return !u.deleted && !u.pending && !dsConfirmed(u) && k !== S.user.uid; }) : [r.dataset.dsr];
+    const ids = r.dataset.dsr === '*' ? Object.keys(S.users).filter(k => { const u = S.users[k]; return !goneSL(u) && !u.pending && !dsConfirmed(u) && k !== S.user.uid; }) : [r.dataset.dsr];
     if (!ids.length) return;
     if (ids.length > 1 && !await ask(ids.length + ' Personen beim nächsten Öffnen der App erinnern?')) return;
     const t = Date.now();
@@ -4125,7 +4162,7 @@ $('adminBody').addEventListener('click', async e => {
     toast(ids.length === 1 ? uname(ids[0]) + ' wird erinnert' : ids.length + ' Personen werden erinnert'); return;
   }
   if (e.target.closest('[data-dsmail]')) {
-    const mails = Object.values(S.users).filter(u => !u.deleted && !u.pending && !dsConfirmed(u) && u.email).map(u => u.email);
+    const mails = Object.values(S.users).filter(u => !goneSL(u) && !u.pending && !dsConfirmed(u) && u.email).map(u => u.email);
     location.href = 'mailto:?bcc=' + encodeURIComponent(mails.join(',')) + '&subject=' + encodeURIComponent('Bitte Datenschutzhinweis der Getränke-Strichliste bestätigen') + '&body=' + encodeURIComponent(dsReminderText());
     return;
   }
@@ -4147,7 +4184,7 @@ function newRegsSection() {
   const L = Object.keys(S.users).map(uid => Object.assign({ uid }, S.users[uid])).filter(u => u.t && uid_ok(u)).sort((a, b) => b.t - a.t).slice(0, 25);
   function uid_ok(u) { return u.uid !== (S.user && S.user.uid); }
   if (!L.length) return '';
-  const st = u => u.deleted ? (u.pending ? '<span class="tag" style="color:var(--pen)">abgelehnt</span>' : '<span class="tag cls">entfernt</span>') : u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : u.slBlock ? '<span class="tag" style="color:var(--pen)">Strichliste gesperrt</span>' : u.pending ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '<span class="tag act">aktiv</span>';
+  const st = u => goneSL(u) ? (u.pending ? '<span class="tag" style="color:var(--pen)">abgelehnt</span>' : '<span class="tag cls">entfernt</span>') : u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : u.slBlock ? '<span class="tag" style="color:var(--pen)">Strichliste gesperrt</span>' : u.pending ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '<span class="tag act">aktiv</span>';
   const nNew = L.filter(u => u.t > seen).length;
   return '<section><h2>Neu registriert (' + nNew + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Die letzten 25 Registrierungen, neueste zuerst. Seit deinem letzten „Gesehen“ neu: <b>' + nNew + '</b>.</div>' +
     L.map(u => '<div class="rw"><span style="display:flex;align-items:center">' + avatarHTML(u.uid, u.name, 30) + '</span><span>' + (u.t > seen ? '<b>' + esc(u.name || '') + '</b> <span class="tag" style="color:var(--amb)">neu</span>' : esc(u.name || '')) + '<br><small>' + esc(u.email || '') + ' · ' + new Date(u.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</small></span>' + st(u) + '</div>').join('') +
@@ -4183,7 +4220,7 @@ const bestCfg = () => Object.assign({}, BEST_DEFAULT, S.best || {});
 const BEST_METRIC = [['na', 'alkoholfreie Getränke (Wasser, Softdrinks, Alkoholfreies)'], ['all', 'alle Getränke'], ['beer', 'Bier']];
 const BEST_GSORT = [['all', 'meiste Getränke gesamt'], ['perHead', 'meiste Getränke pro Kopf'], ['na', 'meiste alkoholfreie'], ['share', 'höchster Anteil alkoholfrei']];
 function settingsSection() {
-  const c = S.contact || {}, b = bestCfg(), people = Object.keys(S.users).filter(k => !S.users[k].deleted && !S.users[k].pending).map(k => ({ uid: k, name: S.users[k].name || '' })).sort((x, y) => x.name.localeCompare(y.name, 'de'));
+  const c = S.contact || {}, b = bestCfg(), people = Object.keys(S.users).filter(k => !goneSL(S.users[k]) && !S.users[k].pending).map(k => ({ uid: k, name: S.users[k].name || '' })).sort((x, y) => x.name.localeCompare(y.name, 'de'));
   const opt = (L, cur) => L.map(x => '<option value="' + x[0] + '"' + (String(cur) === String(x[0]) ? ' selected' : '') + '>' + x[1] + '</option>').join('');
   let h = '<section><h2>Einstellungen (Super-Admin)</h2>';
   h += '<h3 class="sub3">Kontakt</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erscheint bei „Konto wartet auf Freischaltung“, „gesperrt“, „keine Rechte“ und in der Hilfe.</div>' +
@@ -5319,6 +5356,7 @@ adminBody.addEventListener('change', e => {
   if (t.dataset.sel === 'day') { S.selDay = t.value; showNewDay = false; listenDayScans(); renderAdmin(); return; }
   if (t.id === 'nbWho') { nbSel = t.value; renderAdmin(); return; }
   if (t.dataset.grp) { const uid = t.dataset.grp; fire(F.updateDoc(dref('users', uid), { grp: t.value ? t.value : F.deleteField() }), 'Gruppe'); logEv('person', uname(uid) + ': Gruppe → ' + (gname(t.value) || 'keine')); toast(uname(uid) + ': ' + (gname(t.value) || 'keine Gruppe')); return; }
+  if (t.dataset.pack && day) { fire(F.updateDoc(dref('days', day.id), { ['packed.' + t.dataset.pack]: t.checked ? true : F.deleteField() }), 'Packliste'); day.packed = Object.assign({}, day.packed || {}, { [t.dataset.pack]: t.checked }); if (!t.checked) delete day.packed[t.dataset.pack]; renderAdmin(); return; }
   if (t.dataset.u18) { const pid = t.dataset.u18, pr = P(pid); if (pr) pr.u18 = t.checked; fire(F.updateDoc(dref('products', pid), { u18: t.checked }), 'Jugendschutz'); logEv('getraenk', pname(pid) + ': für Jugendliche ' + (t.checked ? 'gesperrt' : 'freigegeben')); toast(pname(pid) + (t.checked ? ': für U18 gesperrt' : ': für U18 freigegeben')); renderAdmin(); return; }
   if (t.dataset.minor) { const uid = t.dataset.minor; fire(F.updateDoc(dref('users', uid), { minor: t.checked }), 'Jugendschutz'); logEv('person', uname(uid) + ': ' + (t.checked ? 'als minderjährig markiert' : 'nicht mehr minderjährig')); toast(uname(uid) + (t.checked ? ': Jugendschutz an' : ': Jugendschutz aus')); return; }
   if (t.dataset.gr) { const id = t.dataset.gr, name = t.value.trim().slice(0, 40); if (!name) { renderAdmin(); return; } saveGroups(groupsAll().map(g => g.id === id ? { id, name } : g)); logEv('person', 'benennt Gruppe um: ' + name); return; }
@@ -5356,8 +5394,9 @@ adminBody.addEventListener('change', e => {
     if (f === 'cat') upd.cat = t.value ? t.value : F.deleteField();
     if (f === 'low') { const v = parseInt(t.value); upd.low = v > 0 ? v : F.deleteField(); }
     if (f === 'over') { const v = parseInt(t.value); upd.over = v >= 0 ? Math.min(v, 999) : F.deleteField(); }
+    if (f === 'must') { const v = parseInt(t.value); upd.must = v > 0 ? Math.min(v, 9999) : F.deleteField(); p.must = v > 0 ? v : 0; }
     fire(F.updateDoc(dref('products', p.id), upd), 'Getränk speichern');
-    const FL = { name: 'Name', codes: 'Barcodes', price: 'Preis', packs: 'Gebinde', cat: 'Sorte', low: 'Warnen ab', over: 'Darf mehr gebucht werden' };
+    const FL = { name: 'Name', codes: 'Barcodes', price: 'Preis', packs: 'Gebinde', cat: 'Sorte', low: 'Warnen ab', over: 'Darf mehr gebucht werden', must: 'Mindestens mitnehmen' };
     logEv('getraenk', p.name + ': ' + FL[f] + ' → ' + (t.value.trim() || 'leer'));
   }
 });
@@ -5384,6 +5423,10 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'pickDay') { S.selDay = id; listenDayScans(); renderAdmin(); window.scrollTo(0, 0); }
   else if (a === 'missCheck') checkMissing();
+  else if (a === 'packSave') {
+    const items = [...new Set(($('packTxt').value || '').split('\n').map(x => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 40);
+    S.packlist = { items }; fire(F.setDoc(dref('config', 'packlist'), { items, t: Date.now() }), 'Packliste'); logEv('einladen', 'ändert die Packliste (' + items.length + ' Dinge)'); toast('Packliste gespeichert');
+  }
   else if (a === 'undoAllLoad') loadUndoAll();
   else if (a === 'askNew') { const [uid, d] = id.split('|'); askOpen(uid, d); }
   else if (a === 'askBook') {
@@ -5408,6 +5451,7 @@ adminBody.addEventListener('click', async e => {
     toast('Nachtragen auf ' + dayLabel(selDayObj() || {}));
   }
   else if (a === 'activate' && day) {
+    if (!(await mustCheck(day, 'Der Tag wird zum Scannen freigegeben, aber es fehlt noch:'))) return;
     if (day.closed) { if (!await ask('„' + dayLabel(day) + '“ ist abgeschlossen. Wieder öffnen und zum Scannen freigeben?', { ok: 'Freigeben' })) return; fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen'); }
     fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag freigeben'); toast('Freigegeben – Scannen bucht jetzt auf diesen Tag'); logEv('tag', 'gibt ' + dayLabel(day) + ' zum Scannen frei', day.id);
   }
@@ -5496,20 +5540,20 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'removeUser') {
     const u = S.users[id]; if (!u) return;
-    if (!await ask('„' + u.name + '“ entfernen? Das Konto wird gesperrt und aus der Liste genommen.')) return;
+    if (!await ask('„' + u.name + '“ aus der Strichliste entfernen? Die Person kann hier nichts mehr buchen und verschwindet aus den Listen. Das Konto selbst und andere Apps bleiben unberührt (löschen nur in WexSuperAdmin).', { ok: 'Entfernen', danger: true })) return;
     let list = [];
     try { list = (await F.getDocs(F.query(col('scans'), F.where('uid', '==', id)))).docs; } catch (err) { toast('Buchungen konnten nicht geladen werden – Internet nötig'); return; }
     const delScans = list.length > 0 && await ask('Auch alle ' + list.length + ' Buchungen von „' + u.name + '“ löschen?', { ok: 'Buchungen löschen', cancel: 'Buchungen behalten', danger: true, note: 'Behalten ist sinnvoll, solange noch abgerechnet werden muss.' });
     if (!await superGuard('„' + u.name + '“ entfernen' + (delScans ? ' und ' + list.length + ' Buchungen löschen' : ''))) return;
     try {
       if (delScans) { await commitInChunks(list.map(d => ({ ref: d.ref, del: true }))); [...new Set(list.map(d => d.data().day))].forEach(markDirty); }
-      await F.updateDoc(dref('users', id), { deleted: true, blocked: true, role: F.deleteField() });
+      await F.updateDoc(dref('users', id), { slGone: true, slBlock: true, role: F.deleteField() });
       toast(u.name + ' entfernt' + (delScans ? ', ' + list.length + ' Buchungen gelöscht' : ''));
       logEv('person', 'entfernt ' + u.name + (delScans ? ' und löscht ' + list.length + ' Buchungen' : ' (Buchungen bleiben)'));
     } catch (err) { toast('Entfernen fehlgeschlagen: ' + (err.code || err.message)); }
   }
-  else if (a === 'restoreUser') { fire(F.updateDoc(dref('users', id), { deleted: false, blocked: false }), 'Wiederherstellen'); toast('Wiederhergestellt'); logEv('person', 'stellt ' + uname(id) + ' wieder her'); }
-  else if (a === 'purgeUser') {
+  else if (a === 'restoreUser') { const u = S.users[id]; if (u && u.deleted) { toast('In WexSuperAdmin gelöscht – dort wiederherstellen'); return; } fire(F.updateDoc(dref('users', id), { slGone: false, slBlock: false }), 'Wiederherstellen'); toast('Wiederhergestellt'); logEv('person', 'stellt ' + uname(id) + ' wieder her'); }
+  else if (a === 'purgeUser' && false) {
     const u = S.users[id]; if (!u) return;
     if (!await ask('Eintrag „' + u.name + '“ endgültig löschen? Danach könnte sich die Person mit ihrem Login einen neuen Namen geben. Vorher das Login in der Firebase-Konsole löschen.')) return;
     if (!await superGuard('Eintrag „' + u.name + '“ endgültig löschen')) return;
@@ -5580,8 +5624,8 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'approve') { const u = S.users[id]; if (!u) return; fire(F.updateDoc(dref('users', id), { pending: false }), 'Freischalten'); toast(u.name + ' freigeschaltet'); logEv('person', 'schaltet ' + u.name + ' frei'); }
   else if (a === 'reject') {
-    const u = S.users[id]; if (!u || !await ask('Anmeldung von „' + u.name + '“ (' + (u.email || '') + ') ablehnen?')) return;
-    fire(F.updateDoc(dref('users', id), { pending: false, deleted: true, blocked: true }), 'Ablehnen'); toast('Anmeldung abgelehnt'); logEv('person', 'lehnt die Anmeldung von ' + u.name + ' ab');
+    const u = S.users[id]; if (!u || !await ask('Anmeldung von „' + u.name + '“ (' + (u.email || '') + ') für die Strichliste ablehnen? Das Konto selbst bleibt bestehen (löschen nur in WexSuperAdmin).')) return;
+    fire(F.updateDoc(dref('users', id), { slGone: true, slBlock: true }), 'Ablehnen'); toast('Anmeldung für die Strichliste abgelehnt'); logEv('person', 'lehnt die Anmeldung von ' + u.name + ' ab');
   }
   else if (a === 'grAdd') {
     const name = ($('grNew').value || '').trim().slice(0, 40); if (!name) { toast('Bitte einen Namen eingeben'); return; }

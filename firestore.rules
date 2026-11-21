@@ -236,7 +236,7 @@ service cloud.firestore {
       allow read: if signedIn() || id in ['groups', 'contact', 'privacy', 'theme', 'texts'];
       // Partymodus dürfen auch Getränke-Admins starten und beenden – aber nur, wenn der Super-Admin ihn erlaubt hat
       // Datum des letzten Backups dürfen alle Admins setzen
-      allow write: if isSuper() || (id == 'backup' && isAdmin()) || (id == 'party' && isAdmin()
+      allow write: if isSuper() || (id in ['backup', 'packlist'] && isAdmin()) || (id == 'party' && isAdmin()
         && get(/databases/$(database)/documents/config/features).data.get('partyOk', false) == true);
     }
 
