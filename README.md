@@ -394,13 +394,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 61**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 61 auf 62):
-- in `index.html`: `const APP_VERSION = '61';`
-- in `sw.js`: `const VERSION = 'strichliste-v61';`
+Aktuell ist **Version 62**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 62 auf 63):
+- in `index.html`: `const APP_VERSION = '62';`
+- in `sw.js`: `const VERSION = 'strichliste-v62';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 61“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 62“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
