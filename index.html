@@ -719,7 +719,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '57';
+const APP_VERSION = '58';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3844,6 +3844,7 @@ $('adminBody').addEventListener('click', async e => {
   if (b.dataset.rq === 'delDone' && S.isSuper) {
     const L = (S.reqs || []).filter(x => x.status !== 'open');
     if (!L.length || !await ask(L.length + ' erledigte Anträge löschen? Die Buchungen selbst bleiben unverändert.')) return;
+    if (!await superGuard(L.length + ' erledigte Anträge löschen')) return;
     const bt = F.writeBatch(db); L.forEach(x => bt.delete(dref('reqs', x.id)));
     fire(bt.commit(), 'Anträge löschen'); logEv('buchung', 'löscht ' + L.length + ' erledigte Korrekturanträge'); toast(L.length + ' Anträge gelöscht'); return;
   }
@@ -3992,7 +3993,8 @@ $('adminBody').addEventListener('click', async e => {
   if (a === 'del' && m && await ask('Nachricht von ' + m.name + ' löschen?')) fire(F.deleteDoc(dref('msgs', id)), 'Löschen');
   if (a === 'delDone') {
     const L = (S.inbox || []).filter(x => x.status === 'done');
-    if (!await ask(L.length + ' erledigte Nachrichten löschen?')) return;
+    if (!L.length || !await ask(L.length + ' erledigte Nachrichten löschen?')) return;
+    if (!await superGuard(L.length + ' erledigte Nachrichten löschen')) return;
     const bt = F.writeBatch(db); L.forEach(x => bt.delete(dref('msgs', x.id))); fire(bt.commit(), 'Löschen'); toast(L.length + ' gelöscht');
   }
 });
@@ -4006,7 +4008,7 @@ function dlgShow(o) {
     const msg = String(o.msg || ''), danger = o.danger != null ? o.danger : /löschen\?|entfernen\?|sperren\?|ablehnen\?|zurückziehen\?|ALLE/.test(msg);
     const okL = o.ok || (/löschen\?/.test(msg) ? 'Löschen' : /entfernen\?/.test(msg) ? 'Entfernen' : /sperren\?/.test(msg) ? 'Sperren' : /ablehnen\?/.test(msg) ? 'Ablehnen' : /zurückziehen\?/.test(msg) ? 'Zurückziehen' : 'OK');
     $('dlgBody').innerHTML = (o.title ? '<h3>' + esc(o.title) + '</h3>' : '') + '<p>' + esc(msg) + '</p>' + (o.warn ? '<div class="dlg-warn" role="note"><b>⚠️ ' + esc(o.warn.t) + '</b><span>' + esc(o.warn.s) + '</span></div>' : '') + (o.note ? '<small>' + esc(o.note) + '</small>' : '') +
-      (o.input ? '<input id="dlgIn" maxlength="200" enterkeyhint="done" value="' + esc(o.def || '') + '" placeholder="' + esc(o.ph || '') + '">' : '') +
+      (o.input ? '<input id="dlgIn" maxlength="200" enterkeyhint="done"' + (o.pw ? ' type="password" autocomplete="current-password"' : '') + ' value="' + esc(o.def || '') + '" placeholder="' + esc(o.ph || '') + '">' : '') +
       (o.choices ? '<div class="mode dlg-ch" style="display:flex">' + o.choices.map(([v, l]) => '<button type="button" data-dch="' + esc(v) + '" class="' + (String(o.choice) === String(v) ? 'on' : '') + '">' + esc(l) + '</button>').join('') + '</div>' : '');
     $('dlgOk').textContent = okL; $('dlgOk').className = 'b ' + (danger ? 'dng solid' : 'pri');
     $('dlgNo').textContent = o.cancel || 'Abbrechen';
@@ -4026,6 +4028,27 @@ addEventListener('keydown', e => {
 }, true);
 const ask = (msg, o) => dlgShow(Object.assign({ msg }, o || {}));
 const askText = (msg, def, o) => dlgShow(Object.assign({ msg, def, input: true, ok: 'OK' }, o || {}));
+/* Super-Admin löscht etwas Großes: erst Passwort, dann automatisches Backup (JSON-Datei), dann letzte Bestätigung.
+   pw: schon geprüftes Passwort überspringt die Abfrage (z. B. „Statistiken zurücksetzen“ mit eigenem Passwortfeld). */
+async function superGuard(what, opt) {
+  opt = opt || {};
+  if (!S.isSuper) return true;
+  if (!navigator.onLine) { toast('Dafür wird Internet benötigt'); return false; }
+  if (!opt.pwDone) {
+    const pw = await askText('Zur Sicherheit bitte dein Passwort eingeben.', '', { title: '🔒 ' + what, ok: 'Weiter', pw: true, ph: 'Passwort' });
+    if (!pw) return false;
+    try { await F.reauthenticateWithCredential(auth.currentUser, F.EmailAuthProvider.credential(auth.currentUser.email, pw)); }
+    catch (err) { toast(err && err.code === 'auth/too-many-requests' ? 'Zu viele Versuche – bitte später nochmal' : 'Passwort falsch'); return false; }
+  }
+  let file = '';
+  try { file = await makeBackup('vor: ' + what); }
+  catch (err) {
+    console.error(err);
+    if (!await ask('Das automatische Backup ist fehlgeschlagen. Trotzdem ohne Backup weitermachen?', { title: 'Kein Backup', ok: 'Ohne Backup weiter', cancel: 'Abbrechen', danger: true })) return false;
+  }
+  return !!await ask(what + ' – wirklich endgültig?', { title: 'Letzte Bestätigung', ok: 'Endgültig löschen', cancel: 'Abbrechen', danger: true,
+    note: file ? 'Backup gespeichert: ' + file + ' (im Download-Ordner). Damit lässt sich alles über „Backup importieren“ wiederherstellen.' : 'Ohne Backup – das lässt sich nicht rückgängig machen.' });
+}
 
 /* ---------- Tippen: Enter springt ins nächste Feld, Zahlen mit −/+ ---------- */
 const textLike = el => el && ((el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'file', 'hidden', 'date', 'time'].includes(el.type)) || el.tagName === 'TEXTAREA');
@@ -4785,6 +4808,7 @@ adminBody.addEventListener('click', async e => {
     let list = [];
     try { list = (await F.getDocs(F.query(col('scans'), F.where('uid', '==', id)))).docs; } catch (err) { toast('Buchungen konnten nicht geladen werden – Internet nötig'); return; }
     const delScans = list.length > 0 && await ask('Auch alle ' + list.length + ' Buchungen von „' + u.name + '“ löschen?', { ok: 'Buchungen löschen', cancel: 'Buchungen behalten', danger: true, note: 'Behalten ist sinnvoll, solange noch abgerechnet werden muss.' });
+    if (!await superGuard('„' + u.name + '“ entfernen' + (delScans ? ' und ' + list.length + ' Buchungen löschen' : ''))) return;
     try {
       if (delScans) { await commitInChunks(list.map(d => ({ ref: d.ref, del: true }))); [...new Set(list.map(d => d.data().day))].forEach(markDirty); }
       await F.updateDoc(dref('users', id), { deleted: true, blocked: true, role: F.deleteField() });
@@ -4796,6 +4820,7 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'purgeUser') {
     const u = S.users[id]; if (!u) return;
     if (!await ask('Eintrag „' + u.name + '“ endgültig löschen? Danach könnte sich die Person mit ihrem Login einen neuen Namen geben. Vorher das Login in der Firebase-Konsole löschen.')) return;
+    if (!await superGuard('Eintrag „' + u.name + '“ endgültig löschen')) return;
     fire(F.deleteDoc(dref('users', id)), 'Eintrag löschen'); logEv('person', 'löscht den Eintrag von ' + u.name + ' endgültig');
   }
   else if (a === 'delAv') {
@@ -4809,6 +4834,7 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'delDay' && day && S.isSuper) {
     if (!await ask('„' + dayLabel(day) + '“ mit allen ' + S.dayScans.length + ' Buchungen löschen?')) return;
+    if (!await superGuard('Tag „' + dayLabel(day) + '“ mit ' + S.dayScans.length + ' Buchungen löschen')) return;
     try {
       const sc = (await F.getDocs(F.query(col('scans'), F.where('day', '==', day.id)))).docs;
       await commitInChunks(sc.map(d => ({ ref: d.ref, del: true })).concat([{ ref: dref('days', day.id), del: true }]));
@@ -4903,10 +4929,10 @@ adminBody.addEventListener('click', async e => {
     const pw = $('rsPw').value, withData = $('rsData').checked;
     if (!pw) { toast('Bitte dein Passwort eingeben'); return; }
     if (!navigator.onLine) { toast('Dafür wird Internet benötigt'); return; }
-    if (withData && !await ask('Wirklich ALLE Buchungen und Tage löschen? Das lässt sich nicht rückgängig machen.')) return;
     b.disabled = true;
     try { await F.reauthenticateWithCredential(auth.currentUser, F.EmailAuthProvider.credential(auth.currentUser.email, pw)); }
     catch (err) { b.disabled = false; toast('Passwort falsch'); return; }
+    if (!await superGuard(withData ? 'Alle Statistiken zurücksetzen und ALLE Buchungen und Tage löschen' : 'Alle Statistiken zurücksetzen', { pwDone: true })) { b.disabled = false; return; }
     try {
       const n = await resetStats(withData);
       logEv('system', 'setzt alle Statistiken zurück' + (withData ? ' und löscht alle Buchungen und Tage' : '') + ' (' + n + ' Einträge)');
@@ -4925,7 +4951,7 @@ const bkAvPref = () => { try { return localStorage.getItem('strichliste_bkav') !
 // Zeitstempel aus Firestore als { __ts: ms } speichern und beim Import zurückverwandeln
 const bkOut = v => v && typeof v === 'object' ? (typeof v.toMillis === 'function' ? { __ts: v.toMillis() } : Array.isArray(v) ? v.map(bkOut) : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, bkOut(x)]))) : v;
 const bkIn = v => v && typeof v === 'object' ? (Array.isArray(v) ? v.map(bkIn) : Object.keys(v).length === 1 && typeof v.__ts === 'number' ? (F.Timestamp ? F.Timestamp.fromMillis(v.__ts) : v.__ts) : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, bkIn(x)]))) : v;
-async function makeBackup() {
+async function makeBackup(reason) {
   const withAv = bkAvPref(), out = { v: BACKUP_V, app: APP_VERSION, exported: new Date().toISOString(), by: S.me || S.user.email, active: S.active || null, meta: {}, data: {}, skipped: [] };
   toast('Backup wird erstellt …');
   for (const [c, label] of BACKUP_COLS) {
@@ -4936,12 +4962,14 @@ async function makeBackup() {
   try { const m = await F.getDoc(dref('meta', 'state')); if (m.exists()) { const x = m.data(); out.meta = { eggs: x.eggs, epoch: x.epoch }; } } catch (e) {}
   const n = Object.keys(out.data.scans || {}).length;
   const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
-  downloadBlob('strichliste-backup-' + todayISO() + '.json', blob);
+  const fname = 'strichliste-backup-' + todayISO() + '-' + new Date().toTimeString().slice(0, 5).replace(':', '') + '.json';
+  downloadBlob(fname, blob);
   const cfg = { every: bkCfg().every, t: Date.now(), by: S.user.uid, byName: S.me || '', n, full: !out.skipped.length || (out.skipped.length === 1 && !withAv) };
   S.backupCfg = cfg; fire(F.setDoc(dref('config', 'backup'), cfg), 'Backup merken');
-  logEv('system', 'speichert ein Backup (' + n + ' Buchungen' + (out.skipped.length ? '; ohne ' + out.skipped.join(', ') : '') + ')');
+  logEv('system', (reason ? 'automatisches Backup ' + reason + ' ' : 'speichert ein Backup ') + '(' + n + ' Buchungen' + (out.skipped.length ? '; ohne ' + out.skipped.join(', ') : '') + ')');
   toast('Backup gespeichert: ' + n + ' Buchungen' + (out.skipped.length ? ' – ohne ' + out.skipped.join(', ') : ''));
   renderAdmin();
+  return fname;
 }
 async function restoreBackup(d) {
   if (!d || !d.data || typeof d.data !== 'object') return restoreLegacy(d);
