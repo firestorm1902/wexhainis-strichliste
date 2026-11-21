@@ -171,6 +171,7 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
 .toast.show{transform:translate(-50%,0)}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+#dlgBody p{white-space:pre-line}
 </style>
 <style>
 /* ---- Wexhainer Narrenzunft: Wespe in Schwarz und Gelb ---- */
@@ -719,7 +720,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '58';
+const APP_VERSION = '59';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -904,6 +905,7 @@ function startUserListeners() {
   stop('cfgParty'); unsub.cfgParty = F.onSnapshot(dref('config', 'party'), snap => { S.party = snap.exists() ? snap.data() : null; renderParty(); if (S.isAdmin) renderAdmin(); }, err => console.warn('party', err));
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
+  stop('cfgUndo'); unsub.cfgUndo = F.onSnapshot(dref('config', 'undo'), snap => { S.undoCfg = snap.exists() ? snap.data() : null; if (S.isSuper) renderAdmin(); }, err => console.warn('undo', err));
   stop('cfgBackup'); unsub.cfgBackup = F.onSnapshot(dref('config', 'backup'), snap => {
     S.backupCfg = snap.exists() ? snap.data() : null; renderAdmin();
     try { const k = 'strichliste_bkremind_' + todayISO(); if (S.isAdmin && backupDue() && !localStorage.getItem(k)) { localStorage.setItem(k, '1'); toast('Letztes Backup: ' + backupAgo() + ' – bitte sichern (Admin → Daten)'); } } catch (e) {}
@@ -1020,7 +1022,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
+  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'cfgUndo', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -1036,7 +1038,8 @@ function listenActiveScans() {
 function stopAdminListeners() { stop('reqsAll'); S.reqs = []; stop('inbox'); S.inbox = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
   if (S.dayScansFor === S.selDay && unsub.dayScans) return;
-  stop('dayScans'); stop('dayDrv'); S.dayScans = []; S.dayDrivers = []; S.dayScansFor = S.selDay;
+  stop('dayScans'); stop('dayDrv'); stop('dayUndos'); S.dayScans = []; S.dayDrivers = []; S.dayUndos = []; S.dayScansFor = S.selDay;
+  if (S.selDay) unsub.dayUndos = F.onSnapshot(F.query(col('undos'), F.where('day', '==', S.selDay)), snap => { S.dayUndos = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.t - b.t); renderAdmin(); }, err => console.warn('undos', err));
   if (S.selDay) unsub.dayDrv = F.onSnapshot(F.query(col('drv'), F.where('day', '==', S.selDay)), snap => { S.dayDrivers = snap.docs.map(d => d.data()); renderAdmin(); }, err => console.warn('dayDrv', err));
   if (!S.selDay) return;
   const q = F.query(col('scans'), F.where('day', '==', S.selDay));
@@ -2841,8 +2844,8 @@ function setMainButtons() { const on = cam.on && cam.box === boxMain; $('startBt
 
 // Meldung unter dem Scanner: verschwindet nach 10 Sekunden (Countdown sichtbar)
 let lastTimer = null;
-function showLast(cls, html) {
-  const el = $('last'), SEC = 10;
+function showLast(cls, html, sec) {
+  const el = $('last'), SEC = sec || 10;
   let end = Date.now() + SEC * 1000, prev = Date.now();
   el.className = cls; el.hidden = false;
   el.innerHTML = html + '<i class="last-bar" style="animation-duration:' + SEC + 's"></i>';
@@ -2903,9 +2906,11 @@ async function book(pid, src) {
   usedInc(day.id, pid, 1);
   eggsAfterBook(pid, id).catch(err => console.warn('Easter Egg', err));
   const p = P(pid), notLoaded = !((day.load || {})[pid] > 0);
+  const uc = undoCfg();
   showLast('last' + (notLoaded ? ' unk' : ''), '<div><b>' + esc(p ? p.name : 'Getränk') + ' gebucht</b><span>' +
     (notLoaded ? 'Heute nicht als mitgenommen eingetragen – bitte dem Admin Bescheid geben.' : (S.online ? 'Gespeichert.' : 'Offline gespeichert, wird später gesendet.')) +
-    '</span></div><div class="last-r"><button class="b sm" data-undo="' + id + '" data-up="' + pid + '">Rückgängig</button><small class="last-cd"></small></div>');
+    (uc.on ? '' : ' Vertippt? Unten „Korrektur beantragen“.') +
+    '</span></div>' + (uc.on ? '<div class="last-r"><button class="b sm" data-undo="' + id + '" data-up="' + pid + '" data-bt="' + data.t + '">Rückgängig</button><small class="last-cd"></small></div>' : '<small class="last-cd"></small>'), uc.on ? uc.secs : 6);
 }
 function onMainCode(code) {
   if (!S.activeDay || !S.me) return;
@@ -2915,7 +2920,11 @@ function onMainCode(code) {
 }
 $('last').addEventListener('click', e => {
   const u = e.target.closest('[data-undo]'); if (!u) return;
+  const uc = undoCfg(), bt = +u.dataset.bt || 0;
+  if (!uc.on || (bt && Date.now() - bt > (uc.secs + 60) * 1000)) { hideLast(); toast('Rückgängig ist nicht mehr möglich – bitte „Korrektur beantragen“'); return; }
   fire(F.deleteDoc(dref('scans', u.dataset.undo)), 'Rückgängig');
+  // wer wann was zurückgenommen hat – Admins sehen es beim Abgleich
+  if (u.dataset.up) fire(F.setDoc(dref('undos', newId('undos')), { uid: S.user.uid, name: S.me || '', day: S.active, p: u.dataset.up, t: Date.now(), bt }), 'Rückgängig merken');
   if (u.dataset.up) usedInc(S.active, u.dataset.up, -1);
   if (u.dataset.up) { eggsAfterUndo(u.dataset.up); logEv('buchung', 'nimmt eigene Buchung zurück: ' + pname(u.dataset.up), S.active); }
   hideLast(); toast('Buchung zurückgenommen');
@@ -2992,6 +3001,20 @@ function renderScan() {
    ========================================================= */
 const sh = { mode: 'load', dayId: null, pid: null, unknown: null, assignTo: null, minus: false, last: null };
 const selDayObj = () => S.days.find(d => d.id === S.selDay) || null;
+/* ---------- Rückgängig gemacht: beim Abgleich anzeigen, hervorgehoben wo etwas fehlt ---------- */
+const undoWho = L => L.map(u => (u.name || uname(u.uid)) + ' ' + fmtTime(u.t)).join(', ');
+function undoMissText(rows, undos) {
+  const out = [];
+  rows.filter(r => r.diff != null && r.diff < 0).forEach(r => { const L = undos.filter(u => u.p === r.p.id); if (L.length) out.push(r.p.name + ': fehlt ' + (-r.diff) + ', aber ' + L.length + '× rückgängig gemacht (' + undoWho(L) + ')'); });
+  return out;
+}
+function undoBlock(rows) {
+  const U = S.dayUndos || []; if (!U.length) return '';
+  const miss = new Set(rows.filter(r => r.diff != null && r.diff < 0).map(r => r.p.id)), warn = undoMissText(rows, U);
+  return (warn.length ? '<div class="note bad" style="margin-top:10px"><b>Prüfen:</b> ' + warn.map(esc).join('<br>') + '</div>' : '') +
+    '<details class="pc" data-k="undoList"' + (warn.length ? ' open' : '') + '><summary><b>Rückgängig gemacht</b><small>' + U.length + '×</small></summary>' +
+    U.map(u => { const hi = miss.has(u.p); return '<div class="rw"' + (hi ? ' style="background:rgba(198,40,40,.12);border-radius:8px;padding-left:6px"' : '') + '><span>' + fmtTime(u.t) + '</span><span>' + esc(u.name || uname(u.uid)) + '</span><small' + (hi ? ' style="color:var(--pen);font-weight:700"' : '') + '>' + esc(pname(u.p)) + (u.bt ? ' · nach ' + Math.max(0, Math.round((u.t - u.bt) / 1000)) + ' s' : '') + (hi ? ' · fehlt' : '') + '</small></div>'; }).join('') + '</details>';
+}
 /* ---------- Übersicht: Tage, an denen zu wenig gebucht wurde ----------
    Pro Tag und Getränk: mitgenommen − gebucht − übrig. Fehlen Flaschen, wurde zu wenig gebucht.
    Gezählt wird per Zählabfrage (kostet kaum Lesevorgänge), nur Tage mit eingetragenem „Übrig“. */
@@ -3012,7 +3035,9 @@ async function checkMissing() {
       }));
       if (!items.length) continue;
       const miss = items.filter(x => x.diff < 0);
-      list.push({ day: d, items: items.sort((a, b) => a.diff - b.diff), miss: miss.reduce((a, x) => a - x.diff, 0), over: items.filter(x => x.diff > 0).reduce((a, x) => a + x.diff, 0),
+      let undos = [];
+      if (miss.length) { try { undos = (await F.getDocs(F.query(col('undos'), F.where('day', '==', d.id)))).docs.map(x => x.data()).filter(u => miss.some(m => m.pid === u.p)).sort((a, b) => a.t - b.t); } catch (e) {} }
+      list.push({ day: d, undos, items: items.sort((a, b) => a.diff - b.diff), miss: miss.reduce((a, x) => a - x.diff, 0), over: items.filter(x => x.diff > 0).reduce((a, x) => a + x.diff, 0),
         val: miss.reduce((a, x) => a - x.diff * ((P(x.pid) || {}).price || 0), 0), all: ids.length >= Object.keys(load).filter(k => load[k] > 0).length });
     }
     missInfo = { t: Date.now(), list, n: S.days.filter(d => Object.keys(d.count || {}).some(k => d.count[k] != null)).length };
@@ -3031,6 +3056,7 @@ function missSection() {
   h += L.map(x => '<details class="pc" data-k="miss' + x.day.id + '"><summary><span><b>' + esc(fmtDate(x.day.date)) + '</b><br><small>' + esc(x.day.place || '') + (x.all ? '' : ' · „Übrig“ nicht überall eingetragen') + '</small></span><small style="text-align:right">' +
     (x.miss ? '<b style="color:var(--pen)">fehlt ' + x.miss + '</b>' + (x.val ? '<br>' + money(x.val) : '') : '') + (x.over ? (x.miss ? '<br>' : '') + '<span style="color:var(--amb)">' + x.over + ' zu viel gebucht</span>' : '') + '</small></summary>' +
     x.items.map(i => '<div class="rw"><span></span><span>' + esc(pname(i.pid)) + '</span><small>mit ' + i.l + ' · gebucht ' + i.u + ' · übrig ' + i.c + '</small><small style="min-width:70px;text-align:right;font-weight:700;color:' + (i.diff < 0 ? 'var(--pen)">fehlt ' + (-i.diff) : 'var(--amb)">' + i.diff + ' zu viel') + '</small></div>').join('') +
+    ((x.undos || []).length ? '<div class="note bad" style="margin:6px 0">Rückgängig gemacht: ' + esc(x.undos.map(u => (u.name || uname(u.uid)) + ' ' + pname(u.p) + ' ' + fmtTime(u.t)).join(', ')) + '</div>' : '') +
     '<div class="row"><button class="b sm" data-act="pickDay" data-id="' + x.day.id + '">Tag öffnen</button>' + (x.miss && S.isAdmin ? '<button class="b sm" data-act="missFix" data-id="' + x.day.id + '">Nachtragen auf diesen Tag</button>' : '') + '</div></details>').join('');
   return h + '</section>';
 }
@@ -3300,6 +3326,7 @@ function renderAdmin() {
         '<td><input class="n" inputmode="numeric" data-cnt="' + r.p.id + '" value="' + (r.c == null ? '' : r.c) + '" aria-label="Übrig ' + esc(r.p.name) + '"></td>' +
         '<td class="' + (r.diff == null ? '' : r.diff === 0 ? 'good' : r.diff < 0 ? 'bad' : 'warn') + '">' + (r.diff == null ? '–' : r.diff === 0 ? 'passt' : r.diff < 0 ? 'fehlt ' + (-r.diff) : r.diff + ' zu viel') + '</td></tr>').join('') +
       '</tbody><tfoot><tr><td>Summe</td><td>' + rows.reduce((a, r) => a + r.l, 0) + '</td><td>' + rows.reduce((a, r) => a + r.u, 0) + '</td><td>' + rows.reduce((a, r) => a + r.s, 0) + '</td><td>' + rows.reduce((a, r) => a + (r.c || 0), 0) + '</td><td></td></tr></tfoot></table></div>' +
+      undoBlock(rows) +
       '<div class="row"><button class="b sm" data-act="zeroOpen">Leere Felder bei „Übrig“ = 0</button><button class="b sm" data-act="csvDay">Tag als CSV</button><button class="b sm" data-act="csvPers">Nach Person als CSV</button></div>'
       : '<div class="empty">Noch keine Getränke für diesen Tag.</div>') + '</section>';
 
@@ -3626,6 +3653,11 @@ function settingsSection() {
     '<label class="f full">Zusätzlicher Text (optional)<textarea id="pvExtra" rows="2" class="ta">' + esc(pv.extra) + '</textarea></label>' +
     '<div class="full"><button class="b pri sm" data-set="privacySave">Datenschutz speichern</button></div></div>';
   h += partyAdmin();
+  const uc = undoCfg();
+  h += '<h3 class="sub3">Rückgängig nach dem Buchen</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Nach jeder Buchung erscheint kurz „Rückgängig“. Jedes Zurücknehmen wird mit Person, Getränk und Uhrzeit gemerkt; fehlt beim Abgleich etwas, zeigt die App es dort an. Ohne Rückgängig bleibt nur „Korrektur beantragen“.</div>' +
+    '<div class="grid2"><label class="chk full"><input type="checkbox" id="unOn"' + (uc.on ? ' checked' : '') + '> Rückgängig erlauben</label>' +
+    '<label class="f">Zeit dafür (Sekunden, 3–120)<input class="n" id="unSecs" inputmode="numeric" value="' + uc.secs + '" style="width:80px"></label>' +
+    '<div class="full"><button class="b pri sm" data-set="undoSave">Rückgängig speichern</button></div></div>';
   const tc = themeCfg();
   h += '<h3 class="sub3">Nachtmodus</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">In dieser Zeit wird die App bei „Auto“ dunkel (außerdem, wenn das Handy auf dunkel steht). Mit „Erzwingen“ ist sie in der Zeit für alle dunkel – auch für alle, die „Hell“ gewählt haben.' + (inNight(tc) ? ' <b>Gerade ist Nachtzeit.</b>' : '') + '</div>' +
     '<div class="grid2"><label class="f">Dunkel ab<input type="time" id="thFrom" value="' + esc(tc.from) + '"></label>' +
@@ -3661,6 +3693,12 @@ $('adminBody').addEventListener('click', e => {
     S.privacy = pv; fire(F.setDoc(dref('config', 'privacy'), pv), 'Datenschutz speichern'); logEv('system', 'ändert den Datenschutzhinweis'); toast('Datenschutzhinweis gespeichert');
   }
   if (b.dataset.set === 'privacyShow') openModal(privacyHTML());
+  if (b.dataset.set === 'undoSave') {
+    const on = $('unOn').checked, secs = parseInt($('unSecs').value);
+    if (!(secs >= 3 && secs <= 120)) { toast('Zeit: 3 bis 120 Sekunden'); return; }
+    S.undoCfg = { on, secs, t: Date.now() }; fire(F.setDoc(dref('config', 'undo'), S.undoCfg), 'Rückgängig speichern');
+    logEv('system', 'Rückgängig nach dem Buchen: ' + (on ? secs + ' Sekunden' : 'aus')); toast(on ? 'Rückgängig: ' + secs + ' Sekunden' : 'Rückgängig ausgeschaltet'); renderAdmin();
+  }
   if (b.dataset.set === 'themeSave' || b.dataset.set === 'themeReset') {
     const re = /^\d{2}:\d{2}$/, reset = b.dataset.set === 'themeReset';
     const c = reset ? { from: '19:00', to: '07:00', force: false } : { from: $('thFrom').value, to: $('thTo').value, force: $('thForce').checked };
@@ -4307,6 +4345,7 @@ let lastBadge = -1;
 /* ---------- Handy-Benachrichtigungen (wenn die App im Hintergrund läuft) ----------
    Auf Android erscheint dadurch auch der Punkt am App-Symbol. Ohne eigenen Server gibt es keine echten
    Push-Nachrichten: Benachrichtigt wird nur, solange die App im Hintergrund noch läuft. */
+const undoCfg = () => { const c = S.undoCfg || {}; return { on: c.on !== false, secs: Math.min(120, Math.max(3, +c.secs || 10)) }; };
 const canNotify = () => 'Notification' in window && Notification.permission === 'granted';
 function notifyBg(title, body, tag, go) {
   if (!document.hidden || !canNotify()) return;
@@ -4729,6 +4768,8 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'close' && day) {
     const open = dayRows(day, S.dayScans).filter(r => r.c == null).length, act = day.id === S.active;
+    const uw = undoMissText(dayRows(day, S.dayScans), S.dayUndos || []);
+    if (uw.length && !await ask('Beim Abgleich fehlt etwas, und es wurde rückgängig gemacht:\n\n' + uw.join('\n') + '\n\nTrotzdem abschließen?', { title: 'Bitte prüfen', ok: 'Trotzdem abschließen', danger: true })) return;
     if (open && !await ask(open + ' Getränken fehlt noch „Übrig“. Trotzdem abschließen?' + (act ? ' Das Scannen wird damit beendet.' : ''))) return;
     if (!open && act && !await ask('Tag abschließen? Das Scannen wird damit beendet.', { ok: 'Abschließen' })) return;
     fire(F.updateDoc(dref('days', day.id), { closed: true }), 'Tag abschließen');
@@ -4945,7 +4986,7 @@ adminBody.addEventListener('click', async e => {
    Sichert alle Daten, die sich nicht aus anderen neu berechnen lassen. Zähler und Bestenliste
    werden nach dem Import aus den Buchungen neu berechnet. Logins (Firebase Authentication) lassen sich nicht sichern. */
 const BACKUP_V = 4;
-const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['avatars', 'Profilbilder']];
+const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['undos', 'Rückgängig-Protokoll'], ['avatars', 'Profilbilder']];
 const bkCfg = () => Object.assign({ every: 30, t: 0 }, S.backupCfg || {});
 const bkAvPref = () => { try { return localStorage.getItem('strichliste_bkav') !== '0'; } catch (e) { return true; } };
 // Zeitstempel aus Firestore als { __ts: ms } speichern und beim Import zurückverwandeln
