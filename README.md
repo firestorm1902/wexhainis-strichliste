@@ -133,7 +133,7 @@ Konto-Bereich oben → **✏️ Texte bearbeiten**. Alle änderbaren Texte sind 
 Gibt es im Admin-Bereich etwas zu tun, steht oben neben dem Namen eine **🔔 mit Zahl**: neue Anmeldungen, Löschanträge, offene Korrekturanträge, Antworten auf eigene Rückfragen und (Super-Admin) ungelesene Nachrichten. Antippen zeigt die Liste; ein Eintrag springt direkt in den passenden Bereich. **Später erinnern**: in 1, 3 oder 8 Stunden oder morgen früh – spätestens am nächsten Morgen um 8 Uhr meldet sich die Glocke wieder (mit Hinweis), solange noch etwas offen ist. Neue Aufgaben zeigt sie auch während der Pause sofort.
 
 ### Bereiche anordnen und umbenennen
-Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest und blendet mit dem Häkchen „zeigen“ Bereiche aus, die er nicht braucht (gilt nur für ihn, auf allen seinen Geräten). Der Knopf zeigt, wie viele ausgeblendet sind; „Alles zurücksetzen“ holt alles zurück. Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard), mit dem Häkchen **„Admins“** Bereiche für alle anderen Admins und den Vorstand ausblenden und mit **„Speichern + als Standard für alle“** die Standard-Reihenfolge festlegen. Wer keine eigene Reihenfolge hat (oder „Auf Standard zurücksetzen“ tippt), bekommt diese.
+Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest und blendet mit dem Häkchen „zeigen“ Bereiche aus, die er nicht braucht (gilt nur für ihn, auf allen seinen Geräten). Der Knopf zeigt, wie viele ausgeblendet sind; „Alles zurücksetzen“ holt alles zurück. Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard), mit dem Häkchen **„Admins“** Bereiche für die Getränke-Admins und mit **„Vorstand“** für den Vorstand ausblenden (der Vorstand sieht immer nur lesend, Excel-Export geht) und mit **„Speichern + als Standard für alle“** die Standard-Reihenfolge festlegen. Wer keine eigene Reihenfolge hat (oder „Auf Standard zurücksetzen“ tippt), bekommt diese.
 
 ### Große Schrift
 Die App passt sich an die Schriftgröße des Handys an: Formulare stapeln sich, wenn der Platz nicht reicht, Zahlenfelder bleiben lesbar, der Kopf bricht um und klebt nur dann oben, wenn er nicht zu viel Platz wegnimmt.
@@ -437,13 +437,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 77**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 77 auf 78):
-- in `index.html`: `const APP_VERSION = '77';`
-- in `sw.js`: `const VERSION = 'strichliste-v77';`
+Aktuell ist **Version 78**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 78 auf 79):
+- in `index.html`: `const APP_VERSION = '78';`
+- in `sw.js`: `const VERSION = 'strichliste-v78';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 77“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 78“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

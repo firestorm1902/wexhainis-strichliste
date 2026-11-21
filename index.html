@@ -224,6 +224,8 @@ input.n{min-width:3em}
 .ordrow.off .ordname{opacity:.45}
 #adminBody > section{scroll-margin-top:calc(var(--toph,140px) + 60px)}
 h2.allhid::after{content:' · für Admins ausgeblendet';font-size:.7rem;color:var(--mu);font-weight:500}
+h2.bdhid:not(.allhid)::after{content:' · für Vorstand ausgeblendet';font-size:.7rem;color:var(--mu);font-weight:500}
+h2.bdhid.allhid::after{content:' · für Admins + Vorstand ausgeblendet'}
 .top.nostick{position:relative}
 .camhelp{display:flex;flex-direction:column;gap:4px}.camhelp>small{color:var(--mu)}.camhelp p{margin:2px 0}
 .camhelp ol{margin:4px 0 2px 1.2em;padding:0;display:flex;flex-direction:column;gap:5px}.camhelp li{line-height:1.35}
@@ -779,7 +781,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '77';
+const APP_VERSION = '78';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4990,6 +4992,7 @@ function saveAdmHidden(list) {
 const secTitle = k => ((S.secTitles || {})[k] || '').trim();
 const secDefOrder = () => (S.secCfg && Array.isArray(S.secCfg.order)) ? S.secCfg.order : [];
 const secAllHidden = () => (S.secCfg && Array.isArray(S.secCfg.hidden)) ? S.secCfg.hidden : [];
+const secBoardHidden = () => (S.secCfg && Array.isArray(S.secCfg.hiddenBoard)) ? S.secCfg.hiddenBoard : [];
 function admArrange(el, secs) {
   const admOrder = (typeof admOrderMine !== 'undefined' && admOrderMine.length) ? admOrderMine : secDefOrder();
   if (!admOrder.length) return secs;
@@ -5012,8 +5015,8 @@ function adminNav(el, navX) {
   secs = admArrange(el, secs);
   admSeen = secs.map(x => x.firstElementChild.dataset.adm);
   // ausgeblendete Bereiche: nur für diesen Admin, über „Anordnen“ wieder einblendbar
-  const allHid = S.isSuper ? [] : secAllHidden();
-  secs.forEach(x => x.firstElementChild.classList.toggle('allhid', S.isSuper && secAllHidden().includes(x.firstElementChild.dataset.adm)));
+  const allHid = S.isSuper ? [] : S.isAdmin ? secAllHidden() : secBoardHidden(); // Vorstand: eigene Liste
+  secs.forEach(x => { const k = x.firstElementChild.dataset.adm; x.firstElementChild.classList.toggle('allhid', S.isSuper && secAllHidden().includes(k)); x.firstElementChild.classList.toggle('bdhid', S.isSuper && secBoardHidden().includes(k)); });
   const hid = secs.filter(x => admHidden.includes(x.firstElementChild.dataset.adm) || allHid.includes(x.firstElementChild.dataset.adm));
   hid.forEach(x => x.remove()); secs = secs.filter(x => !hid.includes(x));
   const items = secs.map((sec, i) => {
@@ -5031,9 +5034,10 @@ function adminNav(el, navX) {
 function ordHTML() {
   const L = admSeen.slice();
   return '<h2>Bereiche anordnen</h2><p style="font-size:.85rem;color:var(--mu)">Reihenfolge und Häkchen „zeigen“ gelten nur für dich' + (S.isSuper ? '. Die Überschriften änderst du als Super-Admin für alle (leer = Standard).' : '.') + '</p>' +
-    (S.isSuper ? '<p style="font-size:.85rem;color:var(--mu)">„Admins“ = für alle anderen Admins und den Vorstand sichtbar. „Als Standard für alle“ speichert diese Reihenfolge für alle, die keine eigene haben.</p>' : '') +
+    (S.isSuper ? '<p style="font-size:.85rem;color:var(--mu)">„Admins“ = für die Getränke-Admins sichtbar, „Vorstand“ = für den Vorstand sichtbar (immer nur lesend, Excel-Export geht). „Als Standard für alle“ speichert diese Reihenfolge für alle, die keine eigene haben.</p>' : '') +
     '<div id="ordList">' + L.map((k, i) => '<div class="ordrow' + (admHidden.includes(k) ? ' off' : '') + '" data-k="' + esc(k) + '"><label class="ordshow" title="anzeigen"><input type="checkbox" data-ordshow' + (admHidden.includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' anzeigen"><small>' + (S.isSuper ? 'ich' : 'zeigen') + '</small></label>' +
-      (S.isSuper ? '<label class="ordshow" title="für alle Admins"><input type="checkbox" data-ordall' + (secAllHidden().includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' für alle Admins"><small>Admins</small></label>' : '') + '<span class="ordbtns"><button type="button" class="b sm" data-ord="up" aria-label="nach oben"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="b sm" data-ord="down" aria-label="nach unten"' + (i < L.length - 1 ? '' : ' disabled') + '>↓</button></span>' +
+      (S.isSuper ? '<label class="ordshow" title="für alle Admins"><input type="checkbox" data-ordall' + (secAllHidden().includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' für alle Admins"><small>Admins</small></label>' +
+        '<label class="ordshow" title="für den Vorstand (nur lesen)"><input type="checkbox" data-ordbd' + (secBoardHidden().includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' für den Vorstand"><small>Vorstand</small></label>' : '') + '<span class="ordbtns"><button type="button" class="b sm" data-ord="up" aria-label="nach oben"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="b sm" data-ord="down" aria-label="nach unten"' + (i < L.length - 1 ? '' : ' disabled') + '>↓</button></span>' +
       (S.isSuper ? '<label class="f ordname"><small>' + esc(k) + '</small><input data-ordt="' + esc(k) + '" maxlength="40" value="' + esc(secTitle(k)) + '" placeholder="' + esc(k) + '"></label>' : '<span class="ordname">' + esc(secTitle(k) || k) + '</span>') + '</div>').join('') + '</div>' +
     '<div class="row"><button class="b pri" id="ordSave">Speichern</button>' + (S.isSuper ? '<button class="b" id="ordDef">Speichern + als Standard für alle</button>' : '') + '<button class="b" id="ordReset">' + (secDefOrder().length ? 'Auf Standard zurücksetzen' : 'Alles zurücksetzen') + '</button></div>';
 }
@@ -5051,12 +5055,13 @@ $('modalBody').addEventListener('click', e => {
     const keys = [...$('ordList').children].map(r => r.dataset.k);
     if (S.isSuper) {
       const allHid = [...$('ordList').children].filter(r => { const c = r.querySelector('[data-ordall]'); return c && !c.checked; }).map(r => r.dataset.k).concat(secAllHidden().filter(k => !keys.includes(k)));
-      const cfg = { hidden: allHid };
+      const bdHid = [...$('ordList').children].filter(r => { const c = r.querySelector('[data-ordbd]'); return c && !c.checked; }).map(r => r.dataset.k).concat(secBoardHidden().filter(k => !keys.includes(k)));
+      const cfg = { hidden: allHid, hiddenBoard: bdHid };
       if (e.target.id === 'ordDef') cfg.order = keys.concat(secDefOrder().filter(k => !keys.includes(k)));
-      if (JSON.stringify(allHid) !== JSON.stringify(secAllHidden()) || cfg.order) {
+      if (JSON.stringify(allHid) !== JSON.stringify(secAllHidden()) || JSON.stringify(bdHid) !== JSON.stringify(secBoardHidden()) || cfg.order) {
         S.secCfg = Object.assign({}, S.secCfg || {}, cfg);
         fire(F.setDoc(dref('config', 'sections'), Object.assign({}, cfg, { t: Date.now() }), { merge: true }), 'Bereiche für alle');
-        logEv('system', (cfg.order ? 'legt Standard-Reihenfolge fest' : '') + (cfg.order && allHid.length ? ', ' : '') + (allHid.length ? 'blendet für alle aus: ' + allHid.join(', ') : ''));
+        logEv('system', (cfg.order ? 'legt Standard-Reihenfolge fest' : '') + (cfg.order && allHid.length ? ', ' : '') + (allHid.length ? 'blendet für Admins aus: ' + allHid.join(', ') : '') + (bdHid.length ? ' · für den Vorstand aus: ' + bdHid.join(', ') : ''));
       }
     }
     const merged = keys.concat(admOrder.filter(k => !keys.includes(k))); // auch gerade nicht sichtbare Bereiche behalten

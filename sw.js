@@ -1,6 +1,6 @@
 /* Service Worker: hält die App offline startbar.
    Firestore selbst puffert Buchungen eigenständig (IndexedDB). */
-const VERSION = 'strichliste-v77';
+const VERSION = 'strichliste-v78';
 const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 const CORE = [
   './',
