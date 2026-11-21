@@ -107,6 +107,20 @@ Jedes Rückgängig wird gemerkt: wer, wann, welches Getränk, und wie viele Seku
 ### Konto-Bereich oben
 Der Kopf der App bleibt beim Scrollen oben stehen. Darin steht dein Profilbild mit „Name · Rolle ▾“. Antippen klappt den Konto-Bereich auf: Name, Rolle, Gruppe, E-Mail, **Profilbild ändern** (oder aufs Bild tippen), **Bild entfernen**, **Passwort ändern** und **Abmelden** (mit Rückfrage). Diese Knöpfe sind dafür von der Startseite verschwunden; dort bleiben nur „Ich fahre heute“, Easter Eggs und Party.
 
+### Lager (statt Einkaufsliste)
+Admin → **Lager**: Bestand pro Getränk in Flaschen (mit Gebinden, z. B. „69 Fl. (3× Kasten 20 + 9)“) und ein **Mindestbestand** pro Getränk.
+- **Buchen:** Wareneingang (mit „+ 1 Kasten“-Knöpfen), Entnahme oder Inventur (gezählten Ist-Bestand eintragen – die Differenz wird gebucht).
+- **Pro Tag:** „Aus dem Lager abbuchen“ bucht das Mitgenommene ab, „Übrig zurück ins Lager“ bucht den Rest zurück. Wird später noch nachgeladen oder „Übrig“ geändert, erscheint nur die Differenz zum Buchen – nichts wird doppelt gebucht.
+- **Nachkaufen:** alles unter dem Mindestbestand, als Liste zum Teilen (WhatsApp) oder Kopieren.
+- **Bedarf für die nächsten Ausflüge:** die frühere Einkaufslisten-Berechnung aus dem bisherigen Verbrauch.
+- **Verlauf:** die letzten Lagerbewegungen mit Person und Uhrzeit. Alles steckt auch im Backup.
+
+### Bereiche anordnen und umbenennen
+Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest (gilt auf allen seinen Geräten). Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard).
+
+### Große Schrift
+Die App passt sich an die Schriftgröße des Handys an: Formulare stapeln sich, wenn der Platz nicht reicht, Zahlenfelder bleiben lesbar, der Kopf bricht um und klebt nur dann oben, wenn er nicht zu viel Platz wegnimmt.
+
 ### Scannen
 Auf der Startseite steht nur noch der Knopf **📷 Getränk scannen**. Antippen öffnet direkt das Scanfenster mit Kamera; „Scannen beenden“ klappt es wieder zu.
 - Unten rechts erscheint beim Herunterscrollen ein gelber Knopf **nach oben**.
@@ -404,13 +418,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 67**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 67 auf 68):
-- in `index.html`: `const APP_VERSION = '67';`
-- in `sw.js`: `const VERSION = 'strichliste-v67';`
+Aktuell ist **Version 68**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 68 auf 69):
+- in `index.html`: `const APP_VERSION = '68';`
+- in `sw.js`: `const VERSION = 'strichliste-v68';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 67“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 68“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

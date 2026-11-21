@@ -267,6 +267,16 @@ service cloud.firestore {
         && request.resource.data.status == 'answered');
       allow delete: if isAdmin();
     }
+    // Lager: Bewegungen (Eingang, Entnahme, Inventur, Tag) – Admins schreiben, Admins und Vorstand lesen
+    match /stockmv/{id} {
+      allow read: if isReader();
+      allow create: if isAdmin() && request.resource.data.by == request.auth.uid;
+      allow update, delete: if isSuper();
+    }
+    // Persönliche Einstellungen (z. B. Reihenfolge der Admin-Bereiche): nur man selbst
+    match /prefs/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
     // Tageszusammenfassungen für die tägliche Zählerprüfung: nur der Super-Admin
     match /dsum/{id} { allow read, write: if isSuper(); }
 

@@ -199,6 +199,25 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .ap-who{flex:1;min-width:0;display:flex;flex-direction:column}
 .ap-who small{color:var(--mu);overflow:hidden;text-overflow:ellipsis}
 #camBox.off .vp{display:none}
+/* große Systemschrift: nichts quetschen – Spalten stapeln sich, Zahlenfelder behalten Mindestbreite */
+.grid2{grid-template-columns:repeat(auto-fit,minmax(min(100%,10.5rem),1fr))}
+.stepper{flex-wrap:nowrap}
+.stepper .b{width:auto;min-width:44px;flex:0 0 2.6rem;font-size:1.3rem}
+.stepper input{min-width:3.2em}
+input.n{min-width:3em}
+.mode{flex-wrap:wrap}.mode button{flex:1 1 auto;min-height:2.4rem;white-space:normal}
+.lgmode button{padding:8px 6px}
+.lgday{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0}
+.lgtab td:nth-child(2){white-space:normal}
+.ordrow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.ordbtns{display:flex;gap:4px;flex:none}.ordbtns .b{min-width:40px}
+.ordname{flex:1;min-width:0}.ordname input{width:100%}
+.top.nostick{position:relative}
+.top-in{flex-wrap:wrap;row-gap:8px}
+#title .t1{font-size:min(2rem,9.5vw)}#title .t2{font-size:min(1.02rem,5vw)}
+.top-side{margin-left:auto}
+.toast{width:max-content;max-width:min(92vw,460px);border-radius:18px}
+.admnav-all{flex-wrap:wrap}
 #camBox{scroll-margin-top:150px}
 #startBtn{font-size:1.05rem;padding:14px}
 .back{background:transparent;color:#fff;border-color:#fff}
@@ -741,7 +760,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '67';
+const APP_VERSION = '68';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -781,7 +800,7 @@ const packsText = packs => (packs || []).map(k => k.l + ' ' + k.n).join('; ');
 
 /* Neu zeichnen, ohne laufende Eingaben, Fokus und aufgeklappte Bereiche zu verlieren
    (wichtig, weil andere Handys ständig Buchungen schicken) */
-const ATTRS = ['data-stock', 'data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u', 'data-role', 'data-er', 'data-grp', 'data-minor', 'data-gr'];
+const ATTRS = ['data-min', 'data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u', 'data-role', 'data-er', 'data-grp', 'data-minor', 'data-gr'];
 function fieldKey(el) {
   if (el.id) return '#' + el.id;
   for (const a of ATTRS) if (el.hasAttribute(a)) return a + '=' + el.getAttribute(a) + '|' + (el.dataset.id || '');
@@ -926,6 +945,8 @@ function startUserListeners() {
   stop('cfgParty'); unsub.cfgParty = F.onSnapshot(dref('config', 'party'), snap => { S.party = snap.exists() ? snap.data() : null; renderParty(); if (S.isAdmin) renderAdmin(); }, err => console.warn('party', err));
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
+  stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; renderAdmin(); }, err => console.warn('sections', err));
+  stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const o = snap.exists() ? snap.data().order : null; if (Array.isArray(o) && JSON.stringify(o) !== JSON.stringify(admOrder)) { admOrder = o; try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} renderAdmin(); } }, err => console.warn('prefs', err));
   stop('cfgUndo'); unsub.cfgUndo = F.onSnapshot(dref('config', 'undo'), snap => { S.undoCfg = snap.exists() ? snap.data() : null; if (S.isSuper) renderAdmin(); }, err => console.warn('undo', err));
   stop('cfgBackup'); unsub.cfgBackup = F.onSnapshot(dref('config', 'backup'), snap => {
     S.backupCfg = snap.exists() ? snap.data() : null; renderAdmin();
@@ -1045,7 +1066,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'cfgUndo', 'album', 'drv', 'myReqs', 'myMsgs', 'myAsks'].forEach(stop); S.myReqs = []; S.myMsgs = []; S.myAsks = []; renderAskBox();
+  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'cfgUndo', 'cfgSecs', 'prefs', 'album', 'drv', 'myReqs', 'myMsgs', 'myAsks'].forEach(stop); S.myReqs = []; S.myMsgs = []; S.myAsks = []; renderAskBox();
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -3557,7 +3578,7 @@ function renderAdmin() {
       : '<div class="row"><button class="b" data-act="toggleNewProd">Getränk ohne Scan anlegen</button></div>') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Gebinde als „Name Anzahl“, mehrere mit Semikolon, z. B. „Kasten 20; Kasten 24; Sixpack 6“.</div></section>';
 
-  if (!RO && S.products.length) h += shopSection();
+  if (S.products.length) h += lagerSection();
   if (S.days.length) h += undoAllSection();
   if (S.days.length > 1 && !RO) {
     h += missSection();
@@ -3630,27 +3651,126 @@ function renderAdmin() {
   adminNav(el, navX);
   if (Math.abs(window.scrollY - y0) > 1) window.scrollTo({ top: y0, behavior: 'instant' });
 }
-/* ---------- Einkaufsliste ---------- */
+/* ---------- Bedarfsprognose (Teil des Lagers) ---------- */
 let shopCfg = { trips: 1, base: 5, buf: 10 }; try { Object.assign(shopCfg, JSON.parse(localStorage.getItem('strichliste_shop') || '{}')); } catch (e) {}
 const shopScans = {};
-function shopSection() {
-  const lastC = S.days.filter(d => d.date <= todayISO() && Object.keys(d.count || {}).some(k => d.count[k] != null))[0];
-  let h = '<section><h2>Einkaufsliste</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Bedarf = Ø Verbrauch der letzten Ausflüge × Anzahl Ausflüge + Puffer. Davon wird abgezogen, was im Lager steht. Verbrauch = gebucht, oder mitgenommen − übrig, falls das mehr ist.</div>' +
-    '<div class="grid2"><label class="f">Einkauf für … Ausflüge<input id="shTrips" inputmode="numeric" value="' + shopCfg.trips + '"></label><label class="f">Basis: letzte … Ausflüge<input id="shBase" inputmode="numeric" value="' + shopCfg.base + '"></label>' +
-    '<label class="f">Puffer in %<input id="shBuf" inputmode="numeric" value="' + shopCfg.buf + '"></label><div></div></div>' +
-    '<details class="pc" data-k="shopStock"><summary><b>Lagerbestand (Flaschen)</b><small>' + S.products.filter(p => p.stock > 0).length + ' Getränke im Lager</small></summary>' +
-    S.products.map(p => '<div class="rw"><span></span><span>' + esc(p.name) + '</span><input class="n" inputmode="numeric" data-stock="' + p.id + '" value="' + (p.stock || '') + '" placeholder="0" aria-label="Lager ' + esc(p.name) + '"></div>').join('') +
-    (lastC ? '<div class="row"><button class="b sm" data-shop="fromLast" data-id="' + lastC.id + '">Lager = „Übrig“ vom ' + esc(fmtDate(lastC.date)) + '</button></div>' : '') + '</details>' +
-    '<div class="row"><button class="b pri" data-shop="calc">Einkaufsliste berechnen</button></div>';
+/* ---------- Lager ----------
+   Bestand pro Getränk (products.stock, Flaschen) mit Buchungen: Wareneingang, Entnahme, Inventur,
+   und pro Tag: Mitgenommenes abbuchen (days.stockOut) bzw. „Übrig“ zurück ins Lager (days.stockBack).
+   Jede Bewegung steht in stockmv. Mindestbestand (products.min) → Nachkaufliste. */
+let lgType = 'in', lgLog = null, lgBusy = false;
+const LG_TYPES = [['in', 'Wareneingang'], ['out', 'Entnahme'], ['inv', 'Inventur (Ist-Bestand)']];
+const LG_LABEL = { in: 'Wareneingang', out: 'Entnahme', inv: 'Inventur', 'tag-out': 'Für Tag abgebucht', 'tag-back': 'Vom Tag zurück' };
+const stockOf = p => p.stock || 0;
+function packTxt(p, n) {
+  const pk = (p.packs || []).filter(k => k.n > 1).sort((a, b) => b.n - a.n)[0];
+  if (!pk || n < pk.n) return n + ' Fl.';
+  const k = Math.floor(n / pk.n), r = n - k * pk.n;
+  return n + ' Fl. (' + k + '× ' + pk.l + ' ' + pk.n + (r ? ' + ' + r : '') + ')';
+}
+function lgDelta(day, key, src) { // was noch abzubuchen bzw. zurückzubuchen ist
+  const done = day[key] || {}, out = [];
+  Object.keys(src || {}).forEach(pid => { const v = src[pid]; if (v == null) return; const d = v - (done[pid] || 0); if (d) out.push({ pid, n: d }); });
+  Object.keys(done).forEach(pid => { if ((src || {})[pid] == null && done[pid]) out.push({ pid, n: -done[pid] }); });
+  return out.filter(x => P(x.pid));
+}
+function lagerNeed() { return S.products.filter(p => p.min > 0 && stockOf(p) < p.min).map(p => ({ p, miss: p.min - stockOf(p) })); }
+function lagerSection() {
+  const prods = S.products.slice().sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const need = lagerNeed(), total = prods.reduce((a, p) => a + stockOf(p), 0);
+  let h = '<section><h2>Lager</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Bestand in Flaschen. Ändert sich nur über Buchungen: Wareneingang, Entnahme, Inventur – und pro Tag „aus dem Lager abbuchen“ / „Übrig zurück ins Lager“. Unter dem Mindestbestand landet ein Getränk auf der Nachkaufliste.</div>';
+  h += '<div class="tw"><table class="lgtab"><thead><tr><th>Getränk</th><th>Bestand</th><th>Mindest</th></tr></thead><tbody>' +
+    prods.map(p => { const st = stockOf(p), low = p.min > 0 && st < p.min; return '<tr><td>' + esc(p.name) + '</td><td class="' + (st <= 0 ? 'bad' : low ? 'warn' : 'good') + '"><b>' + esc(packTxt(p, st)) + '</b></td><td><input class="n" inputmode="numeric" data-min="' + p.id + '" value="' + (p.min || '') + '" placeholder="–" aria-label="Mindestbestand ' + esc(p.name) + '"></td></tr>'; }).join('') +
+    '</tbody><tfoot><tr><td>Summe</td><td>' + total + ' Fl.</td><td></td></tr></tfoot></table></div>';
+  // Buchen
+  const pSel = $('lgP') ? $('lgP').value : (prods[0] || {}).id, pp = P(pSel) || prods[0];
+  h += '<details class="pc" data-k="lgBook"' + (S.lgOpen ? ' open' : '') + '><summary><b>Buchen</b><small>Eingang, Entnahme, Inventur</small></summary>' +
+    '<div class="mode lgmode" style="display:flex;margin-top:8px">' + LG_TYPES.map(([v, l]) => '<button type="button" data-lgt="' + v + '" class="' + (lgType === v ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    '<div class="grid2"><label class="f">Getränk<select id="lgP">' + prods.map(p => '<option value="' + p.id + '"' + (pp && p.id === pp.id ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select></label>' +
+    '<label class="f">' + (lgType === 'inv' ? 'Gezählter Bestand (Flaschen)' : 'Menge (Flaschen)') + stepper('lgN', lgType === 'inv' && pp ? stockOf(pp) : 0, { min: 0, max: 9999 }) + '</label>' +
+    (pp && (pp.packs || []).length && lgType !== 'inv' ? '<div class="full row" style="margin-top:0">' + pp.packs.filter(k => k.n > 1).map(k => '<button type="button" class="b sm" data-lgpack="' + k.n + '">+ 1 ' + esc(k.l) + ' (' + k.n + ')</button>').join('') + '</div>' : '') +
+    '<label class="f full">Bemerkung (optional)<input id="lgNote" maxlength="120" placeholder="' + (lgType === 'in' ? 'z. B. Getränkemarkt Müller' : lgType === 'out' ? 'z. B. Vereinsabend, Bruch' : 'z. B. Inventur nach Fasnet') + '"></label>' +
+    '<div class="full row" style="margin-top:0"><button class="b pri" data-lg="book">' + (lgType === 'in' ? 'Eingang buchen' : lgType === 'out' ? 'Entnahme buchen' : 'Bestand setzen') + '</button></div></div>' +
+    (pp ? '<small style="color:var(--mu)">Aktuell: ' + esc(pp.name) + ' ' + esc(packTxt(pp, stockOf(pp))) + '</small>' : '') + '</details>';
+  // Tag-Kopplung
+  const day = selDayObj();
+  if (day) {
+    const outD = lgDelta(day, 'stockOut', day.load), backD = lgDelta(day, 'stockBack', day.count);
+    const fmtD = L => L.map(x => (x.n > 0 ? '' : '') + x.n + '× ' + pname(x.pid)).join(', ');
+    h += '<div class="lgday"><b>Tag ' + esc(dayLabel(day)) + '</b>' +
+      (outD.length ? '<div class="row" style="margin-top:4px"><span style="flex-basis:100%;font-size:.85rem">Mitgenommen, noch nicht abgebucht: ' + esc(fmtD(outD)) + '</span><button class="b sm pri" data-lg="dayOut">Aus dem Lager abbuchen</button></div>'
+        : '<div style="font-size:.85rem;color:var(--mu)">' + (Object.keys(day.stockOut || {}).length ? 'Mitgenommenes ist abgebucht ✓' : 'Noch nichts mitgenommen.') + '</div>') +
+      (backD.length ? '<div class="row" style="margin-top:4px"><span style="flex-basis:100%;font-size:.85rem">„Übrig“, noch nicht zurückgebucht: ' + esc(fmtD(backD)) + '</span><button class="b sm pri" data-lg="dayBack">Übrig zurück ins Lager</button></div>'
+        : Object.keys(day.stockBack || {}).length ? '<div style="font-size:.85rem;color:var(--mu)">Übrig ist zurückgebucht ✓</div>' : '') + '</div>';
+  }
+  // Nachkaufen
+  h += '<details class="pc" data-k="lgNeed"' + (need.length ? ' open' : '') + '><summary><b>Nachkaufen</b><small>' + (need.length ? need.length + ' unter Mindestbestand' : 'alles über Mindestbestand') + '</small></summary>' +
+    (need.length ? need.map(x => '<div class="rw"><span></span><span>' + esc(x.p.name) + '</span><small>da ' + stockOf(x.p) + ' · Mindest ' + x.p.min + '</small><b style="color:var(--pen)">' + esc(packTxt(x.p, x.miss)) + '</b></div>').join('') +
+      '<div class="row"><button class="b sm" data-shop="shareNeed">Liste teilen (WhatsApp …)</button><button class="b sm" data-shop="copyNeed">Kopieren</button></div>'
+      : '<div class="empty" style="padding:8px 0">' + (prods.some(p => p.min > 0) ? 'Alles ist über dem Mindestbestand.' : 'Trage oben bei „Mindest“ ein, wie viel immer da sein soll.') + '</div>') + '</details>';
+  // Prognose (frühere Einkaufsliste)
+  h += '<details class="pc" data-k="lgCalc"><summary><b>Bedarf für die nächsten Ausflüge</b><small>aus dem bisherigen Verbrauch</small></summary>' +
+    '<div class="grid2" style="margin-top:8px"><label class="f">Für … Ausflüge<input id="shTrips" inputmode="numeric" value="' + shopCfg.trips + '"></label><label class="f">Basis: letzte … Ausflüge<input id="shBase" inputmode="numeric" value="' + shopCfg.base + '"></label>' +
+    '<label class="f">Puffer in %<input id="shBuf" inputmode="numeric" value="' + shopCfg.buf + '"></label></div><div class="row"><button class="b" data-shop="calc">Bedarf berechnen</button></div>';
   if (S.shop) {
     const L = S.shop.rows.filter(r => r.buy > 0);
-    h += '<div style="font-size:.82rem;color:var(--mu);margin:8px 0 4px">Grundlage: ' + S.shop.days + ' Ausflüge (' + esc(S.shop.range) + '), für ' + S.shop.trips + ' Ausflug' + (S.shop.trips > 1 ? 'e' : '') + ', +' + S.shop.buf + ' % Puffer.</div>' +
+    h += '<div style="font-size:.82rem;color:var(--mu);margin:8px 0 4px">Grundlage: ' + S.shop.days + ' Ausflüge (' + esc(S.shop.range) + '), für ' + S.shop.trips + ' Ausflug' + (S.shop.trips > 1 ? 'e' : '') + ', +' + S.shop.buf + ' % Puffer, abzüglich Lager.</div>' +
       '<div class="tw"><table><thead><tr><th>Getränk</th><th>Ø</th><th>Bedarf</th><th>Lager</th><th>Kaufen</th></tr></thead><tbody>' +
-      S.shop.rows.map(r => '<tr><td>' + esc(r.name) + '</td><td>' + r.avg.toFixed(1).replace('.', ',') + '</td><td>' + r.need + '</td><td>' + r.stock + '</td><td class="' + (r.buy > 0 ? 'warn' : 'good') + '"><b>' + (r.buy > 0 ? esc(r.packTxt) : 'reicht') + '</b></td></tr>').join('') +
-      '</tbody></table></div>' + (L.length ? '<div class="row"><button class="b sm" data-shop="share">Liste teilen (WhatsApp …)</button><button class="b sm" data-shop="copy">Kopieren</button></div>' : '<div class="note ok">Alles da – nichts einzukaufen.</div>');
+      S.shop.rows.map(r => '<tr><td>' + esc(r.name) + '</td><td>' + r.avg.toFixed(1).replace('.', ',') + '</td><td>' + r.need + '</td><td>' + r.stock + '</td><td class="' + (r.buy > 0 ? 'warn' : 'good') + '"><b>' + (r.buy > 0 ? esc(r.packTxt) : '–') + '</b></td></tr>').join('') +
+      '</tbody></table></div>' + (L.length ? '<div class="row"><button class="b sm" data-shop="share">Liste teilen (WhatsApp …)</button><button class="b sm" data-shop="copy">Kopieren</button></div>' : '<div class="note ok">Alles da.</div>');
   }
+  h += '</details>';
+  // Verlauf
+  h += '<details class="pc" data-k="lgLog"><summary><b>Verlauf</b><small>letzte Lagerbewegungen</small></summary>' +
+    (lgLog ? (lgLog.length ? lgLog.map(m => '<div class="rw"><span>' + esc(new Date(m.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) + '</span><span>' + esc(pname(m.p)) + '<br><small>' + esc(LG_LABEL[m.type] || m.type) + (m.note ? ' · ' + esc(m.note) : '') + ' · ' + esc(m.byName || '') + '</small></span><b style="color:' + (m.n < 0 ? 'var(--pen)' : 'var(--pet)') + '">' + (m.n > 0 ? '+' : '') + m.n + '</b></div>').join('') : '<div class="empty">Noch keine Lagerbewegungen.</div>') : '') +
+    '<div class="row"><button class="b sm" data-lg="log"' + (lgBusy ? ' disabled' : '') + '>' + (lgLog ? 'Neu laden' : 'Verlauf laden') + '</button></div></details>';
   return h + '</section>';
 }
+function lagerMove(pid, n, type, extra) {
+  const p = P(pid); if (!p || !n) return;
+  fire(F.updateDoc(dref('products', pid), { stock: F.increment(n) }), 'Lager');
+  p.stock = stockOf(p) + n;
+  fire(F.setDoc(dref('stockmv', newId('stockmv')), Object.assign({ p: pid, n, type, by: S.user.uid, byName: S.me || '', t: Date.now(), note: '' }, extra || {})), 'Lager-Verlauf');
+}
+function needText() { return '🛒 Nachkaufen (Lager Wexhainis)\n' + lagerNeed().map(x => '• ' + x.p.name + ': ' + packTxt(x.p, x.miss)).join('\n'); }
+$('adminBody').addEventListener('click', async e => {
+  const t = e.target.closest('[data-lgt]'); if (t) { lgType = t.dataset.lgt; S.lgOpen = true; renderAdmin(); if ($('lgN')) $('lgN').value = lgType === 'inv' ? stockOf(P($('lgP').value) || {}) : 0; return; }
+  const pk = e.target.closest('[data-lgpack]'); if (pk) { const i = $('lgN'); i.value = (parseInt(i.value) || 0) + +pk.dataset.lgpack; return; }
+  const b = e.target.closest('[data-lg]'); if (!b || !S.isAdmin) return;
+  const a = b.dataset.lg;
+  if (a === 'log') {
+    lgBusy = true; renderAdmin();
+    try { lgLog = (await F.getDocs(F.query(col('stockmv'), F.orderBy('t', 'desc'), F.limit(40)))).docs.map(d => d.data()); } catch (err) { toast('Verlauf braucht Internet'); }
+    lgBusy = false; renderAdmin(); return;
+  }
+  if (a === 'book') {
+    const pid = $('lgP').value, p = P(pid), n = parseInt($('lgN').value), note = $('lgNote').value.trim().slice(0, 120);
+    if (!p || !(n >= 0) || (lgType !== 'inv' && n < 1)) { toast('Getränk und Menge wählen'); return; }
+    if (lgType === 'inv') {
+      const d = n - stockOf(p); if (!d) { toast('Bestand stimmt schon: ' + n); return; }
+      if (!await ask(p.name + ': Bestand von ' + stockOf(p) + ' auf ' + n + ' setzen (' + (d > 0 ? '+' : '') + d + ')?', { ok: 'Bestand setzen' })) return;
+      fire(F.updateDoc(dref('products', pid), { stock: n }), 'Inventur'); p.stock = n;
+      fire(F.setDoc(dref('stockmv', newId('stockmv')), { p: pid, n: d, type: 'inv', by: S.user.uid, byName: S.me || '', t: Date.now(), note }), 'Lager-Verlauf');
+      logEv('getraenk', 'Inventur ' + p.name + ': ' + n + ' (' + (d > 0 ? '+' : '') + d + ')');
+    } else {
+      const d = lgType === 'in' ? n : -n;
+      if (d < 0 && stockOf(p) + d < 0 && !await ask('Im Lager sind nur ' + stockOf(p) + ' ' + p.name + '. Trotzdem ' + n + ' entnehmen?')) return;
+      lagerMove(pid, d, lgType, { note }); logEv('getraenk', (lgType === 'in' ? 'Wareneingang ' : 'Entnahme ') + n + '× ' + p.name + (note ? ' (' + note + ')' : ''));
+    }
+    toast('Gebucht – ' + p.name + ': ' + packTxt(p, stockOf(p))); $('lgN').value = lgType === 'inv' ? stockOf(p) : 0; $('lgNote').value = ''; S.lgOpen = true; if (lgLog) lgLog = null; renderAdmin(); return;
+  }
+  const day = selDayObj(); if (!day) return;
+  if (a === 'dayOut' || a === 'dayBack') {
+    const out = a === 'dayOut', key = out ? 'stockOut' : 'stockBack', L = lgDelta(day, key, out ? day.load : day.count);
+    if (!L.length) return;
+    if (!await ask((out ? 'Aus dem Lager abbuchen' : 'Zurück ins Lager') + ' (' + dayLabel(day) + '):\n' + L.map(x => x.n + '× ' + pname(x.pid)).join('\n'), { ok: out ? 'Abbuchen' : 'Zurückbuchen' })) return;
+    const upd = {};
+    L.forEach(x => { lagerMove(x.pid, out ? -x.n : x.n, out ? 'tag-out' : 'tag-back', { day: day.id }); upd[key + '.' + x.pid] = F.increment(x.n); });
+    fire(F.updateDoc(dref('days', day.id), upd), 'Tag');
+    logEv('getraenk', (out ? 'bucht für ' : 'bucht Übrig zurück vom ') + dayLabel(day) + ': ' + L.map(x => x.n + '× ' + pname(x.pid)).join(', '), day.id);
+    toast(out ? 'Abgebucht' : 'Zurückgebucht');
+  }
+});
 function shopText() {
   const L = (S.shop ? S.shop.rows : []).filter(r => r.buy > 0);
   return '🛒 Einkaufsliste Wexhainis (' + S.shop.trips + ' Ausflug' + (S.shop.trips > 1 ? 'e' : '') + ')\n' + L.map(r => '• ' + r.name + ': ' + r.packTxt).join('\n');
@@ -3685,12 +3805,11 @@ $('adminBody').addEventListener('click', async e => {
   const b = e.target.closest('[data-shop]'); if (!b || !S.isAdmin) return;
   const a = b.dataset.shop;
   if (a === 'calc') shopCalc();
-  if (a === 'fromLast') {
-    const d = S.days.find(x => x.id === b.dataset.id); if (!d) return;
-    if (!await ask('Lagerbestand auf „Übrig“ vom ' + fmtDate(d.date) + ' setzen?')) return;
-    S.products.forEach(p => { const c = (d.count || {})[p.id]; if (c != null) fire(F.updateDoc(dref('products', p.id), { stock: Math.max(0, c) }), 'Lager speichern'); });
-    logEv('getraenk', 'Lager = Übrig vom ' + fmtDate(d.date)); toast('Lager übernommen');
+  if (a === 'shareNeed') {
+    try { if (navigator.share) { await navigator.share({ text: needText(), title: 'Nachkaufen' }); return; } } catch (err) { if (err && err.name === 'AbortError') return; }
+    window.open('https://wa.me/?text=' + encodeURIComponent(needText()), '_blank', 'noopener');
   }
+  if (a === 'copyNeed') { try { await navigator.clipboard.writeText(needText()); toast('Kopiert'); } catch (err) { toast('Kopieren nicht möglich'); } }
   if (a === 'share') {
     const t = shopText();
     try { if (navigator.share) { await navigator.share({ text: t, title: 'Einkaufsliste' }); return; } } catch (err) { if (err && err.name === 'AbortError') return; }
@@ -3699,10 +3818,12 @@ $('adminBody').addEventListener('click', async e => {
   if (a === 'copy') { try { await navigator.clipboard.writeText(shopText()); toast('Kopiert'); } catch (err) { toast('Kopieren nicht möglich'); } }
 });
 $('adminBody').addEventListener('change', e => {
-  const t = e.target; if (!t.dataset.stock || !S.isAdmin) return;
-  const v = parseInt(t.value);
-  fire(F.updateDoc(dref('products', t.dataset.stock), { stock: v >= 0 ? v : F.deleteField() }), 'Lager speichern');
-  logEv('getraenk', 'Lager ' + pname(t.dataset.stock) + ' → ' + (v >= 0 ? v : 'leer'));
+  const t = e.target; if (t.id === 'lgP') { S.lgOpen = true; renderAdmin(); if (lgType === 'inv' && $('lgN')) $('lgN').value = stockOf(P(t.value) || {}); return; }
+  if (!t.dataset.min || !S.isAdmin) return;
+  const v = parseInt(t.value), p = P(t.dataset.min);
+  fire(F.updateDoc(dref('products', t.dataset.min), { min: v > 0 ? v : F.deleteField() }), 'Mindestbestand');
+  if (p) p.min = v > 0 ? v : 0;
+  logEv('getraenk', 'Mindestbestand ' + pname(t.dataset.min) + ' → ' + (v > 0 ? v : 'keiner'));
 });
 
 const ROLE_LABEL = { '': 'Mitglied', admin: 'Getränke-Admin', vorstand: 'Vorstand' };
@@ -4268,7 +4389,7 @@ function nextField(t) {
   // In Tabellen (z. B. Abgleich): in derselben Spalte nach unten (Übrig → Übrig), nicht in die nächste Zeile springen
   const tbl = t.closest('table');
   if (tbl) {
-    const key = ['data-cnt', 'data-load', 'data-stock'].find(k => t.hasAttribute(k));
+    const key = ['data-cnt', 'data-load', 'data-min'].find(k => t.hasAttribute(k));
     const col = [...tbl.querySelectorAll(key ? 'input[' + key + ']' : 'input')].filter(x => textLike(x) && visible(x));
     const j = col.indexOf(t); return j >= 0 ? col[j + 1] || null : null;
   }
@@ -4564,22 +4685,75 @@ const admKey = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
 const admOpen = k => k in admState ? admState[k] : !ADM_DEFAULT_CLOSED.includes(k);
 function admSet(k, v) { admState[k] = v; try { localStorage.setItem(ADM_KEY, JSON.stringify(admState)); } catch (e) {} }
 const ADM_SHORT = { 'Zu viel gescannt': 'Zu viel', 'Posteingang': 'Posteingang', 'Korrekturanträge': 'Anträge', 'Datenschutz-Bestätigungen': 'Datenschutz', 'Neu registriert': 'Neu', 'Einstellungen (Super-Admin)': 'Einstellungen', 'Zu wenig gebucht': 'Zu wenig', 'Fasnets-Titel (Rückblick)': 'Titel', 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
+/* Reihenfolge der Bereiche: pro Admin (prefs/{uid}.order, dazu lokal gespeichert).
+   Überschriften: vom Super-Admin umbenennbar (config/sections). Schlüssel bleibt immer der ursprüngliche Titel. */
+const ORD_KEY = 'strichliste_admorder';
+let admOrder = []; try { admOrder = JSON.parse(localStorage.getItem(ORD_KEY) || '[]'); } catch (e) {}
+let admSeen = [];
+const secTitle = k => ((S.secTitles || {})[k] || '').trim();
+function admArrange(el, secs) {
+  if (!admOrder.length) return secs;
+  const rank = k => { const i = admOrder.indexOf(k); return i < 0 ? null : i; };
+  const known = secs.filter(x => rank(x.firstElementChild.dataset.adm) != null).sort((a, b) => rank(a.firstElementChild.dataset.adm) - rank(b.firstElementChild.dataset.adm));
+  let ki = 0; const out = secs.map(x => rank(x.firstElementChild.dataset.adm) != null ? known[ki++] : x);
+  const marks = secs.map(x => { const c = document.createComment(''); x.before(c); return c; });
+  out.forEach((x, i) => marks[i].after(x)); marks.forEach(c => c.remove());
+  return out;
+}
+function saveAdmOrder(list) {
+  admOrder = list; try { localStorage.setItem(ORD_KEY, JSON.stringify(list)); } catch (e) {}
+  if (S.user) fire(F.setDoc(dref('prefs', S.user.uid), { order: list, t: Date.now() }, { merge: true }), 'Reihenfolge');
+}
 function adminNav(el, navX) {
-  const secs = [...el.querySelectorAll(':scope > section')].filter(x => x.firstElementChild && x.firstElementChild.tagName === 'H2');
+  let secs = [...el.querySelectorAll(':scope > section')].filter(x => x.firstElementChild && x.firstElementChild.tagName === 'H2');
   if (secs.length < 3) return;
+  secs.forEach(sec => { const h2 = sec.firstElementChild, k = admKey(h2.textContent); h2.dataset.adm = k; const t = secTitle(k);
+    if (t) { const n = (h2.textContent.match(/\s*\(\d+\)\s*$/) || [''])[0]; h2.textContent = t + n; } });
+  secs = admArrange(el, secs);
+  admSeen = secs.map(x => x.firstElementChild.dataset.adm);
   const items = secs.map((sec, i) => {
-    const h2 = sec.firstElementChild, k = admKey(h2.textContent), open = admOpen(k);
+    const h2 = sec.firstElementChild, k = h2.dataset.adm, open = admOpen(k);
     sec.id = 'adm' + i; sec.classList.add('coll'); sec.classList.toggle('closed', !open);
-    h2.setAttribute('role', 'button'); h2.tabIndex = 0; h2.setAttribute('aria-expanded', open); h2.dataset.adm = k;
+    h2.setAttribute('role', 'button'); h2.tabIndex = 0; h2.setAttribute('aria-expanded', open);
     const n = (h2.textContent.match(/\((\d+)\)\s*$/) || [])[1];
-    return '<button class="admchip' + (k === 'Neue Anmeldungen' ? ' hot' : '') + '" data-admgo="' + i + '">' + esc(ADM_SHORT[k] || k) + (n ? ' <em>' + n + '</em>' : '') + '</button>';
+    return '<button class="admchip' + (k === 'Neue Anmeldungen' ? ' hot' : '') + '" data-admgo="' + i + '">' + esc(secTitle(k) || ADM_SHORT[k] || k) + (n ? ' <em>' + n + '</em>' : '') + '</button>';
   });
   const nav = document.createElement('nav'); nav.className = 'admnav'; nav.setAttribute('aria-label', 'Admin-Bereiche');
-  nav.innerHTML = '<div class="admnav-in">' + items.join('') + '</div><div class="admnav-all"><button class="b sm" data-admall="1">Alle auf</button><button class="b sm" data-admall="0">Alle zu</button></div>';
+  nav.innerHTML = '<div class="admnav-in">' + items.join('') + '</div><div class="admnav-all"><button class="b sm" data-admord="1">⇅ Anordnen</button><button class="b sm" data-admall="1">Alle auf</button><button class="b sm" data-admall="0">Alle zu</button></div>';
   el.prepend(nav);
   nav.querySelector('.admnav-in').scrollLeft = navX || 0;
 }
+function ordHTML() {
+  const L = admSeen.slice();
+  return '<h2>Bereiche anordnen</h2><p style="font-size:.85rem;color:var(--mu)">Die Reihenfolge gilt nur für dich' + (S.isSuper ? '. Die Überschriften änderst du als Super-Admin für alle (leer = Standard).' : '.') + '</p>' +
+    '<div id="ordList">' + L.map((k, i) => '<div class="ordrow" data-k="' + esc(k) + '"><span class="ordbtns"><button type="button" class="b sm" data-ord="up" aria-label="nach oben"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="b sm" data-ord="down" aria-label="nach unten"' + (i < L.length - 1 ? '' : ' disabled') + '>↓</button></span>' +
+      (S.isSuper ? '<label class="f ordname"><small>' + esc(k) + '</small><input data-ordt="' + esc(k) + '" maxlength="40" value="' + esc(secTitle(k)) + '" placeholder="' + esc(k) + '"></label>' : '<span class="ordname">' + esc(secTitle(k) || k) + '</span>') + '</div>').join('') + '</div>' +
+    '<div class="row"><button class="b pri" id="ordSave">Speichern</button><button class="b" id="ordReset">Standard-Reihenfolge</button></div>';
+}
+$('modalBody').addEventListener('click', e => {
+  const m = e.target.closest('[data-ord]');
+  if (m) {
+    const row = m.closest('.ordrow'), list = $('ordList');
+    if (m.dataset.ord === 'up' && row.previousElementSibling) list.insertBefore(row, row.previousElementSibling);
+    if (m.dataset.ord === 'down' && row.nextElementSibling) list.insertBefore(row.nextElementSibling, row);
+    const rows = [...list.children]; rows.forEach((r, i) => { r.querySelector('[data-ord=up]').disabled = !i; r.querySelector('[data-ord=down]').disabled = i === rows.length - 1; });
+    m.focus(); return;
+  }
+  if (e.target.id === 'ordSave') {
+    const keys = [...$('ordList').children].map(r => r.dataset.k);
+    const merged = keys.concat(admOrder.filter(k => !keys.includes(k))); // auch gerade nicht sichtbare Bereiche behalten
+    saveAdmOrder(merged);
+    if (S.isSuper) {
+      const t = {}; $('ordList').querySelectorAll('[data-ordt]').forEach(i => { const v = i.value.trim(); if (v && v !== i.dataset.ordt) t[i.dataset.ordt] = v; });
+      const old = JSON.stringify(S.secTitles || {}); S.secTitles = Object.assign({}, S.secTitles || {}); Object.keys(S.secTitles).forEach(k => { if (keys.includes(k)) delete S.secTitles[k]; }); Object.assign(S.secTitles, t);
+      if (JSON.stringify(S.secTitles) !== old) { fire(F.setDoc(dref('config', 'sections'), { titles: S.secTitles, t: Date.now() }), 'Überschriften'); logEv('system', 'ändert Überschriften im Admin-Bereich'); }
+    }
+    closeModal(); renderAdmin(); toast('Gespeichert');
+  }
+  if (e.target.id === 'ordReset') { saveAdmOrder([]); closeModal(); renderAdmin(); toast('Standard-Reihenfolge'); }
+});
 $('adminBody').addEventListener('click', e => {
+  if (e.target.closest('[data-admord]')) { openModal(ordHTML()); return; }
   const go = e.target.closest('[data-admgo]');
   if (go) {
     const sec = $('adm' + go.dataset.admgo); if (!sec) return;
@@ -4944,7 +5118,7 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'undoAllPer') { undoAllPer = id; renderAdmin(); }
   else if (a === 'missFix') {
     S.selDay = id; listenDayScans(); renderAdmin();
-    const sec = [...$('adminBody').querySelectorAll('section')].find(x => /^Buchung nachtragen/.test(((x.querySelector('h2') || {}).textContent || '').trim()));
+    const sec = [...$('adminBody').querySelectorAll('section')].find(x => ((x.querySelector('h2') || {}).dataset || {}).adm === 'Buchung nachtragen');
     if (sec) { sec.classList.remove('closed'); const y = sec.getBoundingClientRect().top + window.scrollY - 120; window.scrollTo({ top: y, behavior: 'auto' }); }
     toast('Nachtragen auf ' + dayLabel(selDayObj() || {}));
   }
@@ -5176,7 +5350,7 @@ adminBody.addEventListener('click', async e => {
    Sichert alle Daten, die sich nicht aus anderen neu berechnen lassen. Zähler und Bestenliste
    werden nach dem Import aus den Buchungen neu berechnet. Logins (Firebase Authentication) lassen sich nicht sichern. */
 const BACKUP_V = 4;
-const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['undos', 'Rückgängig-Protokoll'], ['asks', 'Rückfragen'], ['avatars', 'Profilbilder']];
+const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['undos', 'Rückgängig-Protokoll'], ['asks', 'Rückfragen'], ['stockmv', 'Lagerbewegungen'], ['avatars', 'Profilbilder']];
 const bkCfg = () => Object.assign({ every: 30, t: 0 }, S.backupCfg || {});
 const bkAvPref = () => { try { return localStorage.getItem('strichliste_bkav') !== '0'; } catch (e) { return true; } };
 // Zeitstempel aus Firestore als { __ts: ms } speichern und beim Import zurückverwandeln
@@ -5264,7 +5438,10 @@ function renderVersion() {
   $('dsLink').onclick = () => openModal(privacyHTML());
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
+function stickyCheck() { const t = document.querySelector('header.top'); if (!t) return; t.classList.remove('nostick'); t.classList.toggle('nostick', t.offsetHeight > innerHeight * 0.3); }
+addEventListener('resize', stickyCheck);
 function renderAll() {
+  setTimeout(stickyCheck, 0);
   renderAcct(); renderVersion(); renderDs(); renderInstall(); renderReqBox(); if (typeof renderParty === 'function' && S.party) renderParty();
   if (S.authReady && !S.user) loadPublicCfg();
   const noauth = configured && S.authReady && !S.user;
