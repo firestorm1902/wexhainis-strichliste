@@ -600,7 +600,7 @@ body.noauth main{display:none!important}
     <div class="ap-head"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild ändern"><span id="meAv"></span><i>Bild</i></button>
       <span class="ap-who"><b id="meName"></b><small id="acctRoleT"></small><small id="meGrp"></small><small id="acctMail"></small></span>
       <button class="b sm" id="acctClose" aria-label="Schließen">✕</button></div>
-    <div class="row" style="margin-top:10px"><button class="b sm" id="avPick">Profilbild ändern</button><button type="button" class="b sm" id="avDel" hidden>Bild entfernen</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="txBtn" hidden>✏️ Texte bearbeiten</button><button class="b sm dng" id="logoutBtn">Abmelden</button></div>
+    <div class="row" style="margin-top:10px"><button class="b sm" id="avShot">📷 Foto aufnehmen</button><button class="b sm" id="avPick">🖼️ Bild wählen</button><button type="button" class="b sm" id="avDel" hidden>Bild entfernen</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="txBtn" hidden>✏️ Texte bearbeiten</button><button class="b sm dng" id="logoutBtn">Abmelden</button></div>
       <div id="pwSec" hidden class="grid2" style="margin-top:10px">
         <label class="f full">Aktuelles Passwort<input id="pwOld" type="password" autocomplete="current-password"></label>
         <label class="f">Neues Passwort<input id="pwNew" type="password" autocomplete="new-password"></label>
@@ -694,6 +694,7 @@ body.noauth main{display:none!important}
 
 <input type="file" id="fileIn" accept="application/json,.json" hidden />
 <input type="file" id="avIn" accept="image/*" hidden />
+<input type="file" id="avCam" accept="image/*" capture="user" hidden />
 <div class="toast" id="toast" role="status"></div>
 <div class="drive" id="drive" hidden role="status" aria-live="polite">
   <div class="drive-in">
@@ -765,7 +766,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '71';
+const APP_VERSION = '72';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1459,6 +1460,7 @@ function acctPanel(open) {
 $('acctBtn').addEventListener('click', () => { if (S.user) acctPanel(); });
 $('acctClose').addEventListener('click', () => acctPanel(false));
 $('avPick').addEventListener('click', () => $('avIn').click());
+$('avShot').addEventListener('click', () => $('avCam').click());
 $('txBtn').addEventListener('click', () => txMode(!txEdit));
 async function logout() {
   if (S.pending && !await ask(S.pending + ' Buchungen sind noch nicht gesendet und gehen beim Abmelden verloren. Trotzdem abmelden?')) return;
@@ -2509,7 +2511,7 @@ async function makeAvatar(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 $('avBtn').addEventListener('click', () => $('avIn').click());
-$('avIn').addEventListener('change', async e => {
+async function avFile(e) {
   const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f || !S.user) return;
   try {
     const img = await makeAvatar(f), v = { img, t: Date.now() };
@@ -2517,7 +2519,9 @@ $('avIn').addEventListener('change', async e => {
     fire(F.setDoc(dref('avatars', S.user.uid), v), 'Profilbild speichern'); logEv('person', 'setzt ein neues Profilbild');
     toast('Profilbild gespeichert');
   } catch (err) { toast(err.message || 'Bild konnte nicht verarbeitet werden'); }
-});
+}
+$('avIn').addEventListener('change', avFile);
+$('avCam').addEventListener('change', avFile);
 $('avDel').addEventListener('click', async () => {
   if (!S.user || !await ask('Profilbild entfernen?')) return;
   setAvatarCache(S.user.uid, null); renderMe(); avatarsChanged();
