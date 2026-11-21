@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Wexhainis Getränke-Strichliste",
-  "short_name": "Wexhainis",
-  "description": "Getränke-Strichliste der 1. Wexhainer Narrenzunft: Getränke per Barcode buchen, auch offline.",
+  "name": "WexStrichliste",
+  "short_name": "WexStrichliste",
+  "description": "WexStrichliste – die Getränke-Strichliste der 1. Wexhainer Narrenzunft: Getränke per Barcode buchen, auch offline.",
   "lang": "de",
   "dir": "ltr",
   "start_url": "./",
