@@ -212,6 +212,8 @@ input.n{min-width:3em}
 .ordrow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
 .ordbtns{display:flex;gap:4px;flex:none}.ordbtns .b{min-width:40px}
 .ordname{flex:1;min-width:0}.ordname input{width:100%}
+.ordshow{display:flex;flex-direction:column;align-items:center;gap:1px;flex:none}.ordshow input{width:22px;height:22px}.ordshow small{font-size:.65rem;color:var(--mu)}
+.ordrow.off .ordname{opacity:.45}
 .top.nostick{position:relative}
 html.txedit [data-tx]{outline:2px dashed var(--wy);outline-offset:2px;cursor:text}
 .txbar{position:fixed;left:8px;right:8px;bottom:12px;z-index:110;display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--wy);color:#141414;border-radius:14px;padding:10px 12px;font-weight:600;font-size:.9rem;box-shadow:0 8px 24px rgba(0,0,0,.35)}
@@ -762,7 +764,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '69';
+const APP_VERSION = '70';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -949,7 +951,10 @@ function startUserListeners() {
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
   stop('cfgTexts'); unsub.cfgTexts = F.onSnapshot(dref('config', 'texts'), snap => setTexts(snap.exists() ? (snap.data().t || {}) : {}), err => console.warn('texts', err));
   stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; renderAdmin(); }, err => console.warn('sections', err));
-  stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const o = snap.exists() ? snap.data().order : null; if (Array.isArray(o) && JSON.stringify(o) !== JSON.stringify(admOrder)) { admOrder = o; try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} renderAdmin(); } }, err => console.warn('prefs', err));
+  stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const d = snap.exists() ? snap.data() : {}, o = d.order, hd = d.hidden; let ch = false;
+    if (Array.isArray(o) && JSON.stringify(o) !== JSON.stringify(admOrder)) { admOrder = o; try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} ch = true; }
+    if (Array.isArray(hd) && JSON.stringify(hd) !== JSON.stringify(admHidden)) { admHidden = hd; try { localStorage.setItem(HID_KEY, JSON.stringify(hd)); } catch (e) {} ch = true; }
+    if (ch) renderAdmin(); }, err => console.warn('prefs', err));
   stop('cfgUndo'); unsub.cfgUndo = F.onSnapshot(dref('config', 'undo'), snap => { S.undoCfg = snap.exists() ? snap.data() : null; if (S.isSuper) renderAdmin(); }, err => console.warn('undo', err));
   stop('cfgBackup'); unsub.cfgBackup = F.onSnapshot(dref('config', 'backup'), snap => {
     S.backupCfg = snap.exists() ? snap.data() : null; renderAdmin();
@@ -4730,6 +4735,12 @@ const ADM_SHORT = { 'Zu viel gescannt': 'Zu viel', 'Posteingang': 'Posteingang',
 const ORD_KEY = 'strichliste_admorder';
 let admOrder = []; try { admOrder = JSON.parse(localStorage.getItem(ORD_KEY) || '[]'); } catch (e) {}
 let admSeen = [];
+const HID_KEY = 'strichliste_admhidden';
+let admHidden = []; try { admHidden = JSON.parse(localStorage.getItem(HID_KEY) || '[]'); } catch (e) {}
+function saveAdmHidden(list) {
+  admHidden = list; try { localStorage.setItem(HID_KEY, JSON.stringify(list)); } catch (e) {}
+  if (S.user) fire(F.setDoc(dref('prefs', S.user.uid), { hidden: list, t: Date.now() }, { merge: true }), 'Ausblenden');
+}
 const secTitle = k => ((S.secTitles || {})[k] || '').trim();
 function admArrange(el, secs) {
   if (!admOrder.length) return secs;
@@ -4751,6 +4762,9 @@ function adminNav(el, navX) {
     if (t) { const n = (h2.textContent.match(/\s*\(\d+\)\s*$/) || [''])[0]; h2.textContent = t + n; } });
   secs = admArrange(el, secs);
   admSeen = secs.map(x => x.firstElementChild.dataset.adm);
+  // ausgeblendete Bereiche: nur für diesen Admin, über „Anordnen“ wieder einblendbar
+  const hid = secs.filter(x => admHidden.includes(x.firstElementChild.dataset.adm));
+  hid.forEach(x => x.remove()); secs = secs.filter(x => !hid.includes(x));
   const items = secs.map((sec, i) => {
     const h2 = sec.firstElementChild, k = h2.dataset.adm, open = admOpen(k);
     sec.id = 'adm' + i; sec.classList.add('coll'); sec.classList.toggle('closed', !open);
@@ -4759,17 +4773,18 @@ function adminNav(el, navX) {
     return '<button class="admchip' + (k === 'Neue Anmeldungen' ? ' hot' : '') + '" data-admgo="' + i + '">' + esc(secTitle(k) || ADM_SHORT[k] || k) + (n ? ' <em>' + n + '</em>' : '') + '</button>';
   });
   const nav = document.createElement('nav'); nav.className = 'admnav'; nav.setAttribute('aria-label', 'Admin-Bereiche');
-  nav.innerHTML = '<div class="admnav-in">' + items.join('') + '</div><div class="admnav-all"><button class="b sm" data-admord="1">⇅ Anordnen</button><button class="b sm" data-admall="1">Alle auf</button><button class="b sm" data-admall="0">Alle zu</button></div>';
+  nav.innerHTML = '<div class="admnav-in">' + items.join('') + '</div><div class="admnav-all"><button class="b sm" data-admord="1">⇅ Anordnen' + (hid.length ? ' (' + hid.length + ' ausgeblendet)' : '') + '</button><button class="b sm" data-admall="1">Alle auf</button><button class="b sm" data-admall="0">Alle zu</button></div>';
   el.prepend(nav);
   nav.querySelector('.admnav-in').scrollLeft = navX || 0;
 }
 function ordHTML() {
   const L = admSeen.slice();
-  return '<h2>Bereiche anordnen</h2><p style="font-size:.85rem;color:var(--mu)">Die Reihenfolge gilt nur für dich' + (S.isSuper ? '. Die Überschriften änderst du als Super-Admin für alle (leer = Standard).' : '.') + '</p>' +
-    '<div id="ordList">' + L.map((k, i) => '<div class="ordrow" data-k="' + esc(k) + '"><span class="ordbtns"><button type="button" class="b sm" data-ord="up" aria-label="nach oben"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="b sm" data-ord="down" aria-label="nach unten"' + (i < L.length - 1 ? '' : ' disabled') + '>↓</button></span>' +
+  return '<h2>Bereiche anordnen</h2><p style="font-size:.85rem;color:var(--mu)">Reihenfolge und Häkchen „zeigen“ gelten nur für dich' + (S.isSuper ? '. Die Überschriften änderst du als Super-Admin für alle (leer = Standard).' : '.') + '</p>' +
+    '<div id="ordList">' + L.map((k, i) => '<div class="ordrow' + (admHidden.includes(k) ? ' off' : '') + '" data-k="' + esc(k) + '"><label class="ordshow" title="anzeigen"><input type="checkbox" data-ordshow' + (admHidden.includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' anzeigen"><small>zeigen</small></label><span class="ordbtns"><button type="button" class="b sm" data-ord="up" aria-label="nach oben"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="b sm" data-ord="down" aria-label="nach unten"' + (i < L.length - 1 ? '' : ' disabled') + '>↓</button></span>' +
       (S.isSuper ? '<label class="f ordname"><small>' + esc(k) + '</small><input data-ordt="' + esc(k) + '" maxlength="40" value="' + esc(secTitle(k)) + '" placeholder="' + esc(k) + '"></label>' : '<span class="ordname">' + esc(secTitle(k) || k) + '</span>') + '</div>').join('') + '</div>' +
-    '<div class="row"><button class="b pri" id="ordSave">Speichern</button><button class="b" id="ordReset">Standard-Reihenfolge</button></div>';
+    '<div class="row"><button class="b pri" id="ordSave">Speichern</button><button class="b" id="ordReset">Alles zurücksetzen</button></div>';
 }
+$('modalBody').addEventListener('change', e => { const c = e.target.closest('[data-ordshow]'); if (c) c.closest('.ordrow').classList.toggle('off', !c.checked); });
 $('modalBody').addEventListener('click', e => {
   const m = e.target.closest('[data-ord]');
   if (m) {
@@ -4783,6 +4798,9 @@ $('modalBody').addEventListener('click', e => {
     const keys = [...$('ordList').children].map(r => r.dataset.k);
     const merged = keys.concat(admOrder.filter(k => !keys.includes(k))); // auch gerade nicht sichtbare Bereiche behalten
     saveAdmOrder(merged);
+    const shownNow = [...$('ordList').children].filter(r => r.querySelector('[data-ordshow]').checked).map(r => r.dataset.k);
+    const hidNow = keys.filter(k => !shownNow.includes(k)).concat(admHidden.filter(k => !keys.includes(k)));
+    if (JSON.stringify(hidNow) !== JSON.stringify(admHidden)) saveAdmHidden(hidNow);
     if (S.isSuper) {
       const t = {}; $('ordList').querySelectorAll('[data-ordt]').forEach(i => { const v = i.value.trim(); if (v && v !== i.dataset.ordt) t[i.dataset.ordt] = v; });
       const old = JSON.stringify(S.secTitles || {}); S.secTitles = Object.assign({}, S.secTitles || {}); Object.keys(S.secTitles).forEach(k => { if (keys.includes(k)) delete S.secTitles[k]; }); Object.assign(S.secTitles, t);
@@ -4790,7 +4808,7 @@ $('modalBody').addEventListener('click', e => {
     }
     closeModal(); renderAdmin(); toast('Gespeichert');
   }
-  if (e.target.id === 'ordReset') { saveAdmOrder([]); closeModal(); renderAdmin(); toast('Standard-Reihenfolge'); }
+  if (e.target.id === 'ordReset') { saveAdmOrder([]); saveAdmHidden([]); closeModal(); renderAdmin(); toast('Standard: alles sichtbar, ursprüngliche Reihenfolge'); }
 });
 $('adminBody').addEventListener('click', e => {
   if (e.target.closest('[data-admord]')) { openModal(ordHTML()); return; }

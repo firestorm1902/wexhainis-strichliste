@@ -119,7 +119,7 @@ Admin → **Lager**: Bestand pro Getränk in Flaschen (mit Gebinden, z. B. „69
 Konto-Bereich oben → **✏️ Texte bearbeiten**. Alle änderbaren Texte sind gestrichelt umrandet: Titel, „Getränk scannen“, „Ich fahre heute“, „Deine Getränke heute“, „Korrektur beantragen“, die Reiter (Bestenliste, Sammelalbum, Mein Konto, Rückblick), „Easter Eggs heute“ und die Hinweise im Scanfenster. Antippen, neuen Text eingeben, speichern – gilt sofort für alle. Leer lassen stellt den Standard wieder her. „Fertig“ beendet den Modus.
 
 ### Bereiche anordnen und umbenennen
-Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest (gilt auf allen seinen Geräten). Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard).
+Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest und blendet mit dem Häkchen „zeigen“ Bereiche aus, die er nicht braucht (gilt nur für ihn, auf allen seinen Geräten). Der Knopf zeigt, wie viele ausgeblendet sind; „Alles zurücksetzen“ holt alles zurück. Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard).
 
 ### Große Schrift
 Die App passt sich an die Schriftgröße des Handys an: Formulare stapeln sich, wenn der Platz nicht reicht, Zahlenfelder bleiben lesbar, der Kopf bricht um und klebt nur dann oben, wenn er nicht zu viel Platz wegnimmt.
@@ -421,13 +421,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 69**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 69 auf 70):
-- in `index.html`: `const APP_VERSION = '69';`
-- in `sw.js`: `const VERSION = 'strichliste-v69';`
+Aktuell ist **Version 70**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 70 auf 71):
+- in `index.html`: `const APP_VERSION = '70';`
+- in `sw.js`: `const VERSION = 'strichliste-v70';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 69“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 70“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
