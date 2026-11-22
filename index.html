@@ -781,7 +781,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '78';
+const APP_VERSION = '80';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2841,7 +2841,7 @@ $('helpBtn').addEventListener('click', () => {
   openModal('<h2>So funktioniert die Strichliste</h2>' +
     '<p>Die <b>Wexhainis Getränke-Strichliste</b> ersetzt die Strichliste auf Papier. Wenn wir mit dem Verein unterwegs sind, buchst du jedes Getränk, das du dir nimmst, mit deinem Handy. So weiß der Verein am Ende, wer was getrunken hat, und ob alles, was mitgenommen wurde, auch gebucht ist.</p>' +
     '<h3 class="sub3">1. Einmal anmelden</h3><p>Mit <b>Registrieren</b> legst du ein Konto mit deinem Vor- und Nachnamen, deiner E-Mail und einem Passwort an. Dein Name lässt sich danach nicht mehr ändern. Bevor du buchen kannst, muss ' + esc(contactName()) + ' dein Konto <b>freischalten</b>.</p>' +
-    '<h3 class="sub3">2. Getränk buchen</h3><ul><li><b>Kamera starten</b> und den Barcode der Flasche in den gelben Rahmen halten – fertig.</li><li>Kein Barcode lesbar? In der Liste „Deine Getränke heute“ beim Getränk auf <b>+1</b> tippen.</li><li>Vertippt? Die Meldung „… gebucht“ bleibt 10 Sekunden stehen – dort auf <b>Rückgängig</b> tippen.</li></ul>' +
+    '<h3 class="sub3">2. Getränk buchen</h3><ul><li><b>Kamera starten</b> und den Barcode der Flasche in den gelben Rahmen halten – fertig.</li><li>Kein Barcode lesbar? In der Liste „Deine Getränke heute“ beim Getränk auf <b>+1</b> tippen.</li><li>Vertippt? Die Meldung „… gebucht“ bleibt 10 Sekunden stehen – dort auf <b>Rückgängig</b> tippen.</li><li>Dasselbe Getränk lässt sich erst wieder buchen, wenn diese Zeit abgelaufen ist (oder du Rückgängig getippt hast). Andere Getränke kannst du sofort buchen.</li></ul>' +
     '<h3 class="sub3">3. Was du sonst siehst</h3><ul><li><b>Deine Getränke heute</b> mit Strichen und dem Betrag.</li><li><b>Mein Konto</b>: alle deine Getränke und Kosten der Saison, auch als Excel.</li><li><b>Ich fahre heute</b>: Die App fragt dann bei alkoholischen Getränken nach.</li><li><b>Profilbild</b>: auf den runden Kreis tippen.</li><li><b>Hell / Nacht</b> oben rechts: Farbschema umschalten.</li></ul>' +
     '<h3 class="sub3">Ohne Netz?</h3><p>Kein Problem. Buchungen werden auf dem Handy gespeichert und gesendet, sobald wieder Netz da ist („offline · 3 warten“ oben). Dabei nicht abmelden.</p>' +
     '<h3 class="sub3">Als App installieren</h3><p>' + (window.__isStandalone ? 'Du nutzt die Strichliste schon als App. 👍' : 'Am bequemsten startest du die Strichliste wie eine App vom Startbildschirm. <button class="linkbtn" id="installHelp" style="font-size:inherit">So geht’s</button>') + '</p>' +
@@ -3205,9 +3205,17 @@ function usedCheckSoon() {
     if ([...keys].some(k => (want[k] || 0) !== (have[k] || 0))) fire(F.setDoc(dref('dused', S.active), want), 'Zähler abgleichen');
   }, 4000);
 }
+/* Sperre nach einer Buchung: Dasselbe Getränk lässt sich erst wieder buchen, wenn die Rückgängig-Zeit abgelaufen ist
+   (gleiche Sekunden wie der Rückgängig-Knopf; ist Rückgängig aus, gelten die 6 Sekunden der Meldung).
+   Verhindert, dass wildes Tippen die Buchungsgrenze überschreitet, bevor der Zähler aktuell ist. Rückgängig hebt die Sperre auf. */
+const bookAt = {};
+const cooldownSecs = () => { const uc = undoCfg(); return uc.on ? uc.secs : 6; };
+const cooldownLeft = (dayId, pid) => { const t = bookAt[dayId + '|' + pid]; return t ? Math.ceil((t + cooldownSecs() * 1000 - Date.now()) / 1000) : 0; };
 async function book(pid, src) {
   const day = S.activeDay; if (!day || !S.user) return;
   if (!S.me || isPending()) return;
+  { const w = cooldownLeft(day.id, pid);
+    if (w > 0) { toast(pname(pid) + ': bitte noch ' + w + ' s warten'); if (navigator.vibrate) navigator.vibrate([40, 40, 40]); return; } }
   if (bookFull(day, pid)) {
     const l = bookLimit(day, pid), loadN = (day.load || {})[pid] || 0;
     showLast('last unk', '<div><b>' + esc(pname(pid)) + ' ist ausgebucht</b><span>' + (loadN ? 'Es ist schon alles gebucht, was mitgenommen wurde (' + l + ').' : esc(pname(pid)) + ' wurde heute nicht mitgenommen.') + ' Bitte beim Getränke-Admin melden.</span></div><small class="last-cd"></small>');
@@ -3219,8 +3227,10 @@ async function book(pid, src) {
     if (navigator.vibrate) navigator.vibrate([60, 60, 60]); return;
   }
   if (S.driver && isAlc(cat) && !(await ask(pname(pid) + ' enthält Alkohol. Trotzdem buchen?', { title: 'Du fährst heute 🚗', ok: 'Trotzdem buchen', cancel: 'Lieber nicht' }))) return;
+  if (cooldownLeft(day.id, pid) > 0) return; // während der Rückfrage (Fahrer) schon gebucht
   const id = newId('scans');
   const data = { uid: S.user.uid, day: day.id, p: pid, src, t: Date.now(), at: F.serverTimestamp(), who: S.me };
+  bookAt[day.id + '|' + pid] = data.t;
   fire(F.setDoc(dref('scans', id), data), 'Buchung');
   usedInc(day.id, pid, 1);
   eggsAfterBook(pid, id).catch(err => console.warn('Easter Egg', err));
@@ -3245,6 +3255,7 @@ $('last').addEventListener('click', e => {
   // wer wann was zurückgenommen hat – Admins sehen es beim Abgleich
   if (u.dataset.up) fire(F.setDoc(dref('undos', newId('undos')), { uid: S.user.uid, name: S.me || '', day: S.active, p: u.dataset.up, t: Date.now(), bt }), 'Rückgängig merken');
   if (u.dataset.up) usedInc(S.active, u.dataset.up, -1);
+  if (u.dataset.up) delete bookAt[S.active + '|' + u.dataset.up];
   if (u.dataset.up) { eggsAfterUndo(u.dataset.up); logEv('buchung', 'nimmt eigene Buchung zurück: ' + pname(u.dataset.up), S.active); }
   hideLast(); toast('Buchung zurückgenommen');
 });
