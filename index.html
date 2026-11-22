@@ -196,6 +196,7 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 @media (prefers-reduced-motion:reduce){.bell.ring{animation:none}}
 .bellrow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:10px 2px;color:var(--ink);font:inherit;cursor:pointer}
 .bellrow span:nth-child(2){flex:1;min-width:0}.bellrow small{color:var(--mu);flex:none}
+.bellw{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line)}.bellw .bellrow{flex:1;min-width:0;border-bottom:0;width:auto}.bellw .b{flex:none}
 .acct-row:not(:has(.b:not([hidden])))  {display:none}
 .acct{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
 .acct .av{flex:none}
@@ -781,7 +782,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '80';
+const APP_VERSION = '81';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1530,6 +1531,16 @@ document.addEventListener('click', async e => {
 const BELL_KEY = 'strichliste_bell';
 let bellSnooze = { until: 0, keys: [] }; try { bellSnooze = Object.assign(bellSnooze, JSON.parse(localStorage.getItem(BELL_KEY) || '{}')); } catch (e) {}
 let bellWasSnoozed = false;
+/* Löschen: Meldung verschwindet aus der Glocke und landet im Verlauf (pro Konto, auf diesem Handy gemerkt; höchstens 200).
+   Die Aufgabe selbst bleibt im Admin-Bereich bestehen. Eine neue Antwort auf dieselbe Rückfrage meldet sich wieder (anderer Schlüssel). */
+const BELL_HIST_KEY = 'strichliste_bell_hist';
+let bellHistC = null, bellHistU = '', bellShowHist = false;
+function bellHist() {
+  const u = S.user ? S.user.uid : '';
+  if (bellHistC === null || bellHistU !== u) { bellHistU = u; try { bellHistC = JSON.parse(localStorage.getItem(BELL_HIST_KEY + ':' + u) || '[]'); } catch (e) { bellHistC = []; } if (!Array.isArray(bellHistC)) bellHistC = []; }
+  return bellHistC;
+}
+function bellHistSave() { bellHistC = bellHistC.slice(0, 200); try { localStorage.setItem(BELL_HIST_KEY + ':' + bellHistU, JSON.stringify(bellHistC)); } catch (e) {} }
 function bellItems() {
   if (!S.isAdmin || !S.user) return [];
   const out = [], U = S.users || {};
@@ -1539,7 +1550,8 @@ function bellItems() {
   (S.reqs || []).filter(r => r.status === 'open').forEach(r => out.push({ key: 'req:' + r.id, sec: 'Korrekturanträge', icon: '📝', t: 'Antrag von ' + (r.name || '') + ': ' + reqTxt(r) }));
   (S.asks || []).filter(a => a.answer && !a.booked && a.by === S.user.uid).forEach(a => out.push({ key: 'ask:' + a.id + ':' + a.answerAt, sec: 'Abgleich', day: a.day, icon: '💬', t: 'Antwort von ' + a.name + ': ' + String(a.answer).slice(0, 60) }));
   if (S.isSuper) (S.inbox || []).filter(m => !m.read).forEach(m => out.push({ key: 'msg:' + m.id, sec: 'Posteingang', icon: '✉️', t: 'Nachricht von ' + (m.name || '') }));
-  return out;
+  const gone = new Set(bellHist().map(h => h.key));
+  return out.filter(i => !gone.has(i.key));
 }
 const bellNext8 = () => { const d = new Date(); d.setDate(d.getDate() + (d.getHours() >= 8 ? 1 : 0)); d.setHours(8, 0, 0, 0); return d.getTime(); };
 function bellVisible(items) {
@@ -1549,11 +1561,11 @@ function bellVisible(items) {
 function renderBell() {
   const b = $('bellBtn'); if (!b) return;
   const items = bellItems(), vis = bellVisible(items), snoozed = bellSnooze.until > Date.now();
-  b.hidden = !S.isAdmin || !items.length;
+  b.hidden = !S.isAdmin || (!items.length && !bellHist().length);
   if (b.hidden) return;
   $('bellN').textContent = vis.length || '';
   b.classList.toggle('ring', vis.length > 0); b.classList.toggle('snz', !vis.length && snoozed);
-  b.setAttribute('aria-label', vis.length ? vis.length + ' offene Aufgaben' : 'Offene Aufgaben – Erinnerung pausiert');
+  b.setAttribute('aria-label', vis.length ? vis.length + ' offene Aufgaben' : items.length ? 'Offene Aufgaben – Erinnerung pausiert' : 'Benachrichtigungen – Verlauf');
   if (bellWasSnoozed && !snoozed && items.length) { toast('Erinnerung: noch ' + items.length + ' offen im Admin-Bereich'); notifyBg('Noch offen im Admin-Bereich', items.slice(0, 3).map(i => i.t).join(' · '), 'bell', 'admin'); }
   bellWasSnoozed = snoozed;
 }
@@ -1562,9 +1574,20 @@ function bellHTML() {
   const items = bellItems(), snoozed = bellSnooze.until > Date.now();
   return '<h2>🔔 Offen im Admin-Bereich (' + items.length + ')</h2>' +
     (snoozed ? '<div class="note" style="margin:6px 0">Erinnerung pausiert bis ' + new Date(bellSnooze.until).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) + ' Uhr. Neues zeigt die Glocke trotzdem.</div>' : '') +
-    (items.length ? items.map((i, n) => '<button type="button" class="bellrow" data-bell="' + n + '"><span>' + i.icon + '</span><span>' + esc(i.t) + '</span><small>' + esc(secTitle(i.sec) || i.sec) + ' ›</small></button>').join('') : '<div class="empty">Alles erledigt. 👍</div>') +
+    (items.length ? items.map((i, n) => '<div class="bellw"><button type="button" class="bellrow" data-bell="' + n + '"><span>' + i.icon + '</span><span>' + esc(i.t) + '</span><small>' + esc(secTitle(i.sec) || i.sec) + ' ›</small></button><button type="button" class="b sm" data-bdel="' + n + '" aria-label="Löschen" title="Löschen (kommt in den Verlauf)">✕</button></div>').join('') : '<div class="empty">Alles erledigt. 👍</div>') +
+    (items.length > 1 ? '<div class="row" style="margin-top:8px"><button class="b sm" data-bdel="all">Alle löschen</button></div>' : '') +
     (items.length ? '<h3 class="sub3" style="margin-top:12px">Später erinnern</h3><div class="row" style="margin-top:4px">' + [[1, 'in 1 Std.'], [3, 'in 3 Std.'], [8, 'in 8 Std.'], [0, 'morgen früh']].map(([h, l]) => '<button class="b sm" data-snooze="' + h + '">' + l + '</button>').join('') + (snoozed ? '<button class="b sm" data-snooze="-1">Jetzt wieder erinnern</button>' : '') + '</div>' +
-      '<small style="color:var(--mu)">Spätestens am nächsten Morgen um 8 Uhr erinnert die Glocke wieder, solange etwas offen ist.</small>' : '');
+      '<small style="color:var(--mu)">Spätestens am nächsten Morgen um 8 Uhr erinnert die Glocke wieder, solange etwas offen ist.</small>' : '') +
+    bellHistHTML();
+}
+function bellHistHTML() {
+  const H = bellHist(); if (!H.length) return '';
+  let h = '<div class="row" style="margin-top:12px"><button class="b sm" data-bhist="1" aria-expanded="' + bellShowHist + '">' + (bellShowHist ? 'Verlauf ausblenden' : 'Verlauf (' + H.length + ')') + '</button></div>';
+  if (!bellShowHist) return h;
+  return h + '<h3 class="sub3" style="margin-top:10px">Verlauf – gelöschte Meldungen</h3>' +
+    H.map((x, n) => '<div class="bellw"><button type="button" class="bellrow" data-bhgo="' + n + '"><span>' + x.icon + '</span><span>' + esc(x.t) + '</span><small>' + esc(askAge(x.at)) + ' ›</small></button><button type="button" class="b sm" data-bhre="' + n + '" aria-label="Wiederherstellen" title="Zurück in die Glocke">↩</button></div>').join('') +
+    '<div class="row" style="margin-top:8px"><button class="b sm" data-bhclear="1">Verlauf leeren</button></div>' +
+    '<small style="color:var(--mu)">Gelöscht wird nur die Meldung – die Aufgabe bleibt im Admin-Bereich. ↩ holt eine Meldung zurück in die Glocke.</small>';
 }
 function admGoto(sec, dayId) {
   closeModal(); setView('admin');
@@ -1572,8 +1595,19 @@ function admGoto(sec, dayId) {
   admSet(sec, true); renderAdmin();
   setTimeout(() => { const h = document.querySelector('#adminBody h2[data-adm="' + sec + '"]'); if (h) { h.parentElement.classList.remove('closed'); const t = document.querySelector('header.top'), off = t && !t.classList.contains('nostick') ? t.offsetHeight + 10 : 10; window.scrollTo({ top: h.parentElement.getBoundingClientRect().top + scrollY - off, behavior: 'instant' }); } else toast('Bereich „' + sec + '“ ist ausgeblendet – über ⇅ Anordnen einblenden'); }, 80);
 }
-$('bellBtn').addEventListener('click', () => openModal(bellHTML()));
+$('bellBtn').addEventListener('click', () => { bellShowHist = false; openModal(bellHTML()); });
+const bellRefresh = () => { $('modalBody').innerHTML = bellHTML(); renderBell(); };
 $('modalBody').addEventListener('click', e => {
+  const del = e.target.closest('[data-bdel]');
+  if (del) {
+    const items = bellItems(), pick = del.dataset.bdel === 'all' ? items : [items[+del.dataset.bdel]].filter(Boolean), now = Date.now();
+    pick.slice().reverse().forEach(i => bellHist().unshift({ key: i.key, icon: i.icon, t: i.t, sec: i.sec, day: i.day || '', at: now }));
+    bellHistSave(); bellRefresh(); toast(pick.length > 1 ? pick.length + ' Meldungen gelöscht – siehe Verlauf' : 'Gelöscht – siehe Verlauf'); return;
+  }
+  if (e.target.closest('[data-bhist]')) { bellShowHist = !bellShowHist; bellRefresh(); return; }
+  const hg = e.target.closest('[data-bhgo]'); if (hg) { const x = bellHist()[+hg.dataset.bhgo]; if (x) admGoto(x.sec, x.day || undefined); return; }
+  const hr = e.target.closest('[data-bhre]'); if (hr) { bellHist().splice(+hr.dataset.bhre, 1); bellHistSave(); bellRefresh(); toast('Zurück in der Glocke'); return; }
+  if (e.target.closest('[data-bhclear]')) { bellHistC = []; bellHistSave(); bellShowHist = false; bellRefresh(); toast('Verlauf geleert – offene Aufgaben erscheinen wieder in der Glocke'); return; }
   const r = e.target.closest('[data-bell]'); if (r) { const i = bellItems()[+r.dataset.bell]; if (i) admGoto(i.sec, i.day); return; }
   const z = e.target.closest('[data-snooze]'); if (!z) return;
   const h = +z.dataset.snooze;
