@@ -644,6 +644,11 @@ body.noauth main{display:none!important}
   </section>
 
   <main id="v-scan" style="display:flex;flex-direction:column;gap:16px">
+    <section id="extraSec" hidden style="border-top:0;padding-top:0">
+      <div id="wrapBanner"></div>
+      <div class="mode xtabs" id="extraTabs"><button data-x="best" data-tx="tabBest">Bestenliste</button><button data-x="album" data-tx="tabAlbum">Sammelalbum</button><button data-x="konto" data-tx="tabKonto">Mein Konto</button><button data-x="wrap" data-tx="tabWrap">Rückblick</button><button data-x="admin" id="admTab" hidden>🛠️ Admin</button></div>
+      <div id="extra"></div>
+    </section>
     <div id="dayInfo"><div class="empty">Lade …</div></div>
     <section id="nameSec" hidden>
       <h2>Wer bist du?</h2>
@@ -674,11 +679,6 @@ body.noauth main{display:none!important}
     <div id="askBox" hidden></div>
     <div id="last" hidden></div>
     <section id="listSec" hidden><h2 id="listHead" data-tx="listHead">Deine Getränke heute</h2><div id="list"></div><div id="reqBox" class="reqbox" hidden></div></section>
-    <section id="extraSec" hidden>
-      <div id="wrapBanner"></div>
-      <div class="mode xtabs" id="extraTabs"><button data-x="best" data-tx="tabBest">Bestenliste</button><button data-x="album" data-tx="tabAlbum">Sammelalbum</button><button data-x="konto" data-tx="tabKonto">Mein Konto</button><button data-x="wrap" data-tx="tabWrap">Rückblick</button></div>
-      <div id="extra"></div>
-    </section>
     <section id="histSec" hidden>
       <h2 data-tx="eggsHead">Easter Eggs heute</h2>
       <div class="mode" id="histTabs" style="display:inline-flex;margin-bottom:8px"><button data-h="all" class="on">Für alle</button><button data-h="mine">Deine</button></div>
@@ -782,7 +782,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '82';
+const APP_VERSION = '84';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2745,6 +2745,10 @@ function wrapTime(now = new Date()) { const a = ashWednesday(now.getFullYear()),
 
 $('extraTabs').addEventListener('click', e => {
   const b = e.target.closest('[data-x]'); if (!b) return;
+  if (b.dataset.x === 'admin') { // kein Reiter-Inhalt: öffnet den Admin-Bereich (wie 5× auf den Titel tippen)
+    if (S.adminChecked && !S.isAdmin && !S.isBoard) { noAdminGo(); return; }
+    setMsg(''); setView('admin'); return;
+  }
   extraTab = extraTab === b.dataset.x ? '' : b.dataset.x;
   if (extraTab === 'best') { if (!bestTouched) bestPeriod = bestCfg().period; loadBoard(); }
   if (extraTab === 'konto' || extraTab === 'wrap') loadMine();
@@ -2800,7 +2804,7 @@ function renderExtra() {
   const sec = $('extraSec');
   const ok = S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock || S.meDoc.deleted));
   sec.hidden = !ok; if (!ok) return;
-  $('extraTabs').querySelectorAll('button').forEach(b => { b.hidden = b.dataset.x !== 'konto' && !canSee(b.dataset.x); });
+  $('extraTabs').querySelectorAll('button').forEach(b => { b.hidden = b.dataset.x === 'admin' ? !(S.isAdmin || S.isBoard) : b.dataset.x !== 'konto' && !canSee(b.dataset.x); });
   if (extraTab && extraTab !== 'konto' && !canSee(extraTab)) extraTab = '';
   $('wrapBanner').innerHTML = canSee('wrap') && wrapTime() && extraTab !== 'wrap' ? '<div class="note ok" style="margin-bottom:10px"><b>Die Fasnet isch rum!</b> Dein Saison-Rückblick ist da. <button class="b sm pri" data-wrap="1">Ansehen</button></div>' : '';
   $('extraTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.x === extraTab));
