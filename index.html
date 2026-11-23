@@ -626,7 +626,6 @@ body.noauth main{display:none!important}
 .pc[open]>summary::after{transform:rotate(-135deg);margin-top:-2px}
 .pc summary:active{opacity:.7}
 .pc summary:focus-visible{outline:3px solid var(--wy,#f5c000);outline-offset:2px}
-.bell.dnd{opacity:.75}
 </style>
 </head>
 <body>
@@ -635,7 +634,7 @@ body.noauth main{display:none!important}
     <h1 id="title"><span class="t1" data-tx="t1">Wexhainis</span><span class="t2" data-tx="t2">Getränke-Strichliste</span></h1>
     <div class="top-side"><span style="display:flex;gap:6px;align-items:center"><button class="b sm back" id="helpBtn" aria-label="Hilfe und Infos">?</button><button class="b sm back" id="themeBtn" aria-label="Hell- oder Nachtmodus">Auto</button><span class="net" id="net">…</span></span><button class="b sm back" id="backBtn" hidden>Zurück zum Scannen</button></div>
   </div>
-  <div class="acct-row"><button class="b sm back bell" id="bellBtn" hidden aria-haspopup="dialog" aria-label="Meldungen">🔔<em id="bellN"></em></button><button class="b sm back acct" id="acctBtn" hidden aria-expanded="false" aria-controls="acctPanel"></button></div>
+  <div class="acct-row"><button class="b sm back bell" id="bellBtn" hidden aria-haspopup="dialog" aria-label="Offene Aufgaben">🔔<em id="bellN"></em></button><button class="b sm back acct" id="acctBtn" hidden aria-expanded="false" aria-controls="acctPanel"></button></div>
   <div id="acctPanel" class="acct-panel" hidden>
     <div class="ap-head"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild ändern"><span id="meAv"></span><i>Bild</i></button>
       <span class="ap-who"><b id="meName"></b><small id="acctRoleT"></small><small id="meGrp"></small><small id="acctMail"></small></span>
@@ -807,7 +806,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '89';
+const APP_VERSION = '88';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1074,7 +1073,7 @@ function startAdminListeners() {
   unsub.users = F.onSnapshot(col('users'), snap => {
     S.users = {}; snap.docs.forEach(d => { S.users[d.id] = d.data(); });
     const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !goneSL(S.users[k]) && k !== (S.user && S.user.uid));
-    if (knownPending && pend.some(k => !knownPending.includes(k))) { noteToast('Neue Anmeldung wartet auf Freischaltung'); buzz(120); }
+    if (knownPending && pend.some(k => !knownPending.includes(k))) { toast('Neue Anmeldung wartet auf Freischaltung'); if (navigator.vibrate) navigator.vibrate(120); }
     knownPending = pend;
     renderAdmin();
   }, err => { if (err && err.code !== 'permission-denied') console.error(err); });
@@ -1553,15 +1552,6 @@ document.addEventListener('click', async e => {
 /* ---------- Glocke für Admins: offene Aufgaben im Admin-Bereich ----------
    Später erinnern: 1, 3 oder 8 Stunden bzw. morgen früh – höchstens bis zum nächsten Morgen (8 Uhr).
    Neue Aufgaben während der Pause zeigt die Glocke trotzdem sofort. */
-/* ---------- Nicht stören (pro Handy): keine Handy-Hinweise, Töne, Vibration und Einblendungen für neue Meldungen.
-   Die Glocke zählt weiter; Rückmeldungen auf eigenes Tippen (z. B. „Gebucht“) bleiben unberührt. ---------- */
-const DND_KEY = 'strichliste_dnd';
-let dndUntil = 0; try { dndUntil = +localStorage.getItem(DND_KEY) || 0; } catch (e) {}
-const dndOn = () => dndUntil > Date.now();
-function dndSet(until) { dndUntil = until > Date.now() ? until : 0; try { if (dndUntil) localStorage.setItem(DND_KEY, String(dndUntil)); else localStorage.removeItem(DND_KEY); } catch (e) {} }
-const buzz = p => { if (!dndOn() && navigator.vibrate) navigator.vibrate(p); };
-const noteToast = m => { if (!dndOn()) toast(m); };
-let wasDnd = dndOn();
 const BELL_KEY = 'strichliste_bell';
 let bellSnooze = { until: 0, keys: [] }; try { bellSnooze = Object.assign(bellSnooze, JSON.parse(localStorage.getItem(BELL_KEY) || '{}')); } catch (e) {}
 let bellWasSnoozed = false;
@@ -1575,21 +1565,14 @@ function bellHist() {
   return bellHistC;
 }
 function bellHistSave() { bellHistC = bellHistC.slice(0, 200); try { localStorage.setItem(BELL_HIST_KEY + ':' + bellHistU, JSON.stringify(bellHistC)); } catch (e) {} }
-const memberOk = () => !!(S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock || S.meDoc.deleted)));
 function bellItems() {
-  if (!S.user) return [];
+  if (!S.isAdmin || !S.user) return [];
   const out = [], U = S.users || {};
-  if (memberOk()) { // Meldungen für jedes Mitglied: Rückfragen, entschiedene Anträge, Antworten auf Nachrichten
-    (S.myAsks || []).filter(a => a.status === 'open').forEach(a => out.push({ key: 'myask:' + a.id, sec: 'Rückfrage', go: 'ask', icon: '❓', t: 'Rückfrage von ' + (a.byName || 'einem Admin') + ': ' + String(a.text || '').slice(0, 60) }));
-    (S.myReqs || []).filter(r => r.status !== 'open' && (r.at || 0) > reqSeen()).forEach(r => out.push({ key: 'myreq:' + r.id + ':' + r.at, sec: 'Anträge', go: 'req', icon: r.status === 'ok' ? '✅' : '❌', t: 'Dein Antrag ' + reqTxt(r) + ' wurde ' + (r.status === 'ok' ? 'genehmigt' : 'abgelehnt') }));
-    (S.myMsgs || []).filter(m => m.replyAt && m.replyAt > msgSeen()).forEach(m => out.push({ key: 'mymsg:' + m.id + ':' + m.replyAt, sec: 'Nachrichten', go: 'msg', icon: '💬', t: 'Antwort von ' + (m.replyBy || contactName()) + ': ' + String(m.reply || '').slice(0, 60) }));
-    if (window.__updAt && $('updBar') && !$('updBar').hidden) out.push({ key: 'upd:' + window.__updAt, sec: 'App', go: 'upd', icon: '⬆️', t: 'Neue App-Version da – tippen zum Neuladen' });
-  }
-  if (S.isAdmin) Object.keys(U).forEach(k => { const u = U[k]; if (goneSL(u)) return;
+  Object.keys(U).forEach(k => { const u = U[k]; if (goneSL(u)) return;
     if (u.pending === true && k !== S.user.uid) out.push({ key: 'reg:' + k, sec: 'Neue Anmeldungen', icon: '🆕', t: 'Neue Anmeldung: ' + (u.name || u.email || '') });
     if (u.delreq) out.push({ key: 'del:' + k, sec: 'Löschanträge', icon: '🗑', t: 'Löschantrag: ' + (u.name || '') }); });
-  if (S.isAdmin) (S.reqs || []).filter(r => r.status === 'open').forEach(r => out.push({ key: 'req:' + r.id, sec: 'Korrekturanträge', icon: '📝', t: 'Antrag von ' + (r.name || '') + ': ' + reqTxt(r) }));
-  if (S.isAdmin) (S.asks || []).filter(a => a.answer && !a.booked && a.by === S.user.uid).forEach(a => out.push({ key: 'ask:' + a.id + ':' + a.answerAt, sec: 'Abgleich', day: a.day, icon: '💬', t: 'Antwort von ' + a.name + ': ' + String(a.answer).slice(0, 60) }));
+  (S.reqs || []).filter(r => r.status === 'open').forEach(r => out.push({ key: 'req:' + r.id, sec: 'Korrekturanträge', icon: '📝', t: 'Antrag von ' + (r.name || '') + ': ' + reqTxt(r) }));
+  (S.asks || []).filter(a => a.answer && !a.booked && a.by === S.user.uid).forEach(a => out.push({ key: 'ask:' + a.id + ':' + a.answerAt, sec: 'Abgleich', day: a.day, icon: '💬', t: 'Antwort von ' + a.name + ': ' + String(a.answer).slice(0, 60) }));
   if (S.isSuper) (S.inbox || []).filter(m => !m.read).forEach(m => out.push({ key: 'msg:' + m.id, sec: 'Posteingang', icon: '✉️', t: 'Nachricht von ' + (m.name || '') }));
   const gone = new Set(bellHist().map(h => h.key));
   return out.filter(i => !gone.has(i.key));
@@ -1599,39 +1582,27 @@ function bellVisible(items) {
   const snoozed = bellSnooze.until > Date.now();
   return snoozed ? items.filter(i => !bellSnooze.keys.includes(i.key)) : items;
 }
-const bellShown = () => !!(S.user && S.authReady && (S.isAdmin || memberOk()));
 function renderBell() {
   const b = $('bellBtn'); if (!b) return;
-  const dnd = dndOn();
-  if (wasDnd && !dnd) { dndSet(0); toast('Nicht stören ist vorbei'); }
-  wasDnd = dnd;
-  b.hidden = !bellShown();
-  if (b.hidden) return;
   const items = bellItems(), vis = bellVisible(items), snoozed = bellSnooze.until > Date.now();
-  if (b.firstChild && b.firstChild.nodeType === 3) b.firstChild.nodeValue = dnd ? '🔕' : '🔔';
+  b.hidden = !S.isAdmin || (!items.length && !bellHist().length);
+  if (b.hidden) return;
   $('bellN').textContent = vis.length || '';
-  b.classList.toggle('ring', vis.length > 0 && !dnd); b.classList.toggle('snz', !vis.length && snoozed); b.classList.toggle('dnd', dnd);
-  b.setAttribute('aria-label', (dnd ? 'Nicht stören an. ' : '') + (vis.length ? vis.length + ' Meldungen' : items.length ? 'Meldungen – Erinnerung pausiert' : 'Meldungen und Nicht stören'));
-  if (bellWasSnoozed && !snoozed && items.length) { noteToast('Erinnerung: noch ' + items.length + (S.isAdmin ? ' offen' : ' Meldung' + (items.length > 1 ? 'en' : ''))); notifyBg('Noch offen', items.slice(0, 3).map(i => i.t).join(' · '), 'bell', S.isAdmin ? 'admin' : ''); }
+  b.classList.toggle('ring', vis.length > 0); b.classList.toggle('snz', !vis.length && snoozed);
+  b.setAttribute('aria-label', vis.length ? vis.length + ' offene Aufgaben' : items.length ? 'Offene Aufgaben – Erinnerung pausiert' : 'Benachrichtigungen – Verlauf');
+  if (bellWasSnoozed && !snoozed && items.length) { toast('Erinnerung: noch ' + items.length + ' offen im Admin-Bereich'); notifyBg('Noch offen im Admin-Bereich', items.slice(0, 3).map(i => i.t).join(' · '), 'bell', 'admin'); }
   bellWasSnoozed = snoozed;
 }
 setInterval(renderBell, 60000);
 function bellHTML() {
   const items = bellItems(), snoozed = bellSnooze.until > Date.now();
-  return '<h2>' + (dndOn() ? '🔕' : '🔔') + ' Meldungen (' + items.length + ')</h2>' +
+  return '<h2>🔔 Offen im Admin-Bereich (' + items.length + ')</h2>' +
     (snoozed ? '<div class="note" style="margin:6px 0">Erinnerung pausiert bis ' + new Date(bellSnooze.until).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) + ' Uhr. Neues zeigt die Glocke trotzdem.</div>' : '') +
     (items.length ? items.map((i, n) => '<div class="bellw"><button type="button" class="bellrow" data-bell="' + n + '"><span>' + i.icon + '</span><span>' + esc(i.t) + '</span><small>' + esc(secTitle(i.sec) || i.sec) + ' ›</small></button><button type="button" class="b sm" data-bdel="' + n + '" aria-label="Löschen" title="Löschen (kommt in den Verlauf)">✕</button></div>').join('') : '<div class="empty">Alles erledigt. 👍</div>') +
     (items.length > 1 ? '<div class="row" style="margin-top:8px"><button class="b sm" data-bdel="all">Alle löschen</button></div>' : '') +
     (items.length ? '<h3 class="sub3" style="margin-top:12px">Später erinnern</h3><div class="row" style="margin-top:4px">' + [[1, 'in 1 Std.'], [3, 'in 3 Std.'], [8, 'in 8 Std.'], [0, 'morgen früh']].map(([h, l]) => '<button class="b sm" data-snooze="' + h + '">' + l + '</button>').join('') + (snoozed ? '<button class="b sm" data-snooze="-1">Jetzt wieder erinnern</button>' : '') + '</div>' +
       '<small style="color:var(--mu)">Spätestens am nächsten Morgen um 8 Uhr erinnert die Glocke wieder, solange etwas offen ist.</small>' : '') +
-    dndHTML() + bellHistHTML();
-}
-function dndHTML() {
-  const on = dndOn(), tm = t => new Date(t).toLocaleString('de-DE', Object.assign({ hour: '2-digit', minute: '2-digit' }, t - Date.now() > 12 * 3600000 ? { weekday: 'short' } : {}));
-  return '<h3 class="sub3" style="margin-top:14px">🌙 Nicht stören</h3>' +
-    (on ? '<div class="note" style="margin:6px 0">An bis ' + tm(dndUntil) + ' Uhr: keine Handy-Hinweise, Töne oder Vibration für neue Meldungen. Hier in der Glocke siehst du sie trotzdem.</div>' : '<small style="color:var(--mu)">Pausiert Handy-Hinweise, Töne und Vibration für neue Meldungen – nur auf diesem Handy.</small>') +
-    '<div class="row" style="margin-top:6px">' + [[30, '30 Min.'], [60, '1 Std.'], [180, '3 Std.'], [480, '8 Std.'], ['morning', 'bis morgen früh']].map(([m, l]) => '<button class="b sm" data-dnd="' + m + '">' + l + '</button>').join('') + (on ? '<button class="b sm pri" data-dnd="0">Jetzt beenden</button>' : '') + '</div>' +
-    '<div class="row" style="margin-top:6px;align-items:center"><label for="dndCustom" style="font-size:.86rem">Eigene Dauer:</label><input id="dndCustom" type="number" inputmode="numeric" min="1" max="1440" value="45" style="width:84px"><span style="font-size:.86rem">Min.</span><button class="b sm" data-dnd="custom">Starten</button></div>';
+    bellHistHTML();
 }
 function bellHistHTML() {
   const H = bellHist(); if (!H.length) return '';
@@ -1641,16 +1612,6 @@ function bellHistHTML() {
     H.map((x, n) => '<div class="bellw"><button type="button" class="bellrow" data-bhgo="' + n + '"><span>' + x.icon + '</span><span>' + esc(x.t) + '</span><small>' + esc(askAge(x.at)) + ' ›</small></button><button type="button" class="b sm" data-bhre="' + n + '" aria-label="Wiederherstellen" title="Zurück in die Glocke">↩</button></div>').join('') +
     '<div class="row" style="margin-top:8px"><button class="b sm" data-bhclear="1">Verlauf leeren</button></div>' +
     '<small style="color:var(--mu)">Gelöscht wird nur die Meldung – die Aufgabe bleibt im Admin-Bereich. ↩ holt eine Meldung zurück in die Glocke.</small>';
-}
-// Meldungen für Mitglieder: dorthin springen, wo man sie liest
-function memGoto(go) {
-  closeModal(); setView('scan');
-  if (go === 'upd') { location.reload(); return; }
-  setTimeout(() => {
-    if (go === 'req') reqMine();
-    else if (go === 'msg') msgMine();
-    else if (go === 'ask') { const el = $('askBox'); if (el && !el.hidden) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); else toast('Diese Rückfrage ist nicht mehr offen'); }
-  }, 80);
 }
 function admGoto(sec, dayId) {
   closeModal(); setView('admin');
@@ -1679,23 +1640,14 @@ $('modalBody').addEventListener('click', e => {
   const del = e.target.closest('[data-bdel]');
   if (del) {
     const items = bellItems(), pick = del.dataset.bdel === 'all' ? items : [items[+del.dataset.bdel]].filter(Boolean), now = Date.now();
-    pick.slice().reverse().forEach(i => bellHist().unshift({ key: i.key, icon: i.icon, t: i.t, sec: i.sec, day: i.day || '', go: i.go || '', at: now }));
+    pick.slice().reverse().forEach(i => bellHist().unshift({ key: i.key, icon: i.icon, t: i.t, sec: i.sec, day: i.day || '', at: now }));
     bellHistSave(); bellRefresh(); toast(pick.length > 1 ? pick.length + ' Meldungen gelöscht – siehe Verlauf' : 'Gelöscht – siehe Verlauf'); return;
   }
   if (e.target.closest('[data-bhist]')) { bellShowHist = !bellShowHist; bellRefresh(); return; }
-  const hg = e.target.closest('[data-bhgo]'); if (hg) { const x = bellHist()[+hg.dataset.bhgo]; if (x) { if (x.go) memGoto(x.go); else admGoto(x.sec, x.day || undefined); } return; }
+  const hg = e.target.closest('[data-bhgo]'); if (hg) { const x = bellHist()[+hg.dataset.bhgo]; if (x) admGoto(x.sec, x.day || undefined); return; }
   const hr = e.target.closest('[data-bhre]'); if (hr) { bellHist().splice(+hr.dataset.bhre, 1); bellHistSave(); bellRefresh(); toast('Zurück in der Glocke'); return; }
   if (e.target.closest('[data-bhclear]')) { bellHistC = []; bellHistSave(); bellShowHist = false; bellRefresh(); toast('Verlauf geleert – offene Aufgaben erscheinen wieder in der Glocke'); return; }
-  const r = e.target.closest('[data-bell]'); if (r) { const i = bellItems()[+r.dataset.bell]; if (i) { if (i.go) memGoto(i.go); else admGoto(i.sec, i.day); } return; }
-  const dz = e.target.closest('[data-dnd]');
-  if (dz) {
-    const v = dz.dataset.dnd; let until = 0;
-    if (v === 'custom') { const m = parseInt(($('dndCustom') || {}).value); if (!(m >= 1 && m <= 1440)) { toast('Bitte 1 bis 1440 Minuten eingeben'); return; } until = Date.now() + m * 60000; }
-    else if (v === 'morning') until = bellNext8();
-    else if (+v > 0) until = Date.now() + (+v) * 60000;
-    dndSet(until); wasDnd = dndOn(); if (until) clearNotes();
-    bellRefresh(); toast(until ? 'Nicht stören bis ' + new Date(until).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr' : 'Nicht stören beendet'); return;
-  }
+  const r = e.target.closest('[data-bell]'); if (r) { const i = bellItems()[+r.dataset.bell]; if (i) admGoto(i.sec, i.day); return; }
   const z = e.target.closest('[data-snooze]'); if (!z) return;
   const h = +z.dataset.snooze;
   if (h < 0) bellSnooze = { until: 0, keys: [] };
@@ -1707,7 +1659,6 @@ $('modalBody').addEventListener('click', e => {
 /* ---------- Konto-Knopf oben: „👤 Name · Rolle ▾“ – kurze Abfrage mit Konto und „Abmelden“ ---------- */
 const acctRole = () => S.isSuper ? 'Super-Admin' : S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock) ? 'gesperrt' : S.isAdmin ? 'Getränke-Admin' : S.isBoard ? 'Vorstand' : isPending() ? 'wartet auf Freischaltung' : 'Mitglied';
 function renderAcct() {
-  renderBell();
   const b = $('acctBtn'); if (!b) return;
   const on = !!(S.user && S.authReady); b.hidden = !on; if (!on) { $('acctPanel').hidden = true; return; }
   const nm = S.me || (S.meDoc && S.meDoc.name) || (S.user.email || '').split('@')[0];
@@ -2626,7 +2577,7 @@ function checkLowStock() {
   if (!fresh.length) return;
   fresh.forEach(r => { lowPending = lowPending.filter(x => x.p.id !== r.p.id); lowPending.push(r); });
   showLowBar();
-  buzz([200, 100, 200]);
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   lowSound();
   // Handy-Benachrichtigung, wenn die App im Hintergrund offen ist
   try {
@@ -2669,7 +2620,7 @@ function checkOverScan() {
   fresh.forEach(o => { overPending = overPending.filter(x => x.p.id !== o.p.id); overPending.push(o); });
   $('overList').innerHTML = overPending.map(o => '<div><b>' + esc(o.p.name) + ':</b> ' + o.x + ' zu viel (' + o.n + ' von ' + (o.L + o.over) + ')<br><small>' + esc(overWho(o)) + '</small></div>').join('');
   $('overBar').hidden = false;
-  buzz([150, 80, 150, 80, 300]);
+  if (navigator.vibrate) navigator.vibrate([150, 80, 150, 80, 300]);
   lowSound();
   try {
     if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
@@ -2713,7 +2664,7 @@ function checkSoldOut() {
   });
   if (!fresh.length) return;
   fresh.forEach(r => { lowPending = lowPending.filter(x => x.p.id !== r.p.id); lowPending.push(r); });
-  showLowBar(); buzz([200, 100, 200, 100, 200]); lowSound();
+  showLowBar(); if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]); lowSound();
   notifyBg(fresh.length > 1 ? fresh.length + ' Getränke ausgebucht' : fresh[0].p.name + ' ist ausgebucht', fresh.map(lowText).join('\n'), 'soldout', 'admin');
 }
 function showLowBar() {
@@ -2724,7 +2675,6 @@ function showLowBar() {
   $('lowBar').hidden = false;
 }
 function lowSound() {
-  if (dndOn()) return;
   try {
     const A = window.AudioContext || window.webkitAudioContext; if (!beep.c) beep.c = new A();
     const c = beep.c, t0 = c.currentTime + .05;
@@ -3558,7 +3508,7 @@ function listenAdminAsks() {
   unsub.asksAll = F.onSnapshot(F.query(col('asks'), F.orderBy('t', 'desc'), F.limit(150)), snap => {
     const old = {}; (S.asks || []).forEach(a => { old[a.id] = a.answerAt || 0; });
     S.asks = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
-    if (!first) S.asks.forEach(a => { if (a.answerAt && a.answerAt !== old[a.id] && a.by === S.user.uid) { noteToast('Antwort von ' + a.name + ' auf deine Rückfrage'); notifyBg('Antwort von ' + a.name, String(a.answer || '').slice(0, 140), 'ask-ans', 'admin'); } });
+    if (!first) S.asks.forEach(a => { if (a.answerAt && a.answerAt !== old[a.id] && a.by === S.user.uid) { toast('Antwort von ' + a.name + ' auf deine Rückfrage'); notifyBg('Antwort von ' + a.name, String(a.answer || '').slice(0, 140), 'ask-ans', 'admin'); } });
     first = false; renderAdmin();
   }, err => console.warn('asks', err));
 }
@@ -3599,7 +3549,7 @@ function listenMyAsks() {
   unsub.myAsks = F.onSnapshot(F.query(col('asks'), F.where('uid', '==', S.user.uid)), snap => {
     const old = new Set((S.myAsks || []).map(a => a.id));
     S.myAsks = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.t - a.t);
-    if (!first) S.myAsks.forEach(a => { if (!old.has(a.id) && a.status === 'open') { noteToast('Rückfrage von ' + (a.byName || 'einem Admin') + ' – oben in der App'); notifyBg('Rückfrage von ' + (a.byName || 'einem Admin'), String(a.text || '').slice(0, 140), 'myask', 'home'); buzz(120); } });
+    if (!first) S.myAsks.forEach(a => { if (!old.has(a.id) && a.status === 'open') { toast('Rückfrage von ' + (a.byName || 'einem Admin') + ' – oben in der App'); notifyBg('Rückfrage von ' + (a.byName || 'einem Admin'), String(a.text || '').slice(0, 140), 'myask', 'home'); if (navigator.vibrate) navigator.vibrate(120); } });
     first = false; renderAskBox(); updateBadge();
   }, err => console.warn('myAsks', err));
 }
@@ -4508,7 +4458,7 @@ function listenMyReqs() {
   unsub.myReqs = F.onSnapshot(F.query(col('reqs'), F.where('uid', '==', S.user.uid)), snap => {
     const old = {}; (S.myReqs || []).forEach(r => { old[r.id] = r.status; });
     S.myReqs = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.t - a.t);
-    if (!first) S.myReqs.forEach(r => { if (old[r.id] === 'open' && r.status !== 'open') { noteToast('Dein Antrag ' + reqTxt(r) + ' wurde ' + (r.status === 'ok' ? 'genehmigt ✓' : 'abgelehnt')); notifyBg('Antrag ' + (r.status === 'ok' ? 'genehmigt ✓' : 'abgelehnt'), reqTxt(r) + (r.reason ? ' – ' + r.reason : ''), 'myreq', 'myreq'); buzz(120); } });
+    if (!first) S.myReqs.forEach(r => { if (old[r.id] === 'open' && r.status !== 'open') { toast('Dein Antrag ' + reqTxt(r) + ' wurde ' + (r.status === 'ok' ? 'genehmigt ✓' : 'abgelehnt')); notifyBg('Antrag ' + (r.status === 'ok' ? 'genehmigt ✓' : 'abgelehnt'), reqTxt(r) + (r.reason ? ' – ' + r.reason : ''), 'myreq', 'myreq'); if (navigator.vibrate) navigator.vibrate(120); } });
     first = false; renderReqBox(); updateBadge();
   }, err => console.warn('reqs', err));
 }
@@ -4616,7 +4566,7 @@ function listenAdminReqs() {
     S.reqs = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const open = S.reqs.filter(r => r.status === 'open').map(r => r.id);
     if (known && open.some(id => !known.includes(id))) {
-      noteToast('Neuer Korrekturantrag'); buzz(120);
+      toast('Neuer Korrekturantrag'); if (navigator.vibrate) navigator.vibrate(120);
       const nw = S.reqs.filter(r => r.status === 'open' && !known.includes(r.id));
       notifyBg(nw.length > 1 ? nw.length + ' neue Korrekturanträge' : 'Neuer Korrekturantrag', nw.map(r => (r.name || '') + ': ' + reqTxt(r)).join('\n').slice(0, 200), 'req-new', 'admin');
     }
@@ -4733,7 +4683,7 @@ function listenMyMsgs() {
   unsub.myMsgs = F.onSnapshot(F.query(col('msgs'), F.where('uid', '==', S.user.uid)), snap => {
     const old = {}; (S.myMsgs || []).forEach(m => { old[m.id] = m.replyAt || 0; });
     S.myMsgs = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.t - a.t);
-    if (!first) S.myMsgs.forEach(m => { if (m.replyAt && m.replyAt !== old[m.id]) { noteToast('Neue Antwort von ' + (m.replyBy || contactName()) + ' – unten „Kontakt & Feedback“'); notifyBg('Antwort von ' + (m.replyBy || contactName()), String(m.reply || '').slice(0, 140), 'myreply', 'mymsg'); buzz(120); } });
+    if (!first) S.myMsgs.forEach(m => { if (m.replyAt && m.replyAt !== old[m.id]) { toast('Neue Antwort von ' + (m.replyBy || contactName()) + ' – unten „Kontakt & Feedback“'); notifyBg('Antwort von ' + (m.replyBy || contactName()), String(m.reply || '').slice(0, 140), 'myreply', 'mymsg'); if (navigator.vibrate) navigator.vibrate(120); } });
     first = false; renderVersion(); updateBadge();
   }, err => console.warn('msgs', err));
 }
@@ -4747,7 +4697,7 @@ function listenInbox() {
     S.inbox = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const ids = S.inbox.filter(m => !m.read).map(m => m.id);
     if (known && ids.some(id => !known.includes(id))) {
-      noteToast('Neue Nachricht im Posteingang'); buzz(120);
+      toast('Neue Nachricht im Posteingang'); if (navigator.vibrate) navigator.vibrate(120);
       const nw = S.inbox.filter(m => !m.read && !known.includes(m.id));
       notifyBg(nw.length > 1 ? nw.length + ' neue Nachrichten' : (nw[0] && nw[0].kind === 'bug' ? 'Fehlermeldung' : nw[0] && nw[0].kind === 'idea' ? 'Feedback' : 'Neue Nachricht') + (nw[0] ? ' von ' + nw[0].name : ''), nw.map(m => String(m.text || '')).join('\n').slice(0, 200), 'msg-new', 'admin');
     }
@@ -5067,7 +5017,7 @@ $('installNote').addEventListener('click', e => {
 $('modalBody').addEventListener('click', e => { if (e.target.id === 'installGo') { closeModal(); doInstall(); } if (e.target.id === 'installHelp') openModal(installHelpHTML()); });
 addEventListener('installable', renderInstall);
 addEventListener('appinstalled', () => { window.__installEvt = null; toast('App installiert – starte sie vom Startbildschirm'); renderInstall(); });
-addEventListener('appupdate', () => { window.__updAt = Date.now(); $('updBar').hidden = false; renderBell(); });
+addEventListener('appupdate', () => { $('updBar').hidden = false; });
 $('updGo').addEventListener('click', () => location.reload());
 // Schnellstart „Getränk buchen“ (App-Verknüpfung): Kamera direkt starten
 // Schnellzugriffe (langes Drücken aufs App-Symbol): ?scan=1, ?go=konto|req|msg|admin
@@ -5107,7 +5057,7 @@ let lastBadge = -1;
 const undoCfg = () => { const c = S.undoCfg || {}; return { on: c.on !== false, secs: Math.min(120, Math.max(3, +c.secs || 10)) }; };
 const canNotify = () => 'Notification' in window && Notification.permission === 'granted';
 function notifyBg(title, body, tag, go) {
-  if (!document.hidden || !canNotify() || dndOn()) return;
+  if (!document.hidden || !canNotify()) return;
   const o = { body, tag, data: { go: go || '' }, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', renotify: true };
   try {
     if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.ready.then(reg => reg.showNotification(title, o)).catch(() => {});
@@ -5135,7 +5085,6 @@ if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message',
   if (go === 'mymsg') { const b = document.querySelector('[data-msg=mine]'); if (b) b.click(); }
 });
 function updateBadge() {
-  renderBell();
   if (!('setAppBadge' in navigator)) return;
   const n = S.user ? badgeCount() : 0;
   if (n === lastBadge) return; lastBadge = n;
