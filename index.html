@@ -603,6 +603,24 @@ section.coll.closed>:not(h2:first-child){display:none!important}
 .setup code{background:#eee6cc;padding:1px 5px;border-radius:4px;word-break:break-all}
 body.noauth main{display:none!important}
 .uid{font-family:ui-monospace,Menlo,monospace;background:#eee6cc;padding:6px 8px;border-radius:6px;word-break:break-all;user-select:all}
+
+/* Bedienbarkeit: Reiter sehen wie Knöpfe aus (Symbol, Rahmen, Pfeil), Antippen gibt Rückmeldung */
+.mode.xtabs{border:0;border-radius:0;overflow:visible;gap:8px}
+.mode.xtabs button{flex:1 1 calc(50% - 8px);min-height:48px;display:flex;align-items:center;justify-content:center;gap:7px;
+  border:1.5px solid var(--ink);border-radius:12px;background:var(--white);font-size:.92rem;padding:10px 8px;
+  box-shadow:0 3px 0 rgba(128,128,128,.5);transition:transform .08s,box-shadow .08s}
+.mode.xtabs button::before{content:attr(data-ic);font-size:1.15rem;line-height:1}
+.mode.xtabs button::after{content:"▾";font-size:.8em;opacity:.65}
+.mode.xtabs button.on::after{content:"▴";opacity:1}
+.mode.xtabs button[data-x=admin]{border-style:dashed}
+.mode.xtabs button[data-x=admin]::after{content:"›";font-size:1.2em}
+.mode.xtabs button:active{transform:translateY(3px);box-shadow:0 0 0 rgba(128,128,128,.5)}
+.mode button:active{opacity:.75}
+.b:focus-visible,.mode button:focus-visible,.linkbtn:focus-visible{outline:3px solid var(--wy,#f5c000);outline-offset:2px}
+.tabhint{font-size:.82rem;font-weight:600;color:var(--mu);margin:0 0 6px}
+.dr[data-plus]{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;transition:background .08s}
+.dr[data-plus]:active{background:var(--wy2,rgba(128,128,128,.15))}
+.dr.off{opacity:.8}
 </style>
 </head>
 <body>
@@ -646,7 +664,8 @@ body.noauth main{display:none!important}
   <main id="v-scan" style="display:flex;flex-direction:column;gap:16px">
     <section id="extraSec" hidden style="border-top:0;padding-top:0">
       <div id="wrapBanner"></div>
-      <div class="mode xtabs" id="extraTabs"><button data-x="best" data-tx="tabBest">Bestenliste</button><button data-x="album" data-tx="tabAlbum">Sammelalbum</button><button data-x="konto" data-tx="tabKonto">Mein Konto</button><button data-x="wrap" data-tx="tabWrap">Rückblick</button><button data-x="admin" id="admTab" hidden>🛠️ Admin</button></div>
+      <div class="tabhint" id="tabHint" hidden>👇 Antippen zum Öffnen</div>
+      <div class="mode xtabs" id="extraTabs" role="tablist" aria-label="Weitere Bereiche"><button data-x="best" data-ic="🏆" data-tx="tabBest">Bestenliste</button><button data-x="album" data-ic="🗂️" data-tx="tabAlbum">Sammelalbum</button><button data-x="konto" data-ic="👤" data-tx="tabKonto">Mein Konto</button><button data-x="wrap" data-ic="🎉" data-tx="tabWrap">Rückblick</button><button data-x="admin" data-ic="🛠️" id="admTab" hidden>Admin</button></div>
       <div id="extra"></div>
     </section>
     <div id="dayInfo"><div class="empty">Lade …</div></div>
@@ -782,7 +801,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '84';
+const APP_VERSION = '86';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2743,13 +2762,19 @@ function season(now = new Date()) {
 }
 function wrapTime(now = new Date()) { const a = ashWednesday(now.getFullYear()), d = (now - a) / 864e5; return d >= 0 && d <= 21; }
 
+// Hinweis „Antippen zum Öffnen“: nur bis zum ersten Öffnen eines Reiters (pro Gerät gemerkt)
+function tabHintSeen(set) {
+  try { if (set) localStorage.setItem('strichliste_tabhint', '1'); return !!localStorage.getItem('strichliste_tabhint'); } catch (e) { return !!set; }
+}
 $('extraTabs').addEventListener('click', e => {
   const b = e.target.closest('[data-x]'); if (!b) return;
   if (b.dataset.x === 'admin') { // kein Reiter-Inhalt: öffnet den Admin-Bereich (wie 5× auf den Titel tippen)
+    tabHintSeen(true);
     if (S.adminChecked && !S.isAdmin && !S.isBoard) { noAdminGo(); return; }
     setMsg(''); setView('admin'); return;
   }
   extraTab = extraTab === b.dataset.x ? '' : b.dataset.x;
+  if (extraTab) tabHintSeen(true);
   if (extraTab === 'best') { if (!bestTouched) bestPeriod = bestCfg().period; loadBoard(); }
   if (extraTab === 'konto' || extraTab === 'wrap') loadMine();
   if (extraTab === 'wrap') loadBoard();
@@ -2806,8 +2831,10 @@ function renderExtra() {
   sec.hidden = !ok; if (!ok) return;
   $('extraTabs').querySelectorAll('button').forEach(b => { b.hidden = b.dataset.x === 'admin' ? !(S.isAdmin || S.isBoard) : b.dataset.x !== 'konto' && !canSee(b.dataset.x); });
   if (extraTab && extraTab !== 'konto' && !canSee(extraTab)) extraTab = '';
+  if (extraTab) tabHintSeen(true);
+  $('tabHint').hidden = tabHintSeen() || !$('extraTabs').querySelector('button:not([hidden])');
   $('wrapBanner').innerHTML = canSee('wrap') && wrapTime() && extraTab !== 'wrap' ? '<div class="note ok" style="margin-bottom:10px"><b>Die Fasnet isch rum!</b> Dein Saison-Rückblick ist da. <button class="b sm pri" data-wrap="1">Ansehen</button></div>' : '';
-  $('extraTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.x === extraTab));
+  $('extraTabs').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.x === extraTab); b.setAttribute('aria-expanded', b.dataset.x === extraTab ? 'true' : 'false'); });
   const el = $('extra');
   if (!extraTab) { el.innerHTML = ''; return; }
   if (extraTab === 'best') el.innerHTML = renderBest();
@@ -3375,8 +3402,8 @@ function renderScan() {
   $('listHead').textContent = tx('listHead') + (total ? ' (' + total + (sum ? ', ' + money(sum) : '') + ')' : '');
   $('list').innerHTML = list.length ? list.map(p => {
     const n = mine[p.id] || 0, loaded = (day.load || {})[p.id] > 0, full = bookFull(day, p.id);
-    return '<div class="dr"><div class="nm"><b>' + esc(p.name) + '</b><small class="' + (loaded && !full ? '' : 'low') + '">' + (full ? 'ausgebucht · ' : loaded ? '' : 'nicht mitgenommen · ') + (p.price ? money(p.price) : '') + '</small></div>' +
-      '<span class="cnt">' + n + '</span><button class="b sm" data-plus="' + p.id + '" aria-label="' + esc(p.name) + ' ohne Scan +1"' + (full ? ' disabled' : '') + '>' + (full ? 'aus' : '+1') + '</button><div class="tl">' + tally(n) + '</div></div>';
+    return '<div class="dr' + (full ? ' off' : '') + '"' + (full ? '' : ' data-plus="' + p.id + '"') + '><div class="nm"><b>' + esc(p.name) + '</b><small class="' + (loaded && !full ? '' : 'low') + '">' + (full ? 'ausgebucht · ' : loaded ? '' : 'nicht mitgenommen · ') + (p.price ? money(p.price) : '') + '</small></div>' +
+      '<span class="cnt">' + n + '</span><button class="b sm" aria-label="' + esc(p.name) + ' ohne Scan +1"' + (full ? ' disabled' : '') + '>' + (full ? 'aus' : '+1') + '</button><div class="tl">' + tally(n) + '</div></div>';
   }).join('') : '<div class="empty">Für heute ist noch nichts eingetragen.</div>';
   setMainButtons();
   renderHist();
@@ -3789,11 +3816,11 @@ function noAdminGo() {
 }
 $('backBtn').addEventListener('click', () => setView('scan'));
 // Nachtmodus umschalten: Auto → Hell → Dunkel
-const THEME_LABEL = { auto: 'Auto', light: 'Hell', dark: 'Nacht' };
+const THEME_LABEL = { auto: '🌓 Auto', light: '☀️ Hell', dark: '🌙 Nacht' };
 const nightTxt = () => { const c = themeCfg(); return c.from + ' bis ' + c.to + ' Uhr'; };
 function renderThemeBtn() {
   const m = document.documentElement.dataset.mode || 'auto', forced = document.documentElement.dataset.forced === '1';
-  $('themeBtn').textContent = forced ? 'Nacht 🔒' : THEME_LABEL[m];
+  $('themeBtn').textContent = forced ? '🌙 Nacht 🔒' : THEME_LABEL[m];
   $('themeBtn').title = forced ? 'Von ' + nightTxt() + ' ist der Nachtmodus für alle eingeschaltet' : m === 'auto' ? 'Automatisch (' + nightTxt() + ' und bei dunklem Handy dunkel)' : m === 'light' ? 'Immer hell' : 'Immer dunkel';
 }
 $('themeBtn').addEventListener('click', () => {
