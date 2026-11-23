@@ -621,6 +621,12 @@ body.noauth main{display:none!important}
 .dr[data-plus]{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;transition:background .08s}
 .dr[data-plus]:active{background:var(--wy2,rgba(128,128,128,.15))}
 .dr.off{opacity:.8}
+/* Aufklappbare Zeilen (Tage, Personen …): Pfeil rechts, dreht sich beim Öffnen */
+.pc summary{position:relative;padding-right:28px;-webkit-tap-highlight-color:transparent}
+.pc summary::after{content:"";position:absolute;right:6px;top:50%;width:8px;height:8px;margin-top:-7px;border-right:2.5px solid var(--mu);border-bottom:2.5px solid var(--mu);transform:rotate(45deg);transition:transform .2s}
+.pc[open]>summary::after{transform:rotate(-135deg);margin-top:-2px}
+.pc summary:active{opacity:.7}
+.pc summary:focus-visible{outline:3px solid var(--wy,#f5c000);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -801,7 +807,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '86';
+const APP_VERSION = '87';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3026,7 +3032,7 @@ function renderKonto() {
   h += '<div class="reqbox" style="margin:0 0 10px"><span>Stimmt etwas nicht?</span><button class="b sm" data-req="new">Korrektur beantragen</button>' + ((S.myReqs || []).length ? '<button class="linkbtn" data-req="mine">Meine Anträge' + (open ? ' (' + open + ' offen)' : '') + '</button>' : '') + '</div>';
   if (!K.L.length) return h + '<div class="empty">In diesem Zeitraum keine Buchungen.</div>';
   h += '<h2 style="font-size:1.05rem">Nach Getränk</h2>' + Object.keys(K.byP).sort((a, b) => K.byP[b] - K.byP[a]).map(id => '<div class="rw"><span></span><span>' + esc(pname(id)) + '</span><small>' + K.byP[id] + '× · ' + money(K.byP[id] * K.price(id)) + '</small></div>').join('');
-  h += '<h2 style="font-size:1.05rem;margin-top:14px">Nach Tag</h2>' + Object.keys(K.byDay).sort((a, b) => dayDate(K.byDay[b][0]).localeCompare(dayDate(K.byDay[a][0]))).map(id => {
+  h += '<h2 style="font-size:1.05rem;margin-top:14px">Nach Tag</h2><div class="tabhint" style="margin-bottom:2px">Tag antippen für die Details</div>' + Object.keys(K.byDay).sort((a, b) => dayDate(K.byDay[b][0]).localeCompare(dayDate(K.byDay[a][0]))).map(id => {
     const l = K.byDay[id], di = (S.dayInfo || {})[id] || {}, m = {};
     l.forEach(s => { m[s.p] = (m[s.p] || 0) + 1; });
     return '<details class="pc" data-k="kd' + id + '"><summary><span><b>' + esc(di.date ? fmtDate(di.date) : '?') + '</b><br><small>' + esc(di.place || '') + '</small></span><small>' + l.length + ' · ' + money(l.reduce((a, s) => a + K.price(s.p), 0)) + '</small></summary>' +
