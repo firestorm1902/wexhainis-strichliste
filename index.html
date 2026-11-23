@@ -618,9 +618,8 @@ body.noauth main{display:none!important}
 .mode button:active{opacity:.75}
 .b:focus-visible,.mode button:focus-visible,.linkbtn:focus-visible{outline:3px solid var(--wy,#f5c000);outline-offset:2px}
 .tabhint{font-size:.82rem;font-weight:600;color:var(--mu);margin:0 0 6px}
-.dr[data-plus]{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;transition:background .08s}
-.dr[data-plus]:active{background:var(--wy2,rgba(128,128,128,.15))}
-.dr.off{opacity:.8}
+/* +1-Knopf: große Tippfläche (nur der Knopf bucht, nicht die ganze Zeile) */
+.dr .b[data-plus]{min-width:84px;min-height:56px;padding:12px 18px;font-size:1.2rem;border-radius:14px}
 /* Aufklappbare Zeilen (Tage, Personen …): Pfeil rechts, dreht sich beim Öffnen */
 .pc summary{position:relative;padding-right:28px;-webkit-tap-highlight-color:transparent}
 .pc summary::after{content:"";position:absolute;right:6px;top:50%;width:8px;height:8px;margin-top:-7px;border-right:2.5px solid var(--mu);border-bottom:2.5px solid var(--mu);transform:rotate(45deg);transition:transform .2s}
@@ -807,7 +806,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '87';
+const APP_VERSION = '88';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3408,8 +3407,8 @@ function renderScan() {
   $('listHead').textContent = tx('listHead') + (total ? ' (' + total + (sum ? ', ' + money(sum) : '') + ')' : '');
   $('list').innerHTML = list.length ? list.map(p => {
     const n = mine[p.id] || 0, loaded = (day.load || {})[p.id] > 0, full = bookFull(day, p.id);
-    return '<div class="dr' + (full ? ' off' : '') + '"' + (full ? '' : ' data-plus="' + p.id + '"') + '><div class="nm"><b>' + esc(p.name) + '</b><small class="' + (loaded && !full ? '' : 'low') + '">' + (full ? 'ausgebucht · ' : loaded ? '' : 'nicht mitgenommen · ') + (p.price ? money(p.price) : '') + '</small></div>' +
-      '<span class="cnt">' + n + '</span><button class="b sm" aria-label="' + esc(p.name) + ' ohne Scan +1"' + (full ? ' disabled' : '') + '>' + (full ? 'aus' : '+1') + '</button><div class="tl">' + tally(n) + '</div></div>';
+    return '<div class="dr"><div class="nm"><b>' + esc(p.name) + '</b><small class="' + (loaded && !full ? '' : 'low') + '">' + (full ? 'ausgebucht · ' : loaded ? '' : 'nicht mitgenommen · ') + (p.price ? money(p.price) : '') + '</small></div>' +
+      '<span class="cnt">' + n + '</span><button class="b sm" data-plus="' + p.id + '" aria-label="' + esc(p.name) + ' ohne Scan +1"' + (full ? ' disabled' : '') + '>' + (full ? 'aus' : '+1') + '</button><div class="tl">' + tally(n) + '</div></div>';
   }).join('') : '<div class="empty">Für heute ist noch nichts eingetragen.</div>';
   setMainButtons();
   renderHist();
