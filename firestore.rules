@@ -289,26 +289,73 @@ service cloud.firestore {
     match /prefs/{uid} {
       allow read, write: if signedIn() && request.auth.uid == uid;
     }
-    // Strichliste – Bus-Check-in: Der Admin zeigt im Bus einen QR-Code, der alle 20 Sekunden wechselt.
-    // Den gültigen Code kennen nur Admins (buscode); einchecken geht nur mit dem aktuellen oder vorigen Code,
-    // solange der Check-in offen ist. Jeder checkt nur sich selbst ein (Dokument-ID = Tag + "_" + Nutzer-ID).
+    // Strichliste – Bus-Check-in. Zwei Wege, beide prüft der Server:
+    //  1. Standort: Pro Bus teilt ein Bus-Leiter (days.bus.buses.{Bus}.leader) seinen Standort (busloc). Ein Mitglied
+    //     schreibt busgeo (sein Standort) und checkins in einem Zug; erlaubt nur, wenn es nahe beim Bus-Leiter ist
+    //     (ca. 400 m, Leiter-Standort höchstens 3 Minuten alt) und der Check-in offen ist. Standorte lesen nur Admins.
+    //  2. QR-Code: Der Admin zeigt einen Code, der alle 20 Sekunden wechselt (buscode, nur Admins lesen).
+    // Bus-Leiter dürfen in ihrem Bus Personen ohne Handy eintragen und Einträge entfernen.
+    function busCfg(day) { return get(/databases/$(database)/documents/days/$(day)).data.get('bus', {}); }
+    function busIsOpen(day) { let b = busCfg(day); return b.get('open', false) == true && request.time.toMillis() < b.get('until', 0); }
+    function busLeaderOf(day, bus) { return busCfg(day).get('buses', {}).get(bus, {}).get('leader', '') == request.auth.uid; }
     match /buscode/{day} {
       allow read, write: if isAdmin();
     }
     function busOk(d) {
       let b = get(/databases/$(database)/documents/buscode/$(d.day)).data;
-      return d.keys().hasOnly(['uid', 'name', 'day', 't', 'code', 'how'])
+      return d.keys().hasOnly(['uid', 'name', 'day', 't', 'code', 'how', 'bus'])
         && d.uid == request.auth.uid && d.how == 'qr' && d.code is string && d.day is string
         && b.get('open', false) == true && request.time.toMillis() < b.get('until', 0)
         && (d.code == b.get('code', '-') || d.code == b.get('prev', '-'));
     }
-    match /checkins/{id} {
-      allow read: if isReader() || (signedIn() && resource.data.uid == request.auth.uid);
-      allow create: if isAdmin()
-        || (slActive() && request.resource.data.day is string
-            && id == request.resource.data.day + '_' + request.auth.uid && busOk(request.resource.data));
-      allow update: if false;
+    match /busloc/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create, update: if isAdmin() || (slActive()
+        && request.resource.data.keys().hasOnly(['uid', 'day', 'bus', 'lat', 'lng', 'acc', 't'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.day is string && request.resource.data.bus is string
+        && request.resource.data.lat is number && request.resource.data.lng is number
+        && id == request.resource.data.day + '_' + request.resource.data.bus
+        && busLeaderOf(request.resource.data.day, request.resource.data.bus) && busIsOpen(request.resource.data.day));
       allow delete: if isAdmin();
+    }
+    function geoNear(d, L) {
+      return request.time.toMillis() - L.get('t', 0) < 180000
+        && math.abs(d.lat - L.lat) < 0.004 && math.abs(d.lng - L.lng) < 0.006;
+    }
+    match /busgeo/{id} {
+      allow read, delete: if isAdmin();
+      allow create: if slActive()
+        && request.resource.data.keys().hasOnly(['uid', 'day', 'bus', 'lat', 'lng', 't'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.day is string && request.resource.data.bus is string
+        && request.resource.data.lat is number && request.resource.data.lng is number
+        && id == request.resource.data.day + '_' + request.auth.uid
+        && busIsOpen(request.resource.data.day)
+        && geoNear(request.resource.data, get(/databases/$(database)/documents/busloc/$(request.resource.data.day + '_' + request.resource.data.bus)).data);
+    }
+    match /checkins/{id} {
+      // Anwesenheit sehen alle Mitglieder (ohne Standort)
+      allow read: if signedIn();
+      allow create: if isAdmin()
+        // QR-Code
+        || (slActive() && request.resource.data.day is string
+            && id == request.resource.data.day + '_' + request.auth.uid && busOk(request.resource.data))
+        // Standort: nur zusammen mit busgeo im selben Schreibvorgang
+        || (slActive() && request.resource.data.day is string && request.resource.data.how == 'geo'
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.keys().hasOnly(['uid', 'name', 'day', 'bus', 't', 'how'])
+            && id == request.resource.data.day + '_' + request.auth.uid
+            && getAfter(/databases/$(database)/documents/busgeo/$(id)).data.bus == request.resource.data.bus)
+        // Bus-Leiter trägt jemanden (oder sich selbst) in seinen Bus ein
+        || (slActive() && request.resource.data.how == 'leader'
+            && request.resource.data.day is string && request.resource.data.bus is string && request.resource.data.uid is string
+            && request.resource.data.keys().hasOnly(['uid', 'name', 'day', 'bus', 't', 'how', 'by', 'byName'])
+            && request.resource.data.by == request.auth.uid
+            && id == request.resource.data.day + '_' + request.resource.data.uid
+            && busLeaderOf(request.resource.data.day, request.resource.data.bus) && busIsOpen(request.resource.data.day));
+      allow update: if false;
+      allow delete: if isAdmin() || (slActive() && busLeaderOf(resource.data.day, resource.data.get('bus', '')));
     }
     // Tageszusammenfassungen für die tägliche Zählerprüfung: nur der Super-Admin
     match /dsum/{id} { allow read, write: if isSuper(); }

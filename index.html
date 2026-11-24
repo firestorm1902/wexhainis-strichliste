@@ -217,6 +217,8 @@ input.n{min-width:3em}
 .lgmode button{padding:8px 6px}
 .askrow{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line)}.askrow .bellrow{flex:1;min-width:0;border-bottom:0;width:auto}
 .busnote{display:flex;flex-direction:column;gap:6px}.busnote .b{align-self:flex-start}
+.busnote.lead{border-left-color:var(--wy)}.buslist{border-top:1px solid var(--line);margin-top:4px}
+.busrow{margin-top:6px}
 .busqr{background:#fff;border-radius:16px;padding:14px;max-width:340px;margin:8px auto}.busqr svg{display:block;width:100%;height:auto}
 .businfo{text-align:center;font-size:1rem;margin:4px 0 8px;position:relative}.businfo i{display:block;height:4px;background:var(--wy);border-radius:2px;margin:6px auto 0;max-width:340px;transform-origin:left}
 @keyframes busbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
@@ -828,7 +830,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '94';
+const APP_VERSION = '95';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3041,6 +3043,7 @@ function privacyHTML() {
       '<b>Jede Buchung:</b> welches Getränk, wann und an welchem Tag.',
       '<b>Jugendschutz:</b> ob du unter 18 bist – nur wenn ein Admin das einträgt, damit für dich kein Alkohol gebucht werden kann.',
       '<b>Freiwillig:</b> Profilbild und „Ich fahre heute“ (nur für den einen Tag).',
+      '<b>Bus-Check-in:</b> dass und wann du im Bus eingecheckt hast. Tippst du „Ich bin im Bus“, wird einmal dein Standort ermittelt und mit dem des Bus-Leiters verglichen (der teilt seinen Standort, solange der Check-in läuft). Die Standorte sehen nur Admins; sie werden gelöscht, wenn der Check-in beendet wird.',
       '<b>Protokoll:</b> Änderungen an Konten, Buchungen und Einstellungen (wer, was, wann) – zur Nachvollziehbarkeit.',
       '<b>Auf deinem Handy:</b> Anmeldung und Zwischenspeicher, damit die App offline funktioniert. Keine Werbe- oder Analyse-Cookies.']) +
     '<h3 class="sub3">Wofür?</h3>' + li(['Abrechnung deiner Getränke', 'Abgleich, ob alles Mitgenommene gebucht wurde', 'Jugendschutz und die Fahrer-Erinnerung', 'Organisation der Ausflüge']) +
@@ -3728,36 +3731,134 @@ async function openSheet(opts) {
   const err = await camStart(boxSheet, onSheetCode);
   if (err) boxSheet.ph.innerHTML = err;
 }
-/* ---------- Bus-Check-in: wer ist wirklich dabei? ----------
+/* ---------- Bus-Check-in: wer ist wirklich dabei? (Standort beim Bus-Leiter oder wechselnder QR-Code) ----------
    Der Admin startet den Check-in (days.bus) und zeigt im Bus einen QR-Code, der sich alle 20 Sekunden ändert.
    Den gültigen Code kennt nur der Server (buscode/{Tag}, nur Admins lesen) – die Regeln lassen einen Check-in nur mit
    dem aktuellen oder vorigen Code zu, solange das Fenster offen ist. Ein weitergeleitetes Foto ist nach spätestens 40 s wertlos.
    Jeder Check-in steht in checkins/{Tag_uid} (Uhrzeit, per QR oder vom Admin eingetragen) und kommt in die Excel-Auswertung. */
-const BUS_ROT = 20000, BUS_MIN = 15;
+const BUS_ROT = 20000;
+const BUS_DUR = [[15, '15 Min.'], [30, '30 Min.'], [60, '1 Std.'], [120, '2 Std.']];
 const busOpen = d => !!(d && d.bus && d.bus.open && (d.bus.until || 0) > Date.now());
+const busList = d => { const B = (d && d.bus && d.bus.buses) || {}; return Object.keys(B).sort().map(k => Object.assign({ id: k }, B[k])); };
+const busName = (d, b) => { const x = ((d && d.bus && d.bus.buses) || {})[b]; return x ? x.name : (b ? 'Bus' : ''); };
+const myLeadBus = d => (busList(d).find(b => S.user && b.leader === S.user.uid) || {}).id || null;
 let busTimer = null, busCode = null;
 const busRand = () => { const a = new Uint8Array(6); crypto.getRandomValues(a); return [...a].map(x => x.toString(36).padStart(2, '0')).join('').slice(0, 10); };
+const HOW_TXT = { qr: 'QR-Code', geo: 'Standort', leader: 'vom Bus-Leiter', admin: 'vom Admin' };
+const howTxt = x => (HOW_TXT[x.how] || x.how || '') + (x.byName && (x.how === 'leader' || x.how === 'admin') ? ' (' + x.byName + ')' : '');
+
+/* ---------- Mitglieder und Bus-Leiter: Kasten oben auf der Startseite ---------- */
 function renderBusBox() {
   const el = $('busBox'); if (!el) return;
-  const d = S.activeDay, ok = memberOk && memberOk() && busOpen(d);
-  if (!ok && !S.myBus) { el.hidden = true; return; }
+  const d = S.activeDay, open = memberOk && memberOk() && busOpen(d), lead = open ? myLeadBus(d) : null;
+  if (lead) busLeadStart(d, lead); else busLeadStop();
+  if (!open && !S.myBus) { el.hidden = true; return; }
   el.hidden = false;
-  el.innerHTML = S.myBus ? '<div class="note ok" style="margin-top:10px">🚌 <b>Im Bus eingecheckt</b> um ' + fmtTime(S.myBus.t) + ' Uhr.</div>'
-    : '<div class="note busnote" style="margin-top:10px"><b>🚌 Bus-Check-in läuft</b><span>Scanne den QR-Code auf dem Handy des Getränke-Admins.</span><button class="b pri" data-busscan>📷 QR-Code scannen</button></div>';
+  let h = '';
+  if (lead) {
+    const L = (S.activeBus || []).filter(x => x.bus === lead), loc = busLead.last;
+    h += '<div class="note busnote lead" style="margin-top:10px"><b>🚌 Du bist Bus-Leiter: ' + esc(busName(d, lead)) + '</b>' +
+      '<span>' + (loc ? '📍 Standort geteilt um ' + fmtTime(loc.t) + ' Uhr (±' + Math.round(loc.acc) + ' m). ' : busLead.err ? '⚠️ ' + esc(busLead.err) + ' ' : '📍 Standort wird ermittelt … ') + 'Lass die App offen, solange eingecheckt wird – die anderen werden über die Nähe zu deinem Handy erkannt.</span>' +
+      '<b style="margin-top:4px">' + L.length + ' eingecheckt</b>' +
+      (L.length ? '<div class="buslist">' + L.map(x => '<div class="rw"><span>' + fmtTime(x.t) + '</span><span>' + esc(x.name || '') + '</span><small>' + esc(howTxt(x)) + '</small><button class="b sm" data-busrm="' + esc(x.id) + '" aria-label="entfernen">✕</button></div>').join('') + '</div>' : '') +
+      '<div class="row" style="margin-top:4px"><input id="busManual" maxlength="40" placeholder="Name (ohne Handy dabei)" style="flex:1"><button class="b sm" data-busman>Eintragen</button></div></div>';
+  }
+  if (S.myBus) h += '<div class="note ok" style="margin-top:10px">🚌 <b>Eingecheckt</b>' + (S.myBus.bus ? ' in ' + esc(busName(d, S.myBus.bus)) : '') + ' um ' + fmtTime(S.myBus.t) + ' Uhr.</div>';
+  else if (open && !lead) h += '<div class="note busnote" style="margin-top:10px"><b>🚌 Bus-Check-in läuft</b><span>Tippe auf „Ich bin im Bus“ – die App prüft einmal deinen Standort (nur ob du nahe beim Bus-Leiter bist).</span>' +
+    '<div class="row" style="margin-top:2px"><button class="b pri" data-busgeo' + (busGeoBusy ? ' disabled' : '') + '>' + (busGeoBusy ? '📍 Prüfe Standort …' : '📍 Ich bin im Bus') + '</button><button class="b sm" data-busscan>oder QR-Code scannen</button></div></div>';
+  el.innerHTML = h;
 }
-$('busBox').addEventListener('click', e => { if (e.target.closest('[data-busscan]')) $('startBtn').click(); });
+$('busBox').addEventListener('click', e => {
+  if (e.target.closest('[data-busscan]')) { $('startBtn').click(); return; }
+  if (e.target.closest('[data-busgeo]')) { busGeoCheckin(); return; }
+  const rm = e.target.closest('[data-busrm]');
+  if (rm) { const x = (S.activeBus || []).find(c => c.id === rm.dataset.busrm); if (x) ask((x.name || 'Person') + ' aus dem Bus-Check-in entfernen?', { ok: 'Entfernen', danger: true }).then(ok => { if (ok) { fire(F.deleteDoc(dref('checkins', x.id)), 'Check-in'); logEv('person', 'Bus-Leiter entfernt ' + (x.name || '') + ' aus dem Bus-Check-in', x.day); } }); return; }
+  if (e.target.closest('[data-busman]')) {
+    const d = S.activeDay, lead = myLeadBus(d), n = ($('busManual').value || '').trim().slice(0, 40); if (!d || !lead || !n) { toast('Bitte einen Namen eingeben'); return; }
+    const uid = 'x' + busRand();
+    fire(F.setDoc(dref('checkins', d.id + '_' + uid), { uid, name: n, day: d.id, bus: lead, t: Date.now(), how: 'leader', by: S.user.uid, byName: S.me || '' }), 'Check-in');
+    logEv('person', 'Bus-Leiter trägt „' + n + '“ als im ' + busName(d, lead) + ' ein', d.id); toast(n + ' eingetragen');
+  }
+});
+
+/* ---------- Check-in per Standort ----------
+   Der Bus-Leiter teilt alle 30 s seinen Standort (busloc/{Tag_Bus}, nur Admins und er selbst lesen).
+   Das Mitglied schreibt in einem Zug: busgeo/{Tag_uid} mit seinem Standort und checkins/{Tag_uid}.
+   Die Firebase-Regeln vergleichen den Standort mit dem des Bus-Leiters (ca. 400 m, Leiter-Standort höchstens 3 Min. alt)
+   und lassen den Check-in nur dann zu. Der genaue Standort sehen nur Admins; er wird beim Beenden gelöscht. */
+let busGeoBusy = false;
+function geoNow() {
+  return new Promise((res, rej) => {
+    if (!navigator.geolocation) { rej(new Error('Dein Browser kann keinen Standort ermitteln.')); return; }
+    navigator.geolocation.getCurrentPosition(p => res(p.coords), err => rej(new Error(err.code === 1 ? 'Standort nicht erlaubt.' : 'Standort nicht gefunden.')), { enableHighAccuracy: true, timeout: 20000, maximumAge: 15000 });
+  });
+}
+async function busGeoCheckin() {
+  const d = S.activeDay; if (!d || !busOpen(d) || busGeoBusy) return;
+  busGeoBusy = true; renderBusBox();
+  let c;
+  try { c = await geoNow(); }
+  catch (err) {
+    busGeoBusy = false; renderBusBox();
+    showLast('last unk', '<div><b>📍 ' + esc(err.message) + '</b><span>' + (IS_IOS ? 'iPhone: Einstellungen → Datenschutz → Ortungsdienste → Safari-Websites → „Beim Verwenden“.' : 'Links neben der Adresse aufs Schloss tippen → Berechtigungen → Standort erlauben.') + ' Oder den QR-Code beim Bus-Leiter scannen bzw. dich von ihm eintragen lassen.</span></div><small class="last-cd"></small>', 12);
+    return;
+  }
+  const uid = S.user.uid, id = d.id + '_' + uid, t = Date.now();
+  let ok = null;
+  for (const b of busList(d)) { // der Reihe nach probieren – die Regeln lassen nur den Bus in der Nähe zu
+    try {
+      const wb = F.writeBatch(db);
+      wb.set(dref('busgeo', id), { uid, day: d.id, bus: b.id, lat: c.latitude, lng: c.longitude, t });
+      wb.set(dref('checkins', id), { uid, name: S.me, day: d.id, bus: b.id, t, how: 'geo' });
+      await wb.commit(); ok = b; break;
+    } catch (err) { /* nicht in der Nähe dieses Busses */ }
+  }
+  busGeoBusy = false; renderBusBox();
+  if (ok) { showLast('last', '<div><b>🚌 Eingecheckt: ' + esc(ok.name) + '</b><span>Schön, dass du dabei bist!</span></div><small class="last-cd"></small>', 5); buzz && buzz(80); logEv('person', 'checkt per Standort in ' + ok.name + ' ein', d.id); }
+  else showLast('last unk', '<div><b>Kein Bus-Leiter in deiner Nähe gefunden</b><span>Standort ±' + Math.round(c.accuracy) + ' m. Ist die App beim Bus-Leiter offen? Sonst den QR-Code scannen oder dich vom Bus-Leiter eintragen lassen.</span></div><small class="last-cd"></small>', 12);
+}
+// Bus-Leiter: Standort regelmäßig teilen, solange die App offen ist
+const busLead = { day: null, bus: null, watch: null, timer: null, last: null, err: '', pos: null };
+function busLeadPush() {
+  const p = busLead.pos; if (!p || !busLead.day || !navigator.onLine) return;
+  const t = Date.now();
+  fire(F.setDoc(dref('busloc', busLead.day + '_' + busLead.bus), { uid: S.user.uid, day: busLead.day, bus: busLead.bus, lat: p.latitude, lng: p.longitude, acc: Math.round(p.accuracy || 0), t }), 'Standort teilen');
+  busLead.last = { t, acc: p.accuracy || 0 };
+}
+function busLeadStart(d, bus) {
+  if (busLead.day === d.id && busLead.bus === bus) return;
+  busLeadStop(); Object.assign(busLead, { day: d.id, bus, last: null, err: '' });
+  if (!navigator.geolocation) { busLead.err = 'Dieses Handy kann keinen Standort teilen.'; return; }
+  busLead.watch = navigator.geolocation.watchPosition(p => { const first = !busLead.pos; busLead.pos = p.coords; busLead.err = ''; if (first) { busLeadPush(); renderBusBox(); } },
+    err => { busLead.err = err.code === 1 ? 'Standort nicht erlaubt – andere können nur per QR-Code oder von dir eingetragen werden.' : 'Standort nicht gefunden.'; renderBusBox(); },
+    { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 });
+  busLead.timer = setInterval(() => { if (!document.hidden) { busLeadPush(); renderBusBox(); } }, 30000);
+  // sich selbst einchecken
+  if (!S.myBus) fire(F.setDoc(dref('checkins', d.id + '_' + S.user.uid), { uid: S.user.uid, name: S.me, day: d.id, bus, t: Date.now(), how: 'leader', by: S.user.uid, byName: S.me || '' }), 'Check-in');
+  stop('activeBus'); unsub.activeBus = F.onSnapshot(F.query(col('checkins'), F.where('day', '==', d.id)), snap => { S.activeBus = snap.docs.map(x => Object.assign({ id: x.id }, x.data())).sort((a, b) => a.t - b.t); renderBusBox(); }, err => console.warn('checkins', err));
+}
+function busLeadStop() {
+  if (busLead.watch != null) try { navigator.geolocation.clearWatch(busLead.watch); } catch (e) {}
+  clearInterval(busLead.timer); stop('activeBus'); S.activeBus = [];
+  Object.assign(busLead, { day: null, bus: null, watch: null, timer: null, pos: null });
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && busLead.day) busLeadPush(); });
+
+/* ---------- QR-Code (bleibt als zweiter Weg) ---------- */
 async function busCheckin(raw) {
-  const m = raw.match(/^WEXBUS:([^:]+):(\w+)$/); if (!m) { toast('Unbekannter QR-Code'); return; }
-  const [, day, code] = m;
+  const m = raw.match(/^WEXBUS:([^:]+):(\w+)(?::(\w+))?$/); if (!m) { toast('Unbekannter QR-Code'); return; }
+  const [, day, code, bus] = m;
   if (!S.user || !S.me) { toast('Bitte erst anmelden'); return; }
   if (S.myBus && S.active === day) { toast('Du bist schon eingecheckt'); return; }
   try {
-    await F.setDoc(dref('checkins', day + '_' + S.user.uid), { uid: S.user.uid, name: S.me, day, t: Date.now(), code, how: 'qr' });
+    await F.setDoc(dref('checkins', day + '_' + S.user.uid), Object.assign({ uid: S.user.uid, name: S.me, day, t: Date.now(), code, how: 'qr' }, bus ? { bus } : {}));
     showLast('last', '<div><b>🚌 Eingecheckt</b><span>Schön, dass du dabei bist!</span></div><small class="last-cd"></small>', 5);
-    buzz && buzz(80); logEv('person', 'checkt in den Bus ein', day);
+    buzz && buzz(80); logEv('person', 'checkt per QR-Code in den Bus ein', day);
   } catch (err) { showLast('last unk', '<div><b>Check-in hat nicht geklappt</b><span>Der Code ist abgelaufen oder der Check-in ist beendet. Bitte den aktuellen QR-Code direkt beim Admin scannen.</span></div><small class="last-cd"></small>', 8); }
 }
-// Admin: Liste des gewählten Tages
+
+/* ---------- Admin: Bus-Check-in starten, Busse und Bus-Leiter festlegen, Liste ---------- */
+let busDraft = null; // { dur, buses: [{ name, leader }] }
 function busListen() {
   stop('dayBus'); S.dayBus = [];
   if (!S.selDay) return;
@@ -3765,20 +3866,34 @@ function busListen() {
 }
 function busSection(day) {
   if (!day) return '';
-  const L = S.dayBus || [], open = busOpen(day), ids = new Set(L.map(x => x.uid));
+  const L = S.dayBus || [], open = busOpen(day), ids = new Set(L.map(x => x.uid)), buses = busList(day);
   const booked = [...new Set((S.dayScans || []).map(x => x.uid))].filter(u => u && !ids.has(u));
-  const members = Object.keys(S.users || {}).filter(k => { const u = S.users[k]; return !goneSL(u) && !u.pending && !u.blocked && !u.slBlock && !ids.has(k); }).sort((a, b) => uname(a).localeCompare(uname(b), 'de'));
+  const members = Object.keys(S.users || {}).filter(k => { const u = S.users[k]; return !goneSL(u) && !u.pending && !u.blocked && !u.slBlock; }).sort((a, b) => uname(a).localeCompare(uname(b), 'de'));
   let h = '<section><h2>Bus-Check-in (' + L.length + ')</h2>';
-  h += open ? '<div class="note ok" style="margin-bottom:8px">Läuft bis ' + fmtTime(day.bus.until) + ' Uhr' + (day.bus.byName ? ' · gestartet von ' + esc(day.bus.byName) : '') + '</div>'
-    : '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Einmal pro Tag im Bus starten: Alle scannen den QR-Code auf deinem Handy. Er ändert sich alle 20 Sekunden – ein weitergeschicktes Foto hilft niemandem zu Hause.</div>';
-  if (S.isAdmin) h += '<div class="row" style="margin-top:0">' + (open ? '<button class="b pri" data-act="busShow">📱 QR-Code zeigen</button><button class="b" data-act="busStop">Beenden</button>'
-    : '<button class="b pri" data-act="busStart">🚌 Check-in starten' + (L.length ? ' (neue Runde)' : '') + '</button>') + '</div>';
-  h += L.length ? '<div style="margin-top:8px">' + L.map(x => '<div class="rw"><span>' + fmtTime(x.t) + '</span><span>' + esc(x.name || uname(x.uid)) + '</span><small>' + (x.how === 'admin' ? 'eingetragen von ' + esc(x.byName || 'Admin') : 'QR-Code') + '</small>' + (S.isAdmin ? '<button class="b sm" data-act="busDel" data-id="' + esc(x.id) + '" aria-label="entfernen">✕</button>' : '') + '</div>').join('') + '</div>' : '<div class="empty" style="padding:6px 0">Noch niemand eingecheckt.</div>';
+  if (open) {
+    h += '<div class="note ok" style="margin-bottom:8px">Läuft bis ' + fmtTime(day.bus.until) + ' Uhr' + (day.bus.byName ? ' · gestartet von ' + esc(day.bus.byName) : '') + '<br>' +
+      buses.map(b => '<b>' + esc(b.name) + '</b>: Leiter ' + esc(b.leaderName || uname(b.leader)) + ' · ' + L.filter(x => x.bus === b.id).length + ' eingecheckt').join('<br>') + '</div>';
+    if (S.isAdmin) h += '<div class="row" style="margin-top:0"><button class="b" data-act="busShow">📱 QR-Code zeigen</button><button class="b" data-act="busStop">Beenden</button></div>';
+  } else if (S.isAdmin) {
+    const dr = busDraft || { dur: 30, buses: [{ name: 'Bus 1', leader: S.user.uid }] };
+    busDraft = dr;
+    h += '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Pro Bus einen Bus-Leiter festlegen (auch ohne Admin-Rechte). Mitglieder tippen „Ich bin im Bus“ – die App prüft, ob sie nahe bei einem Bus-Leiter sind, und ordnet sie dem Bus zu. Der QR-Code bleibt als zweiter Weg.</div>' +
+      dr.buses.map((b, i) => '<div class="grid2 busrow"><label class="f">Bus<input data-busn="' + i + '" value="' + esc(b.name) + '" maxlength="20"></label><label class="f">Bus-Leiter<select data-busl="' + i + '">' + members.map(k => '<option value="' + k + '"' + (k === b.leader ? ' selected' : '') + '>' + esc(uname(k)) + '</option>').join('') + '</select></label></div>').join('') +
+      '<div class="row" style="margin-top:4px"><button class="b sm" data-act="busPlus">+ weiterer Bus</button>' + (dr.buses.length > 1 ? '<button class="b sm" data-act="busMinus">− Bus</button>' : '') +
+      '<label class="f" style="flex-direction:row;align-items:center;gap:6px">Dauer<select data-busdur>' + BUS_DUR.map(([m, l]) => '<option value="' + m + '"' + (m === dr.dur ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label></div>' +
+      '<div class="row"><button class="b pri" data-act="busStart">🚌 Check-in starten' + (L.length ? ' (neue Runde)' : '') + '</button></div>';
+  }
+  const busGroups = buses.length ? buses.map(b => ({ id: b.id, name: b.name })).concat([{ id: null, name: 'ohne Bus' }]) : [{ id: undefined, name: '' }];
+  h += L.length ? busGroups.map(g => { const G = g.id === undefined ? L : L.filter(x => (x.bus || null) === g.id); if (!G.length) return '';
+      return (g.name ? '<h3 class="sub3" style="margin-top:8px">' + esc(g.name) + ' (' + G.length + ')</h3>' : '<div style="margin-top:8px"></div>') +
+        G.map(x => '<div class="rw"><span>' + fmtTime(x.t) + '</span><span>' + esc(x.name || uname(x.uid)) + '</span><small>' + esc(howTxt(x)) + '</small>' + (S.isAdmin ? '<button class="b sm" data-act="busDel" data-id="' + esc(x.id) + '" aria-label="entfernen">✕</button>' : '') + '</div>').join(''); }).join('')
+    : '<div class="empty" style="padding:6px 0">Noch niemand eingecheckt.</div>';
   if (booked.length) h += '<div class="note bad" style="margin-top:8px"><b>Haben heute gebucht, aber nicht eingecheckt:</b> ' + booked.map(u => esc(uname(u))).join(', ') + '</div>';
-  if (S.isAdmin) h += '<div class="row"><select id="busAdd" style="flex:1"><option value="">Ohne Handy dabei? Person wählen …</option>' + members.map(k => '<option value="' + k + '">' + esc(uname(k)) + '</option>').join('') + '</select><button class="b sm" data-act="busAdd">Eintragen</button></div>';
+  if (S.isAdmin) h += '<div class="row"><select id="busAdd" style="flex:1"><option value="">Ohne Handy dabei? Person wählen …</option>' + members.filter(k => !ids.has(k)).map(k => '<option value="' + k + '">' + esc(uname(k)) + '</option>').join('') + '</select>' +
+    (buses.length > 1 ? '<select id="busAddBus">' + buses.map(b => '<option value="' + b.id + '">' + esc(b.name) + '</option>').join('') + '</select>' : '') + '<button class="b sm" data-act="busAdd">Eintragen</button></div>';
   return h + '</section>';
 }
-function busQrHTML() { return '<h2>🚌 Bus-Check-in</h2><div id="busQr" class="busqr"></div><div id="busInfo" class="businfo"></div><p style="font-size:.85rem;color:var(--mu);text-align:center">Alle öffnen die Strichliste und tippen auf „QR-Code scannen“. Bildschirm anlassen – der Code wechselt alle 20 Sekunden. Solange dieses Fenster zu ist, kann niemand einchecken.</p><div class="row" style="justify-content:center"><button class="b" data-busclose>Pause – später „QR-Code zeigen“</button></div>'; }
+function busQrHTML() { return '<h2>🚌 Bus-Check-in</h2><div id="busQr" class="busqr"></div><div id="busInfo" class="businfo"></div><p style="font-size:.85rem;color:var(--mu);text-align:center">Wer keinen Standort teilen kann, öffnet die Strichliste und tippt auf „QR-Code scannen“. Bildschirm anlassen – der Code wechselt alle 20 Sekunden. Solange dieses Fenster zu ist, geht per QR-Code nichts.</p><div class="row" style="justify-content:center"><button class="b" data-busclose>Pause – später „QR-Code zeigen“</button></div>'; }
 function busQrInfo() { const day = S.days.find(d => d.id === busCode.day), n = (S.dayBus || []).length; if ($('busInfo')) $('busInfo').innerHTML = '<b>' + n + '</b> eingecheckt' + (day && day.bus ? ' · bis ' + fmtTime(day.bus.until) + ' Uhr' : '') + '<i id="busBar"></i>'; }
 async function busRotate(dayId, until) {
   const prev = busCode && busCode.day === dayId ? busCode.code : '';
@@ -3786,7 +3901,8 @@ async function busRotate(dayId, until) {
   fire(F.setDoc(dref('buscode', dayId), { open: true, code: busCode.code, prev, until, t: Date.now() }), 'Bus-Code');
   await window.__zxReady;
   const box = $('busQr'); if (!box) return;
-  try { const svg = new ZXing.BrowserQRCodeSvgWriter().write('WEXBUS:' + dayId + ':' + busCode.code, 300, 300); if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 300 300'); svg.setAttribute('width', '100%'); svg.removeAttribute('height'); box.innerHTML = ''; box.appendChild(svg); }
+  const day = S.days.find(d => d.id === dayId), lb = myLeadBus(day);
+  try { const svg = new ZXing.BrowserQRCodeSvgWriter().write('WEXBUS:' + dayId + ':' + busCode.code + (lb ? ':' + lb : ''), 300, 300); if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 300 300'); svg.setAttribute('width', '100%'); svg.removeAttribute('height'); box.innerHTML = ''; box.appendChild(svg); }
   catch (e) { box.innerHTML = '<div class="note bad">QR-Code konnte nicht erzeugt werden.</div>'; }
   busQrInfo(); const bar = $('busBar'); if (bar) { bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = 'busbar ' + BUS_ROT / 1000 + 's linear'; }
 }
@@ -3804,11 +3920,16 @@ function busShow(day) {
 function busHide(dayId, closed) {
   clearInterval(busTimer); busTimer = null;
   try { if (busShow.lock) busShow.lock.release(); } catch (e) {} busShow.lock = null;
-  // ohne sichtbaren QR-Code ist kein Check-in möglich
   fire(F.setDoc(dref('buscode', dayId), { open: false, t: Date.now() }, { merge: true }), 'Bus-Code');
   if (closed && !$('modal').hidden && $('busQr')) closeModal();
 }
 $('modalBody').addEventListener('click', e => { if (e.target.closest('[data-busclose]')) { closeModal(); if (busCode) busHide(busCode.day); } });
+$('adminBody').addEventListener('change', e => {
+  const t = e.target; if (!busDraft) return;
+  if (t.dataset.busn != null) busDraft.buses[+t.dataset.busn].name = t.value.trim().slice(0, 20) || ('Bus ' + (+t.dataset.busn + 1));
+  if (t.dataset.busl != null) busDraft.buses[+t.dataset.busl].leader = t.value;
+  if (t.hasAttribute('data-busdur')) busDraft.dur = +t.value || 30;
+});
 /* ---------- Ein-/Auschecken per Knopf (Scannen ist nur noch die Alternative) ----------
    Modus „Einladen“ ändert days.load, „Übrig zählen“ days.count. Pro Getränk: −1, +1 und ein Knopf pro Gebinde. */
 let chkMode = 'load';
@@ -5653,11 +5774,11 @@ async function buildReport(from, to) {
   // Bus-Check-in
   const bus = await Promise.all(days.map(d => F.getDocs(F.query(col('checkins'), F.where('day', '==', d.id))).then(s => s.docs.map(x => x.data())).catch(() => [])));
   const busByDay = {}; days.forEach((d, i) => { busByDay[d.id] = bus[i].sort((a, b) => a.t - b.t); });
-  const bc = [[H('Datum'), H('Ziel'), H('Name'), H('Uhrzeit'), H('Art'), H('Hat gebucht')]];
+  const bc = [[H('Datum'), H('Ziel'), H('Bus'), H('Name'), H('Uhrzeit'), H('Art'), H('Hat gebucht')]];
   days.forEach(d => {
     const bookedU = new Set(byDay[d.id].map(s => s.uid)), inU = new Set(busByDay[d.id].map(x => x.uid));
-    busByDay[d.id].forEach(x => bc.push([D(d.date), d.place || '', x.name || uname(x.uid), { v: XL.time(x.t), s: 6 }, x.how === 'admin' ? 'vom Admin eingetragen' : 'QR-Code', bookedU.has(x.uid) ? 'ja' : 'nein']));
-    if (busByDay[d.id].length) [...bookedU].filter(u => u && !inU.has(u)).forEach(u => bc.push([D(d.date), d.place || '', uname(u), null, 'nicht eingecheckt', 'ja']));
+    busByDay[d.id].forEach(x => bc.push([D(d.date), d.place || '', x.bus ? busName(d, x.bus) : '', x.name || uname(x.uid), { v: XL.time(x.t), s: 6 }, howTxt(x), bookedU.has(x.uid) ? 'ja' : 'nein']));
+    if (busByDay[d.id].length) [...bookedU].filter(u => u && !inU.has(u)).forEach(u => bc.push([D(d.date), d.place || '', '', uname(u), null, 'nicht eingecheckt', 'ja']));
   });
   // Getränke
   const gt = [[H('Getränk'), H('Sorte'), H('Preis'), H('Warnen ab'), H('Gebinde'), H('Barcodes')]];
@@ -5692,7 +5813,7 @@ async function buildReport(from, to) {
     { name: 'Pro Person', rows: pp, widths: [24, 28, ...usedP.map(() => 12), 16, 14], freeze: 1, filter: 1, filterEnd: last },
     { name: 'Person pro Tag', rows: ppt, widths: [12, 22, 24, 24, 16, 9, 10, 11], freeze: 1, filter: 1 },
     { name: 'Abgleich pro Tag', rows: abg, widths: [12, 22, 24, 16, 13, 10, 10, 10, 10, 10, 13, 14], freeze: 1, filter: 1 },
-    { name: 'Bus-Check-in', rows: bc, widths: [12, 22, 24, 9, 22, 12], freeze: 1, filter: 1 },
+    { name: 'Bus-Check-in', rows: bc, widths: [12, 22, 12, 24, 9, 26, 12], freeze: 1, filter: 1 },
     { name: 'Buchungen', rows: bk, widths: [12, 9, 22, 24, 24, 16, 10, 14], freeze: 1, filter: 1 },
     { name: 'Getränke', rows: gt, widths: [26, 18, 10, 11, 26, 40], freeze: 1, filter: 1 }
   ]);
@@ -5802,21 +5923,30 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'pickDay') { S.selDay = id; listenDayScans(); renderAdmin(); window.scrollTo(0, 0); }
   else if (a === 'missCheck') checkMissing();
+  else if (a === 'busPlus') { busDraft = busDraft || { dur: 30, buses: [{ name: 'Bus 1', leader: S.user.uid }] }; busDraft.buses.push({ name: 'Bus ' + (busDraft.buses.length + 1), leader: S.user.uid }); renderAdmin(); }
+  else if (a === 'busMinus') { if (busDraft && busDraft.buses.length > 1) busDraft.buses.pop(); renderAdmin(); }
   else if (a === 'busStart' && day) {
-    const until = Date.now() + BUS_MIN * 60000;
-    fire(F.updateDoc(dref('days', day.id), { bus: { open: true, until, by: S.user.uid, byName: S.me || '', startedAt: Date.now() } }), 'Bus-Check-in');
-    day.bus = { open: true, until, by: S.user.uid, byName: S.me || '' };
-    logEv('tag', 'startet den Bus-Check-in (' + BUS_MIN + ' Minuten)', day.id); busShow(day);
+    const dr = busDraft || { dur: 30, buses: [{ name: 'Bus 1', leader: S.user.uid }] }, buses = {};
+    dr.buses.forEach((b, i) => { buses['b' + (i + 1)] = { name: b.name || 'Bus ' + (i + 1), leader: b.leader, leaderName: uname(b.leader) }; });
+    const until = Date.now() + dr.dur * 60000;
+    day.bus = { open: true, until, by: S.user.uid, byName: S.me || '', startedAt: Date.now(), buses };
+    fire(F.updateDoc(dref('days', day.id), { bus: day.bus }), 'Bus-Check-in');
+    logEv('tag', 'startet den Bus-Check-in (' + dr.dur + ' Min.; ' + Object.values(buses).map(b => b.name + ': ' + b.leaderName).join(', ') + ')', day.id);
+    busDraft = null; renderAdmin(); if (day.id === S.active) renderBusBox();
+    toast('Check-in läuft – die Bus-Leiter müssen die App offen haben');
   }
   else if (a === 'busShow' && day && busOpen(day)) busShow(day);
   else if (a === 'busStop' && day) {
-    if (!await ask('Bus-Check-in beenden? Danach kann niemand mehr per QR-Code einchecken.', { ok: 'Beenden' })) return;
+    if (!await ask('Bus-Check-in beenden? Danach kann niemand mehr einchecken. Die gespeicherten Standorte werden gelöscht.', { ok: 'Beenden' })) return;
     fire(F.updateDoc(dref('days', day.id), { 'bus.open': false, 'bus.until': Date.now() }), 'Bus-Check-in'); busHide(day.id, true);
+    try { (await F.getDocs(F.query(col('busgeo'), F.where('day', '==', day.id)))).docs.forEach(d => fire(F.deleteDoc(d.ref), 'Standorte löschen')); } catch (e) {}
+    busList(day).forEach(b => fire(F.deleteDoc(dref('busloc', day.id + '_' + b.id)), 'Standorte löschen'));
     logEv('tag', 'beendet den Bus-Check-in (' + (S.dayBus || []).length + ' eingecheckt)', day.id); toast('Check-in beendet');
   }
   else if (a === 'busAdd' && day) {
     const uid = $('busAdd').value; if (!uid) { toast('Bitte eine Person wählen'); return; }
-    fire(F.setDoc(dref('checkins', day.id + '_' + uid), { uid, name: uname(uid), day: day.id, t: Date.now(), how: 'admin', by: S.user.uid, byName: S.me || '' }), 'Check-in');
+    const bsel = $('busAddBus'), bus = bsel ? bsel.value : (busList(day)[0] || {}).id;
+    fire(F.setDoc(dref('checkins', day.id + '_' + uid), Object.assign({ uid, name: uname(uid), day: day.id, t: Date.now(), how: 'admin', by: S.user.uid, byName: S.me || '' }, bus ? { bus } : {})), 'Check-in');
     logEv('person', 'trägt ' + uname(uid) + ' als im Bus ein', day.id); toast(uname(uid) + ' eingetragen');
   }
   else if (a === 'busDel' && id) {
