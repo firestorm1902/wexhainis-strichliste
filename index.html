@@ -463,13 +463,19 @@ html .egg[data-kind=album] .egg-btns .b.pri{background:#141414;color:var(--wy);b
 .last.unk .last-bar{background:var(--amb)}
 @keyframes lastBar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 /* Admin: Navigation und einklappbare Bereiche */
-.admnav{position:sticky;top:0;z-index:30;margin:0 -14px;padding:8px 14px;background:var(--bg);border-bottom:1.5px solid var(--ink);display:flex;flex-direction:column;gap:6px}
+.admnav{position:sticky;top:var(--toph,0px);z-index:30;margin:0 -14px;padding:8px 14px;background:var(--bg);border-bottom:1.5px solid var(--ink);display:flex;flex-direction:column;gap:6px}
 .admnav-in{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .admnav-in::-webkit-scrollbar{display:none}
 .admchip{flex:0 0 auto;border:1.5px solid var(--ink);background:var(--white);color:var(--ink);border-radius:999px;padding:6px 11px;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
 .admchip em{font-style:normal;background:var(--wy);color:#141414;border-radius:999px;padding:0 6px;margin-left:3px;font-size:.74rem}
 .admchip.hot{background:var(--wy);color:#141414}
 .admnav-all{display:flex;gap:6px;justify-content:flex-end}
+.admtabs{display:flex;flex-wrap:wrap;gap:2px 4px;margin:0 -2px}.admtabs::-webkit-scrollbar{display:none}
+.admtab{flex:0 0 auto;border:0;border-bottom:3px solid transparent;background:none;color:var(--mu);font:inherit;font-weight:700;font-size:.9rem;padding:6px 8px;cursor:pointer;white-space:nowrap}
+.admnav .admtab.on{color:var(--ink);background:none;border-bottom-color:var(--wy)}
+.admnav .admtab{border-radius:0}
+.admtab em{font-style:normal;background:var(--pen);color:#fff;border-radius:999px;padding:0 6px;margin-left:2px;font-size:.72rem}
+.todo-sum{border-top:0}
 .admnav-all .b{padding:3px 10px;font-size:.74rem}
 section.coll{scroll-margin-top:96px}
 section.coll>h2:first-child{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;user-select:none;margin-bottom:8px}
@@ -807,7 +813,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '89';
+const APP_VERSION = '90';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1660,7 +1666,7 @@ function admGoto(sec, dayId) {
     if (!S.days.some(d => d.id === dayId)) { toast('Der Tag zu dieser Meldung existiert nicht mehr'); return; }
     if (S.selDay !== dayId) { S.selDay = dayId; listenDayScans(); }
   }
-  admSet(sec, true);
+  admSet(sec, true); admTabAuto = false; setAdmTab(tabOf(sec));
   if (admHidden.includes(sec)) saveAdmHidden(admHidden.filter(k => k !== sec)); // selbst ausgeblendet: wieder einblenden
   renderAdmin();
   let tries = 0;
@@ -5145,6 +5151,19 @@ setInterval(updateBadge, 30000);
 
 // Bereiche im Admin: Überschrift antippen klappt ein/aus, Navigation springt hin
 const ADM_KEY = 'strichliste_adm_open';
+/* ---------- Reiter im Admin-Bereich ---------- */
+const ADM_TABS = [['todo', '📥 Aufgaben'], ['day', '📅 Tag'], ['drinks', '🍺 Getränke'], ['stats', '📊 Auswertung'], ['people', '👥 Personen'], ['set', '⚙️ Einstellungen']];
+const TAB_OF = { 'Neue Anmeldungen': 'todo', 'Korrekturanträge': 'todo', 'Löschanträge': 'todo', 'Posteingang': 'todo',
+  'Tag': 'day', 'Zu viel gescannt': 'day', 'Mitnehmen und zurückzählen': 'day', 'Abgleich': 'day', 'Nach Person': 'day', 'Buchung nachtragen': 'day', 'Buchungen dieses Tages': 'day', 'Anstehende Easter Eggs': 'day',
+  'Getränke': 'drinks', 'Lager': 'drinks',
+  'Zurückgenommene Buchungen': 'stats', 'Zu wenig gebucht': 'stats', 'Alle Tage': 'stats', 'Excel-Auswertung': 'stats', 'Historie': 'stats',
+  'Personen': 'people', 'Gruppen': 'people', 'Neu registriert': 'people', 'Datenschutz-Bestätigungen': 'people',
+  'Einstellungen': 'set', 'Fasnets-Titel': 'set', 'Easter Eggs verwalten': 'set', 'Partymodus': 'set', 'Daten': 'set' };
+const tabOf = k => TAB_OF[k] || 'set';
+const KEEP_EMPTY = ['Getränke', 'Personen', 'Gruppen', 'Buchungen dieses Tages'];
+let admTab = null; try { admTab = localStorage.getItem('strichliste_admtab'); } catch (e) {}
+function setAdmTab(t) { admTab = t; try { localStorage.setItem('strichliste_admtab', t); } catch (e) {} }
+let admTabAuto = true; // beim ersten Öffnen: Aufgaben, wenn etwas offen ist
 const ADM_DEFAULT_CLOSED = ['Einkaufsliste', 'Löschanträge', 'Getränke', 'Personen', 'Alle Tage', 'Buchungen dieses Tages', 'Nach Person', 'Excel-Auswertung', 'Daten', 'Historie', 'Easter Eggs verwalten', 'Gruppen'];
 let admState = {}; try { admState = JSON.parse(localStorage.getItem(ADM_KEY) || '{}'); } catch (e) {}
 const admKey = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
@@ -5184,6 +5203,7 @@ function saveAdmOrder(list) {
 function adminNav(el, navX) {
   let secs = [...el.querySelectorAll(':scope > section')].filter(x => x.firstElementChild && x.firstElementChild.tagName === 'H2');
   if (secs.length < 3) return;
+  const RO_now = () => !S.isAdmin;
   secs.forEach(sec => { const h2 = sec.firstElementChild, k = admKey(h2.textContent); h2.dataset.adm = k; const t = secTitle(k);
     if (t) { const n = (h2.textContent.match(/\s*\(\d+\)\s*$/) || [''])[0]; h2.textContent = t + n; } });
   secs = admArrange(el, secs);
@@ -5193,6 +5213,24 @@ function adminNav(el, navX) {
   secs.forEach(x => { const k = x.firstElementChild.dataset.adm; x.firstElementChild.classList.toggle('allhid', S.isSuper && secAllHidden().includes(k)); x.firstElementChild.classList.toggle('bdhid', S.isSuper && secBoardHidden().includes(k)); });
   const hid = secs.filter(x => admHidden.includes(x.firstElementChild.dataset.adm) || allHid.includes(x.firstElementChild.dataset.adm));
   hid.forEach(x => x.remove()); secs = secs.filter(x => !hid.includes(x));
+  // leere Bereiche („… (0)“) weglassen
+  const empty = secs.filter(x => /\(0\)\s*$/.test(x.firstElementChild.textContent) && !KEEP_EMPTY.includes(x.firstElementChild.dataset.adm));
+  empty.forEach(x => x.remove()); secs = secs.filter(x => !empty.includes(x));
+  // Reiter
+  const byTab = {}; secs.forEach(x => { const t = tabOf(x.firstElementChild.dataset.adm); (byTab[t] = byTab[t] || []).push(x); });
+  const asks = (S.asks || []).filter(a => a.answer && !a.booked && a.by === (S.user && S.user.uid));
+  const todoN = (byTab.todo || []).reduce((a, x) => a + (+((x.firstElementChild.textContent.match(/\((\d+)\)\s*$/) || [])[1]) || 0), 0) + asks.length;
+  const tabs = ADM_TABS.filter(([t]) => t === 'todo' ? !RO_now() : (byTab[t] || []).length);
+  if (admTabAuto) { admTabAuto = false; if (todoN && !RO_now()) admTab = 'todo'; }
+  if (!tabs.some(([t]) => t === admTab)) admTab = tabs.some(([t]) => t === 'day') ? 'day' : (tabs[0] || [])[0];
+  if (admTab === 'todo') {
+    const box = document.createElement('section'); box.className = 'todo-sum';
+    box.innerHTML = todoN ? (asks.length ? '<h3 class="sub3">💬 Antworten auf deine Rückfragen</h3>' + asks.map(a => '<button type="button" class="bellrow" data-askgo="' + esc(a.day) + '"><span>' + esc(a.name) + '</span><span>' + esc(String(a.answer).slice(0, 80)) + '</span><small>Abgleich ›</small></button>').join('') : '')
+      : '<div class="note ok">Alles erledigt – keine offenen Aufgaben. 👍</div>';
+    el.prepend(box);
+  }
+  secs.forEach(x => { x.hidden = tabOf(x.firstElementChild.dataset.adm) !== admTab; });
+  const allSecs = secs; secs = secs.filter(x => !x.hidden);
   const items = secs.map((sec, i) => {
     const h2 = sec.firstElementChild, k = h2.dataset.adm, open = admOpen(k);
     sec.id = 'adm' + i; sec.classList.add('coll'); sec.classList.toggle('closed', !open);
@@ -5201,9 +5239,10 @@ function adminNav(el, navX) {
     return '<button class="admchip' + (k === 'Neue Anmeldungen' ? ' hot' : '') + '" data-admgo="' + i + '">' + esc(secTitle(k) || ADM_SHORT[k] || k) + (n ? ' <em>' + n + '</em>' : '') + '</button>';
   });
   const nav = document.createElement('nav'); nav.className = 'admnav'; nav.setAttribute('aria-label', 'Admin-Bereiche');
-  nav.innerHTML = '<div class="admnav-in">' + items.join('') + '</div><div class="admnav-all"><button class="b sm" data-admord="1">⇅ Anordnen' + (hid.length ? ' (' + hid.length + ' ausgeblendet)' : '') + '</button><button class="b sm" data-admall="1">Alle auf</button><button class="b sm" data-admall="0">Alle zu</button></div>';
+  const tabBar = '<div class="admtabs" role="tablist">' + tabs.map(([t, l]) => '<button type="button" role="tab" aria-selected="' + (t === admTab) + '" class="admtab' + (t === admTab ? ' on' : '') + '" data-admtab="' + t + '">' + l + (t === 'todo' && todoN ? ' <em>' + todoN + '</em>' : '') + '</button>').join('') + '</div>';
+  nav.innerHTML = tabBar + (secs.length > 1 ? '<div class="admnav-in">' + items.join('') + '</div>' : '') + '<div class="admnav-all"><button class="b sm" data-admord="1">⇅ Anordnen' + (hid.length ? ' (' + hid.length + ' ausgeblendet)' : '') + '</button><button class="b sm" data-admall="1">Alle auf</button><button class="b sm" data-admall="0">Alle zu</button></div>';
   el.prepend(nav);
-  nav.querySelector('.admnav-in').scrollLeft = navX || 0;
+  { const ni = nav.querySelector('.admnav-in'); if (ni) ni.scrollLeft = navX || 0; }
 }
 function ordHTML() {
   const L = admSeen.slice();
@@ -5253,6 +5292,8 @@ $('modalBody').addEventListener('click', e => {
   if (e.target.id === 'ordReset') { saveAdmOrder([]); saveAdmHidden([]); closeModal(); renderAdmin(); toast('Standard: alles sichtbar, ursprüngliche Reihenfolge'); }
 });
 $('adminBody').addEventListener('click', e => {
+  const tb = e.target.closest('[data-admtab]'); if (tb) { setAdmTab(tb.dataset.admtab); renderAdmin(); window.scrollTo({ top: 0, behavior: 'instant' }); return; }
+  const ag = e.target.closest('[data-askgo]'); if (ag) { admGoto('Abgleich', ag.dataset.askgo); return; }
   if (e.target.closest('[data-admord]')) { openModal(ordHTML()); return; }
   const go = e.target.closest('[data-admgo]');
   if (go) {

@@ -137,6 +137,9 @@ Auch Mitglieder haben oben neben dem Namen eine **🔔**. Sie zählt neue Meldun
 ### Glocke für Admins
 Gibt es im Admin-Bereich etwas zu tun, steht oben neben dem Namen eine **🔔 mit Zahl**: neue Anmeldungen, Löschanträge, offene Korrekturanträge, Antworten auf eigene Rückfragen und (Super-Admin) ungelesene Nachrichten. Antippen zeigt die Liste; ein Eintrag springt direkt in den passenden Bereich. **Später erinnern**: in 1, 3 oder 8 Stunden oder morgen früh – spätestens am nächsten Morgen um 8 Uhr meldet sich die Glocke wieder (mit Hinweis), solange noch etwas offen ist. Neue Aufgaben zeigt sie auch während der Pause sofort.
 
+### Admin-Bereich: Reiter
+Der Admin-Bereich ist in Reiter aufgeteilt: **📥 Aufgaben** (neue Anmeldungen, Anträge, Löschanträge, Posteingang, Antworten auf Rückfragen – mit Zahl), **📅 Tag**, **🍺 Getränke** (mit Lager), **📊 Auswertung**, **👥 Personen** und **⚙️ Einstellungen**. Ist etwas offen, öffnet der Admin-Bereich mit „Aufgaben“, sonst mit dem zuletzt benutzten Reiter. Bereiche ohne Einträge („… (0)“) werden ausgeblendet. Die Glocke springt direkt in den richtigen Reiter. Der Vorstand sieht nur die Reiter mit Bereichen, die er sehen darf.
+
 ### Bereiche anordnen und umbenennen
 Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest und blendet mit dem Häkchen „zeigen“ Bereiche aus, die er nicht braucht (gilt nur für ihn, auf allen seinen Geräten). Der Knopf zeigt, wie viele ausgeblendet sind; „Alles zurücksetzen“ holt alles zurück. Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard), mit dem Häkchen **„Admins“** Bereiche für die Getränke-Admins und mit **„Vorstand“** für den Vorstand ausblenden (der Vorstand sieht immer nur lesend, Excel-Export geht) und mit **„Speichern + als Standard für alle“** die Standard-Reihenfolge festlegen. Wer keine eigene Reihenfolge hat (oder „Auf Standard zurücksetzen“ tippt), bekommt diese.
 
@@ -442,13 +445,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 78**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 78 auf 79):
-- in `index.html`: `const APP_VERSION = '78';`
-- in `sw.js`: `const VERSION = 'strichliste-v78';`
+Aktuell ist **Version 90**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 90 auf 91):
+- in `index.html`: `const APP_VERSION = '90';`
+- in `sw.js`: `const VERSION = 'strichliste-v90';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 78“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 90“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
