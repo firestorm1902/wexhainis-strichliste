@@ -121,6 +121,7 @@ Admin → 📅 Tag → **Bus-Check-in**: Busse anlegen (z. B. „Bus 1“, „Bu
 - **Datenschutz:** Gespeichert wird, dass und wann jemand eingecheckt hat und in welchem Bus. Die Standorte sehen nur Admins; sie werden beim **Beenden** gelöscht. Der Datenschutzhinweis der App erklärt das.
 - **Tipp:** Den Check-in erst nach der Abfahrt starten – am Treffpunkt stehen auch Leute in der Nähe, die nicht mitfahren.
 - Alles wird protokolliert und steht in der **Excel-Auswertung** (Blatt „Bus-Check-in“ mit Bus und Art; Übersicht „Im Bus eingecheckt“).
+- **Übersicht:** Admin → 📊 Auswertung → **Anwesenheit (Bus-Check-ins)**: pro Ausfahrt (wie viele im Bus, je Bus, wer gebucht hat ohne einzuchecken) und pro Person (bei wie vielen Ausfahrten dabei, Tage zum Aufklappen), wahlweise diese Saison oder alles; „Auffällig“ zeigt, wer mehrmals gebucht hat, ohne eingecheckt zu sein. **📄 Excel: nur Anwesenheit** lädt eine eigene Datei (Übersicht, pro Tag, pro Person, alle Check-ins). Die gesammelte Excel-Auswertung enthält dieselben Blätter „Anwesenheit pro Tag“ und „Anwesenheit pro Person“.
 - Braucht die neuen Regeln (`buscode`, `busloc`, `busgeo`, `checkins`) – siehe `firestore.rules` im Stundentracker-Repo.
 
 ### Ein- und Auschecken per Knopf
@@ -459,13 +460,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 95**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 95 auf 96):
-- in `index.html`: `const APP_VERSION = '95';`
-- in `sw.js`: `const VERSION = 'strichliste-v95';`
+Aktuell ist **Version 96**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 96 auf 97):
+- in `index.html`: `const APP_VERSION = '96';`
+- in `sw.js`: `const VERSION = 'strichliste-v96';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 95“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 96“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

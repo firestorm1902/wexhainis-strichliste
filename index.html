@@ -830,7 +830,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '95';
+const APP_VERSION = '96';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3930,6 +3930,75 @@ $('adminBody').addEventListener('change', e => {
   if (t.dataset.busl != null) busDraft.buses[+t.dataset.busl].leader = t.value;
   if (t.hasAttribute('data-busdur')) busDraft.dur = +t.value || 30;
 });
+/* ---------- Anwesenheit: Übersicht über alle Bus-Check-ins (App, Gesamt-Excel und eigene Excel-Datei) ---------- */
+// Tage nur mit Check-in zählen; „gebucht ohne Check-in“ nur an Tagen, an denen ein Check-in lief
+function anwCalc(days, scansByDay, busByDay) {
+  const D = days.filter(d => (busByDay[d.id] || []).length);
+  const per = {}, P0 = (k, n) => (per[k] = per[k] || { uid: k, name: n || uname(k), in: [], miss: [] });
+  const rows = D.map(d => {
+    const L = busByDay[d.id], inU = new Set(L.map(x => x.uid)), booked = new Set((scansByDay[d.id] || []).map(s => s.uid).filter(Boolean));
+    const miss = [...booked].filter(u => !inU.has(u));
+    L.forEach(x => P0(x.uid, x.name).in.push({ d, x }));
+    miss.forEach(u => P0(u).miss.push(d));
+    const byBus = {}; L.forEach(x => { const k = x.bus ? busName(d, x.bus) : 'ohne Bus'; byBus[k] = (byBus[k] || 0) + 1; });
+    return { d, n: L.length, byBus, miss: miss.length, missNames: miss.map(u => uname(u)) };
+  });
+  const people = Object.values(per).sort((a, b) => b.in.length - a.in.length || a.name.localeCompare(b.name, 'de'));
+  return { days: D, rows, people };
+}
+let anw = null, anwBusy = false, anwPer = 'season';
+const anwDays = () => { const se = season(); return S.days.filter(d => anwPer === 'all' || (d.date >= se.from && d.date <= se.to)).sort((a, b) => a.date.localeCompare(b.date)); };
+async function anwLoad() {
+  if (anwBusy) return; anwBusy = true; renderAdmin();
+  try {
+    const days = anwDays();
+    const bus = await Promise.all(days.map(d => F.getDocs(F.query(col('checkins'), F.where('day', '==', d.id))).then(x => x.docs.map(y => y.data())).catch(() => [])));
+    const busByDay = {}; days.forEach((d, i) => { busByDay[d.id] = bus[i].sort((a, b) => a.t - b.t); });
+    const withBus = days.filter(d => busByDay[d.id].length);
+    const sc = await Promise.all(withBus.map(d => F.getDocs(F.query(col('scans'), F.where('day', '==', d.id))).then(x => x.docs.map(y => y.data()))));
+    const scansByDay = {}; withBus.forEach((d, i) => { scansByDay[d.id] = sc[i]; });
+    anw = Object.assign(anwCalc(days, scansByDay, busByDay), { t: Date.now(), per: anwPer, busByDay, scansByDay, all: days });
+  } catch (err) { console.warn('anw', err); toast('Laden braucht Internet'); }
+  anwBusy = false; renderAdmin();
+}
+function anwSection() {
+  let h = '<section><h2>Anwesenheit (Bus-Check-ins)</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Wer war bei welchen Ausfahrten im Bus? Gezählt werden Tage, an denen ein Bus-Check-in lief.</div>';
+  h += '<div class="row" style="margin-top:0"><button class="b sm' + (anw ? '' : ' pri') + '" data-act="anwLoad"' + (anwBusy ? ' disabled' : '') + '>' + (anwBusy ? 'Lade …' : anw ? 'Neu laden' : 'Übersicht laden') + '</button>' +
+    '<button class="b sm' + (anwPer === 'season' ? ' pri' : '') + '" data-act="anwPer" data-id="season">Diese Saison</button><button class="b sm' + (anwPer === 'all' ? ' pri' : '') + '" data-act="anwPer" data-id="all">Alles</button>' +
+    '<button class="b sm" data-act="anwXl">📄 Excel: nur Anwesenheit</button></div>';
+  if (!anw) return h + '</section>';
+  if (!anw.rows.length) return h + '<div class="empty" style="padding:8px 0">Im Zeitraum lief noch kein Bus-Check-in.</div></section>';
+  const sus = anw.people.filter(x => x.miss.length >= 2);
+  h += '<h3 class="sub3" style="margin-top:10px">Pro Ausfahrt</h3>' + anw.rows.slice().reverse().map(r => '<details class="pc" data-k="anwd' + r.d.id + '"><summary><span><b>' + esc(fmtDate(r.d.date)) + '</b><br><small>' + esc(r.d.place || '') + '</small></span><small style="text-align:right"><b>' + r.n + ' im Bus</b>' + (r.miss ? '<br><span style="color:var(--pen)">' + r.miss + ' gebucht, nicht eingecheckt</span>' : '') + '</small></summary>' +
+    '<div class="rw"><span></span><span>' + Object.keys(r.byBus).map(k => esc(k) + ': ' + r.byBus[k]).join(' · ') + '</span></div>' +
+    (r.miss ? '<div class="note bad" style="margin:6px 0">Gebucht, aber nicht eingecheckt: ' + r.missNames.map(esc).join(', ') + '</div>' : '') +
+    '<div class="row"><button class="b sm" data-act="pickDay" data-id="' + r.d.id + '">Tag öffnen</button></div></details>').join('');
+  h += '<h3 class="sub3" style="margin-top:12px">Pro Person (' + anw.people.length + ')</h3>' +
+    (sus.length ? '<div class="note bad" style="margin:4px 0 8px"><b>Auffällig:</b> mehrmals gebucht, ohne eingecheckt zu sein – ' + sus.map(x => esc(x.name) + ' (' + x.miss.length + '×)').join(', ') + '</div>' : '') +
+    anw.people.map(x => '<details class="pc" data-k="anwp' + esc(x.uid) + '"><summary><span><b>' + esc(x.name) + '</b></span><small style="text-align:right"><b>' + x.in.length + ' von ' + anw.rows.length + '</b> dabei' + (x.miss.length ? '<br><span style="color:var(--pen)">' + x.miss.length + '× gebucht, nicht eingecheckt</span>' : '') + '</small></summary>' +
+      x.in.map(y => '<div class="rw"><span>' + esc(fmtDate(y.d.date)) + '</span><span>' + esc(y.d.place || '') + '</span><small>' + (y.x.bus ? esc(busName(y.d, y.x.bus)) + ' · ' : '') + esc(howTxt(y.x)) + '</small></div>').join('') +
+      x.miss.map(d => '<div class="rw" style="color:var(--pen)"><span>' + esc(fmtDate(d.date)) + '</span><span>' + esc(d.place || '') + '</span><small>gebucht, nicht eingecheckt</small></div>').join('') + '</details>').join('');
+  return h + '</section>';
+}
+// Tabellenblätter für Excel (für die Gesamt-Auswertung und die eigene Datei)
+function anwSheets(A, H, D) {
+  const pd = [[H('Datum'), H('Ziel'), H('Im Bus'), H('Aufteilung'), H('Gebucht, nicht eingecheckt'), H('Namen')]];
+  A.rows.forEach(r => pd.push([D(r.d.date), r.d.place || '', r.n, Object.keys(r.byBus).map(k => k + ': ' + r.byBus[k]).join(', '), r.miss || null, r.missNames.join(', ')]));
+  const pp = [[H('Name'), H('Ausfahrten dabei'), H('von'), H('Gebucht, nicht eingecheckt'), H('Tage dabei'), H('Tage gebucht ohne Check-in')]];
+  A.people.forEach(x => pp.push([x.name, x.in.length, A.rows.length, x.miss.length || null, x.in.map(y => fmtDate(y.d.date)).join('; '), x.miss.map(d => fmtDate(d.date)).join('; ')]));
+  return [{ name: 'Anwesenheit pro Tag', rows: pd, widths: [12, 22, 9, 26, 14, 40], freeze: 1, filter: 1 },
+    { name: 'Anwesenheit pro Person', rows: pp, widths: [24, 10, 6, 14, 50, 40], freeze: 1, filter: 1 }];
+}
+async function buildBusReport() {
+  if (!anw || anw.per !== anwPer) await anwLoad();
+  if (!anw || !anw.rows.length) throw new Error('Im Zeitraum lief noch kein Bus-Check-in.');
+  const H = t => ({ v: t, s: 1 }), D = iso => ({ v: XL.date(iso), s: 5 });
+  const bc = [[H('Datum'), H('Ziel'), H('Bus'), H('Name'), H('Uhrzeit'), H('Art'), H('Hat gebucht')]];
+  anw.rows.forEach(r => { const booked = new Set((anw.scansByDay[r.d.id] || []).map(s => s.uid)); anw.busByDay[r.d.id].forEach(x => bc.push([D(r.d.date), r.d.place || '', x.bus ? busName(r.d, x.bus) : '', x.name || uname(x.uid), { v: XL.time(x.t), s: 6 }, howTxt(x), booked.has(x.uid) ? 'ja' : 'nein'])); });
+  const ov = [[{ v: 'Wexhainis Getränke-Strichliste – Anwesenheit (Bus-Check-in)', s: 3 }], [], ['Zeitraum', anwPer === 'all' ? 'alles' : season().label], ['Erstellt am', D(todayISO())], ['Erstellt von', S.me || ''], [],
+    ['Ausfahrten mit Check-in', anw.rows.length], ['Personen eingecheckt', anw.people.filter(x => x.in.length).length], ['Check-ins gesamt', anw.rows.reduce((a, r) => a + r.n, 0)]];
+  return XL.build([{ name: 'Übersicht', rows: ov, widths: [32, 22] }].concat(anwSheets(anw, H, D), [{ name: 'Alle Check-ins', rows: bc, widths: [12, 22, 12, 24, 9, 26, 12], freeze: 1, filter: 1 }]));
+}
 /* ---------- Ein-/Auschecken per Knopf (Scannen ist nur noch die Alternative) ----------
    Modus „Einladen“ ändert days.load, „Übrig zählen“ days.count. Pro Getränk: −1, +1 und ein Knopf pro Gebinde. */
 let chkMode = 'load';
@@ -4314,6 +4383,7 @@ function renderAdmin() {
 
   if (S.products.length) h += lagerSection();
   if (S.days.length) h += undoAllSection();
+  if (S.days.length) h += anwSection();
   if (S.days.length > 1 && !RO) {
     h += missSection();
     h += '<section class="daylist"><h2>Alle Tage</h2>' + S.days.map(d => {
@@ -4563,7 +4633,7 @@ $('adminBody').addEventListener('change', e => {
 
 const ROLE_LABEL = { '': 'Mitglied', admin: 'Getränke-Admin', vorstand: 'Vorstand' };
 // Vorstand: alles nur lesen – Eingaben werden zu Text, Knöpfe außer Excel verschwinden
-const RO_ACTS = ['xlAll', 'xlMonth', 'xlDay', 'xlGo', 'missCheck', 'pickDay', 'undoAllLoad', 'undoAllPer'];
+const RO_ACTS = ['xlAll', 'xlMonth', 'xlDay', 'xlGo', 'missCheck', 'pickDay', 'undoAllLoad', 'undoAllPer', 'anwLoad', 'anwPer', 'anwXl'];
 function readOnly(el) {
   el.querySelectorAll('button').forEach(b => { if (!RO_ACTS.includes(b.dataset.act)) b.remove(); });
   el.querySelectorAll('input,select,textarea').forEach(x => {
@@ -5420,7 +5490,7 @@ const ADM_TABS = [['todo', '📥 Aufgaben'], ['day', '📅 Tag'], ['drinks', '�
 const TAB_OF = { 'Neue Anmeldungen': 'todo', 'Korrekturanträge': 'todo', 'Löschanträge': 'todo', 'Posteingang': 'todo',
   'Tag': 'day', 'Bus-Check-in': 'day', 'Zu viel gescannt': 'day', 'Mitnehmen und zurückzählen': 'day', 'Abgleich': 'day', 'Nach Person': 'day', 'Buchung nachtragen': 'day', 'Buchungen dieses Tages': 'day', 'Anstehende Easter Eggs': 'day',
   'Getränke': 'drinks', 'Lager': 'drinks',
-  'Zurückgenommene Buchungen': 'stats', 'Zu wenig gebucht': 'stats', 'Alle Tage': 'stats', 'Excel-Auswertung': 'stats', 'Historie': 'stats',
+  'Zurückgenommene Buchungen': 'stats', 'Anwesenheit': 'stats', 'Zu wenig gebucht': 'stats', 'Alle Tage': 'stats', 'Excel-Auswertung': 'stats', 'Historie': 'stats',
   'Personen': 'people', 'Gruppen': 'people', 'Neu registriert': 'people', 'Datenschutz-Bestätigungen': 'people',
   'Einstellungen': 'set', 'Fasnets-Titel': 'set', 'Easter Eggs verwalten': 'set', 'Partymodus': 'set', 'Daten': 'set' };
 const tabOf = k => TAB_OF[k] || 'set';
@@ -5814,6 +5884,7 @@ async function buildReport(from, to) {
     { name: 'Person pro Tag', rows: ppt, widths: [12, 22, 24, 24, 16, 9, 10, 11], freeze: 1, filter: 1 },
     { name: 'Abgleich pro Tag', rows: abg, widths: [12, 22, 24, 16, 13, 10, 10, 10, 10, 10, 13, 14], freeze: 1, filter: 1 },
     { name: 'Bus-Check-in', rows: bc, widths: [12, 22, 12, 24, 9, 26, 12], freeze: 1, filter: 1 },
+    ...anwSheets(anwCalc(days, byDay, busByDay), H, D),
     { name: 'Buchungen', rows: bk, widths: [12, 9, 22, 24, 24, 16, 10, 14], freeze: 1, filter: 1 },
     { name: 'Getränke', rows: gt, widths: [26, 18, 10, 11, 26, 40], freeze: 1, filter: 1 }
   ]);
@@ -5923,6 +5994,15 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'pickDay') { S.selDay = id; listenDayScans(); renderAdmin(); window.scrollTo(0, 0); }
   else if (a === 'missCheck') checkMissing();
+  else if (a === 'anwLoad') anwLoad();
+  else if (a === 'anwPer') { anwPer = id; anw = null; anwLoad(); }
+  else if (a === 'anwXl') {
+    if (!navigator.onLine) { toast('Für die Auswertung wird Internet benötigt'); return; }
+    b.disabled = true; b.textContent = 'Erstelle …';
+    try { const blob = await buildBusReport(); downloadBlob('Wexhainis-Anwesenheit_' + (anwPer === 'all' ? 'alles' : season().label.replace(/[^\w]+/g, '-')) + '.xlsx', blob); toast('Excel erstellt'); logEv('system', 'erstellt Excel-Auswertung Anwesenheit'); }
+    catch (err) { toast(err.message || 'Excel konnte nicht erstellt werden'); }
+    b.disabled = false; b.textContent = '📄 Excel: nur Anwesenheit';
+  }
   else if (a === 'busPlus') { busDraft = busDraft || { dur: 30, buses: [{ name: 'Bus 1', leader: S.user.uid }] }; busDraft.buses.push({ name: 'Bus ' + (busDraft.buses.length + 1), leader: S.user.uid }); renderAdmin(); }
   else if (a === 'busMinus') { if (busDraft && busDraft.buses.length > 1) busDraft.buses.pop(); renderAdmin(); }
   else if (a === 'busStart' && day) {
