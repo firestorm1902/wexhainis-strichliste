@@ -160,7 +160,7 @@ Der Admin-Bereich ist in Reiter aufgeteilt: **📥 Aufgaben** (neue Anmeldungen,
 - **Suche:** Unter den Reitern steht ein Suchfeld. Es findet Bereiche (auch über Stichwörter wie „Backup“, „Packliste“, „Inventur“), Getränke, Personen und Tage. Ein Tipp auf einen Treffer springt hin und klappt das Getränk bzw. die Person gleich auf.
 - **Der Tag als Ablauf:** Im Bereich „Tag“ steht der Ablauf ① Einladen → ② Freigeben → ③ Läuft (x gebucht) → ④ Zählen → ⑤ Abschluss. Erledigte Schritte haben einen Haken, der nächste fällige ist gelb umrandet. Antippen springt zum passenden Bereich.
 - **Mehr …:** Selten Gebrauchtes (Partymodus, Fasnets-Titel, Easter Eggs verwalten) ist im Reiter „Einstellungen“ unter „Mehr …“ eingeklappt. Die Suche findet es trotzdem.
-- **Vorsicht-Block:** „Backup importieren“, „Diesen Tag löschen“ und „Statistiken zurücksetzen“ stehen nur für den Super-Admin ganz unten unter „Daten“ in einem rot umrandeten Block.
+- **Vorsicht-Block:** „Backup importieren“, „Diesen Tag löschen“ und „Zurücksetzen / Werkszustand …“ stehen nur für den Super-Admin ganz unten unter „Daten“ in einem rot umrandeten Block.
 - **Vorstand:** „Zu wenig gebucht“ und „Alle Tage“ sieht der Vorstand standardmäßig nicht. Der Super-Admin kann sie über „⇅ Anordnen“ mit dem Häkchen „Vorstand“ freigeben (nur lesen).
 
 ### Bereiche anordnen und umbenennen
@@ -203,7 +203,7 @@ Startet die Kamera nicht, zeigt die App eine Anleitung passend zu Gerät (Androi
 - **Erinnerung:** Der Super-Admin stellt unter Daten ein, nach wie vielen Tagen ohne Backup erinnert wird (Standard 30, 0 = nie). Dann steht oben im Admin-Bereich „Zeit für ein Backup“ mit „Jetzt sichern“, und Admins bekommen einmal am Tag einen Hinweis.
 - Die Datei enthält persönliche Daten – sicher aufbewahren (nicht in die WhatsApp-Gruppe).
 
-- **Automatisches Backup vor dem Löschen (Super-Admin):** Bevor der Super-Admin etwas Größeres löscht – einen Tag mit Buchungen, eine Person (auf Wunsch mit Buchungen), einen Personeneintrag endgültig, alle erledigten Anträge oder Nachrichten, oder „Statistiken zurücksetzen“ –, kommen nacheinander: **Passwort erneut eingeben**, ein **automatisches Backup** (JSON-Datei im Download-Ordner, Name mit Datum und Uhrzeit) und eine **letzte Bestätigung**, die den Dateinamen nennt. Schlägt das Backup fehl, fragt die App, ob trotzdem ohne Backup weitergemacht werden soll. Getränke-Admins sind davon nicht betroffen.
+- **Automatisches Backup vor dem Löschen (Super-Admin):** Bevor der Super-Admin etwas Größeres löscht – einen Tag mit Buchungen, eine Person (auf Wunsch mit Buchungen), einen Personeneintrag endgültig, alle erledigten Anträge oder Nachrichten, oder „Zurücksetzen / Werkszustand“ –, kommen nacheinander: **Passwort erneut eingeben**, ein **automatisches Backup** (JSON-Datei im Download-Ordner, Name mit Datum und Uhrzeit) und eine **letzte Bestätigung**, die den Dateinamen nennt. Schlägt das Backup fehl, fragt die App, ob trotzdem ohne Backup weitergemacht werden soll. Getränke-Admins sind davon nicht betroffen.
 
 ## Bedienung
 
@@ -345,15 +345,29 @@ Summen und Kosten stehen als Formeln drin, Kopfzeilen sind fixiert und mit Filte
 
 ## Historie (Super-Admin)
 
-Unter Admin → **Historie** steht jede Änderung: Mitglieder (Registrierung, Name, Rolle, Sperre, Entfernen, Profilbild, Passwort), Buchungen (Rückgängig, Storno, Nachtrag), Einladen und Zählen, Getränke, Tage, Easter Eggs und System (Zähler, Import, Zurücksetzen). Datum wählen, die Bereiche lassen sich aufklappen. Mit „auch normale Scans“ erscheinen zusätzlich alle Buchungen des Datums. Die Historie kann niemand ändern oder löschen – auch der Super-Admin nicht, und auch „Statistiken zurücksetzen“ lässt sie stehen.
+Unter Admin → **Historie** steht jede Änderung: Mitglieder (Registrierung, Name, Rolle, Sperre, Entfernen, Profilbild, Passwort), Buchungen (Rückgängig, Storno, Nachtrag), Einladen und Zählen, Getränke, Tage, Easter Eggs und System (Zähler, Import, Zurücksetzen). Datum wählen, die Bereiche lassen sich aufklappen. Mit „auch normale Scans“ erscheinen zusätzlich alle Buchungen des Datums. Die Historie kann niemand ändern oder löschen – auch der Super-Admin nicht, und auch „Zurücksetzen / Werkszustand“ lässt sie stehen.
 
 ## Buchungen einer Person korrigieren
 
 Unter Admin → **Buchung nachtragen** die Person wählen: Darunter stehen ihre Buchungen des Tages, pro Getränk mit „−1 stornieren“ und aufklappbar einzeln. Nachtragen und Stornieren passen die Easter-Egg-Zähler automatisch an.
 
-## Statistiken zurücksetzen (Super-Admin)
+## Zurücksetzen bis zum Werkszustand (Super-Admin)
 
-Admin → Daten → **Statistiken zurücksetzen**, dann das eigene Passwort eingeben. Gelöscht werden alle Easter-Egg-Zähler (Gruppe und Personen, heute und seit Beginn) und alle Easter-Egg-Verläufe; danach können alle Easter Eggs neu auslösen. Mit gelöscht werden Bestenliste, Sammelalben und Fahrer-Einträge. Optional lassen sich zusätzlich **alle Buchungen und Tage** löschen. Getränke, Personen, Easter-Egg-Regeln und die Historie bleiben erhalten.
+Admin → ⚙️ Einstellungen → Daten → roter Block → **Zurücksetzen / Werkszustand …**. Dort hakst du an, was gelöscht wird („Alles anhaken“ = Werkszustand):
+
+| Auswahl | Was gelöscht wird |
+|---|---|
+| Statistiken & Easter-Egg-Zähler (vorausgewählt) | Zähler (Gruppe und Personen), Bestenlisten, Sammelalben, Easter-Egg-Verläufe – danach lösen alle Easter Eggs neu aus |
+| Buchungen und Tage | alle Tage, Buchungen, Fahrer-Markierungen, Rückgängig-Protokoll, Rückfragen; Bus-Check-ins werden dabei immer mitgelöscht |
+| Bus-Check-ins | alle Check-ins mit Standorten und Codes |
+| Getränke und Lager | alle Getränke (Preise, Barcodes), Lagerbewegungen, Packliste |
+| Korrekturanträge und Posteingang | alle Anträge und Nachrichten |
+| Eigene Easter Eggs und Fasnets-Titel | selbst angelegte Easter Eggs, Kategorien, Titel, Bestenlisten-Einstellungen |
+| Einstellungen auf Standard | Texte, Abschnitte/Überschriften, Kontakt, Datenschutz, Farben, Rückgängig, Funktionen, Partymodus, Backup-Erinnerung |
+| Gruppen | alle Gruppen (Personen bleiben, nur ohne Gruppe) |
+| Profilbilder | alle Profilbilder |
+
+Danach: Passwort eingeben → automatisches Backup (Download-Ordner) → letzte Bestätigung mit der Liste. **Immer erhalten bleiben** die Personen und Konten (sie gelten auch für Stundentracker und WexSuperAdmin; löschen nur in WexSuperAdmin), die Historie (laut Regeln unlöschbar) und die persönlichen Ansichten der Admins.
 
 ## Rollen
 
@@ -370,7 +384,7 @@ Rollen vergibt der Super-Admin unter Admin → Personen → Rolle.
 | Partymodus starten und beenden | | | ✓ | ✓ |
 | Einstellungen: Kontakt, wer sieht was, Bestenliste-Regeln | | | | ✓ |
 | Easter Eggs verwalten und an/aus, Zähler neu berechnen, Gruppen anlegen | | | | ✓ |
-| Neu registrierte Mitglieder, Historie, Statistiken zurücksetzen | | | | ✓ |
+| Neu registrierte Mitglieder, Historie, Zurücksetzen / Werkszustand | | | | ✓ |
 | Tag löschen, Backup importieren | | | | ✓ |
 | Rollen vergeben, Konten sperren, entfernen, Passwort-Mail | | | | ✓ |
 
@@ -468,13 +482,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 99**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 99 auf 100):
-- in `index.html`: `const APP_VERSION = '99';`
-- in `sw.js`: `const VERSION = 'strichliste-v99';`
+Aktuell ist **Version 100**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 100 auf 101):
+- in `index.html`: `const APP_VERSION = '100';`
+- in `sw.js`: `const VERSION = 'strichliste-v100';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 99“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 100“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

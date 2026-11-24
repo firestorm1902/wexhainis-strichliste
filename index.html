@@ -225,6 +225,7 @@ input.n{min-width:3em}
 .busqr{background:#fff;border-radius:16px;padding:14px;max-width:340px;margin:8px auto}.busqr svg{display:block;width:100%;height:auto}
 .businfo{text-align:center;font-size:1rem;margin:4px 0 8px;position:relative}.businfo i{display:block;height:4px;background:var(--wy);border-radius:2px;margin:6px auto 0;max-width:340px;transform-origin:left}
 @keyframes busbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.rsopt{align-items:flex-start}.rsopt small{color:var(--mu)}.rsopt input:disabled+span{opacity:.75}
 .flow{display:flex;align-items:stretch;gap:3px;margin:10px 0 4px;padding:2px 0}
 .flowstep{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;border:1.5px solid var(--line);border-radius:12px;background:var(--white);color:var(--ink);font:inherit;padding:7px 4px;cursor:pointer;text-align:center}
 .flowstep b{font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.flowstep small{font-size:.64rem;color:var(--mu);line-height:1.15}
@@ -847,7 +848,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '99';
+const APP_VERSION = '100';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2008,7 +2009,7 @@ function boardInc(uid, name, grp, cat, d) {
 const isSchnaps = n => n >= 11 && /^(\d)\1+$/.test(String(n));
 function nextSchnaps(n) { for (let k = Math.max(11, n + 1); k < 1e7; k++) if (isSchnaps(k)) return k; return null; }
 const fill = (t, v) => String(t).replace(/\{n\}/g, v.n == null ? '' : v.n).replace(/\{name\}/g, v.name || 'Jemand').replace(/\{gruppe\}/g, v.gruppe || 'Gruppe');
-// „Epoche“: nach „Statistiken zurücksetzen“ dürfen alle Easter Eggs neu auslösen
+// „Epoche“: nach dem Zurücksetzen der Statistiken dürfen alle Easter Eggs neu auslösen
 const epoch = () => (S.metaState && S.metaState.epoch) || 0;
 function eggOnce(key) {
   const k = 'strichliste_egg_' + epoch() + '_' + key;
@@ -2638,18 +2639,45 @@ async function dailyRecount() {
 }
 setTimeout(dailyRecount, 45000);
 
-/* ---------- Super-Admin: alle Statistiken zurücksetzen ---------- */
-async function resetStats(withData) {
-  const cols = ['gstats', 'ustats', 'live', 'ueggs', 'gboard', 'album', 'drv'].concat(withData ? ['scans', 'days'] : []);
-  let n = 0;
+
+/* ---------- Zurücksetzen bis zum Werkszustand (nur Super-Admin) ----------
+   Der Super-Admin wählt, was gelöscht wird. Personen/Konten (gemeinsam mit den anderen Apps, Löschen nur in WexSuperAdmin),
+   die Historie (laut Regeln unlöschbar) und persönliche Ansichten bleiben immer erhalten. */
+const RESET_PARTS = [
+  { k: 'stats', on: true, t: 'Statistiken & Easter-Egg-Zähler', d: 'Zähler, Bestenlisten, Sammelalben, Easter-Egg-Verläufe – danach können alle Easter Eggs neu ausgelöst werden', cols: ['gstats', 'ustats', 'live', 'ueggs', 'gboard', 'album', 'dsum'] },
+  { k: 'data', t: 'Buchungen und Tage', d: 'alle Tage, Buchungen, Fahrer-Markierungen, Rückgängig-Protokoll und Rückfragen', cols: ['scans', 'days', 'dused', 'drv', 'undos', 'asks', 'dsum'], needs: ['bus'] },
+  { k: 'bus', t: 'Bus-Check-ins', d: 'alle Check-ins mit Standorten und Codes', cols: ['checkins', 'busgeo', 'busloc', 'buscode'] },
+  { k: 'prod', t: 'Getränke und Lager', d: 'alle Getränke mit Preisen und Barcodes, Lagerbewegungen, Packliste', cols: ['products', 'stockmv'], cfg: ['packlist'] },
+  { k: 'msgs', t: 'Korrekturanträge und Posteingang', d: 'alle Anträge und Nachrichten', cols: ['reqs', 'msgs'] },
+  { k: 'eggs', t: 'Eigene Easter Eggs und Fasnets-Titel', d: 'selbst angelegte Easter Eggs, Kategorien, Titel und Bestenlisten-Einstellungen (zurück auf Standard)', cfg: ['eggs', 'eggcats', 'titles', 'best'] },
+  { k: 'cfg', t: 'Einstellungen auf Standard', d: 'Texte, Abschnitte/Überschriften, Kontakt, Datenschutz, Farben, Rückgängig, Funktionen, Partymodus, Backup-Erinnerung', cfg: ['texts', 'sections', 'contact', 'privacy', 'theme', 'undo', 'features', 'party', 'backup'] },
+  { k: 'groups', t: 'Gruppen', d: 'alle Gruppen (die Personen bleiben, nur ohne Gruppe)', cfg: ['groups'] },
+  { k: 'av', t: 'Profilbilder', d: 'alle Profilbilder', cols: ['avatars'] }
+];
+let resetSel = null;
+const resetChosen = () => { const o = resetSel || {}; const k = new Set(RESET_PARTS.filter(x => o[x.k] != null ? o[x.k] : x.on).map(x => x.k)); RESET_PARTS.forEach(x => { if (k.has(x.k)) (x.needs || []).forEach(n => k.add(n)); }); return k; };
+function resetFormHTML() {
+  const K = resetChosen(), forced = new Set(); RESET_PARTS.forEach(x => { if (K.has(x.k)) (x.needs || []).forEach(n => forced.add(n)); });
+  return '<div class="full" style="font-size:.88rem"><b>Was soll gelöscht werden?</b> Alles angehakt = Werkszustand.</div>' +
+    RESET_PARTS.map(x => '<label class="chk full rsopt"><input type="checkbox" data-rs="' + x.k + '"' + (K.has(x.k) ? ' checked' : '') + (forced.has(x.k) ? ' disabled' : '') + '><span><b>' + esc(x.t) + '</b><br><small>' + esc(x.d) + (forced.has(x.k) ? ' – gehört zu „Buchungen und Tage“' : '') + '</small></span></label>').join('') +
+    '<div class="row full" style="margin-top:0"><button class="b sm" data-act="rsAll">Alles anhaken (Werkszustand)</button><button class="b sm" data-act="rsNone">Nichts</button></div>' +
+    '<div class="full" style="font-size:.8rem;color:var(--mu)">Bleibt immer: <b>Personen und Konten</b> (gelten auch für Stundentracker und WexSuperAdmin – löschen nur dort), die <b>Historie</b> (lässt sich laut Regeln nicht löschen) und die persönlichen Ansichten der Admins.</div>' +
+    '<div class="full" style="font-size:.8rem;color:var(--mu)">Vorher wird automatisch ein Backup gespeichert (Download-Ordner).</div>' +
+    '<label class="f full">Zur Bestätigung dein Passwort<input id="rsPw" type="password" autocomplete="current-password"></label>' +
+    '<div class="full row" style="margin-top:0"><button class="b dng" data-act="resetGo">Endgültig löschen</button><button class="b" data-act="resetToggle">Abbrechen</button></div>';
+}
+document.addEventListener('change', e => { const c = e.target.closest && e.target.closest('[data-rs]'); if (!c) return; resetSel = resetSel || {}; resetSel[c.dataset.rs] = c.checked; const bx = $('rsBox'); if (bx) bx.innerHTML = resetFormHTML(); });
+async function resetWipe(K) {
+  const cols = new Set(), cfg = new Set(); let n = 0;
+  RESET_PARTS.forEach(x => { if (K.has(x.k)) { (x.cols || []).forEach(c => cols.add(c)); (x.cfg || []).forEach(c => cfg.add(c)); } });
   for (const c of cols) {
-    const snap = await F.getDocs(col(c));
-    n += snap.docs.length;
-    await commitInChunks(snap.docs.map(d => ({ ref: d.ref, del: true })));
+    try { const snap = await F.getDocs(col(c)); n += snap.docs.length; await commitInChunks(snap.docs.map(d => ({ ref: d.ref, del: true }))); }
+    catch (err) { console.warn(c, err); if (!(err && err.code === 'permission-denied' && ['busloc', 'buscode'].includes(c))) throw err; }
   }
-  try { const snap = await F.getDocs(col('dsum')); n += snap.docs.length; await commitInChunks(snap.docs.map(d => ({ ref: d.ref, del: true }))); } catch (err) { console.warn('dsum', err); }
-  const upd = { epoch: Date.now(), dirty: F.deleteField(), recountFull: F.deleteField() };
-  if (withData) upd.active = null;
+  if (cfg.size) { await commitInChunks([...cfg].map(id => ({ ref: dref('config', id), del: true }))); n += cfg.size; }
+  const upd = { dirty: F.deleteField(), recountFull: F.deleteField() };
+  if (K.has('stats')) upd.epoch = Date.now();
+  if (K.has('data')) upd.active = null;
   await F.setDoc(dref('meta', 'state'), upd, { merge: true });
   return n;
 }
@@ -4567,12 +4595,8 @@ function renderAdmin() {
     backupBox() +
     (S.isSuper ? '<div class="danger"><b>⚠️ Vorsicht – kann nicht rückgängig gemacht werden</b><div class="row" style="margin-top:6px"><button class="b sm" data-act="restore">Backup importieren</button>' +
       (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') +
-      '<button class="b sm dng" data-act="resetToggle">Statistiken zurücksetzen</button></div>' : '') +
-    (S.isSuper && showReset ? '<div class="grid2" style="margin-top:10px;border:2px solid var(--pen);border-radius:12px;padding:12px;background:var(--white)">' +
-      '<div class="full" style="font-size:.88rem">Löscht alle Easter-Egg-Zähler (Gruppe und Personen, heute und seit Beginn), alle Easter-Egg-Verläufe, Sammelalben und Bestenlisten. Danach können alle Easter Eggs neu ausgelöst werden. Das Protokoll bleibt erhalten.</div>' +
-      '<label class="chk full"><input type="checkbox" id="rsData"> Auch alle Buchungen und Tage löschen</label>' +
-      '<label class="f full">Zur Bestätigung dein Passwort<input id="rsPw" type="password" autocomplete="current-password"></label>' +
-      '<div class="full row" style="margin-top:0"><button class="b dng" data-act="resetGo">Endgültig zurücksetzen</button><button class="b" data-act="resetToggle">Abbrechen</button></div></div>' : '') +
+      '<button class="b sm dng" data-act="resetToggle">Zurücksetzen / Werkszustand …</button></div>' : '') +
+    (S.isSuper && showReset ? '<div class="grid2" id="rsBox" style="margin-top:10px;border:2px solid var(--pen);border-radius:12px;padding:12px;background:var(--white)">' + resetFormHTML() + '</div>' : '') +
     (S.isSuper ? '</div>' : '') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + ' (Abmelden über „Scannen“). „Backup importieren“ liest auch ältere Backups und Daten aus der Offline-Version.</div></section>';
   const navX = el.querySelector('.admnav-in') ? el.querySelector('.admnav-in').scrollLeft : 0;
@@ -5291,7 +5315,7 @@ addEventListener('keydown', e => {
 const ask = (msg, o) => dlgShow(Object.assign({ msg }, o || {}));
 const askText = (msg, def, o) => dlgShow(Object.assign({ msg, def, input: true, ok: 'OK' }, o || {}));
 /* Super-Admin löscht etwas Großes: erst Passwort, dann automatisches Backup (JSON-Datei), dann letzte Bestätigung.
-   pw: schon geprüftes Passwort überspringt die Abfrage (z. B. „Statistiken zurücksetzen“ mit eigenem Passwortfeld). */
+   pw: schon geprüftes Passwort überspringt die Abfrage (z. B. „Zurücksetzen“ mit eigenem Passwortfeld). */
 async function superGuard(what, opt) {
   opt = opt || {};
   if (!S.isSuper) return true;
@@ -6438,19 +6462,22 @@ adminBody.addEventListener('click', async e => {
     const own = allRules().filter(r => !DEFAULT_RULES.some(x => x.id === r.id));
     saveRules(JSON.parse(JSON.stringify(DEFAULT_RULES)).concat(own), []); logEv('egg', 'holt die Standard-Easter-Eggs zurück (' + own.length + ' eigene bleiben)');
   }
-  else if (a === 'resetToggle') { showReset = !showReset; renderAdmin(); }
+  else if (a === 'resetToggle') { showReset = !showReset; resetSel = null; renderAdmin(); }
+  else if (a === 'rsAll' || a === 'rsNone') { resetSel = {}; RESET_PARTS.forEach(x => { resetSel[x.k] = a === 'rsAll'; }); $('rsBox').innerHTML = resetFormHTML(); }
   else if (a === 'resetGo') {
-    const pw = $('rsPw').value, withData = $('rsData').checked;
+    const pw = $('rsPw').value, K = resetChosen();
+    const names = RESET_PARTS.filter(x => K.has(x.k)).map(x => x.t), all = names.length === RESET_PARTS.length;
+    if (!names.length) { toast('Bitte auswählen, was gelöscht werden soll'); return; }
     if (!pw) { toast('Bitte dein Passwort eingeben'); return; }
     if (!navigator.onLine) { toast('Dafür wird Internet benötigt'); return; }
     b.disabled = true;
     try { await F.reauthenticateWithCredential(auth.currentUser, F.EmailAuthProvider.credential(auth.currentUser.email, pw)); }
     catch (err) { b.disabled = false; toast('Passwort falsch'); return; }
-    if (!await superGuard(withData ? 'Alle Statistiken zurücksetzen und ALLE Buchungen und Tage löschen' : 'Alle Statistiken zurücksetzen', { pwDone: true })) { b.disabled = false; return; }
+    if (!await superGuard((all ? 'Werkszustand herstellen' : 'Zurücksetzen') + ' – gelöscht wird: ' + names.join(', '), { pwDone: true })) { b.disabled = false; return; }
     try {
-      const n = await resetStats(withData);
-      logEv('system', 'setzt alle Statistiken zurück' + (withData ? ' und löscht alle Buchungen und Tage' : '') + ' (' + n + ' Einträge)');
-      showReset = false; toast('Zurückgesetzt: ' + n + ' Einträge gelöscht');
+      logEv('system', (all ? 'setzt die Strichliste auf Werkszustand zurück: ' : 'setzt zurück: ') + names.join(', '));
+      const n = await resetWipe(K);
+      showReset = false; resetSel = null; toast('Zurückgesetzt: ' + n + ' Einträge gelöscht');
     } catch (err) { toast('Zurücksetzen fehlgeschlagen: ' + (err.code || err.message)); }
     b.disabled = false; renderAdmin();
   }
