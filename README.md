@@ -345,7 +345,7 @@ Summen und Kosten stehen als Formeln drin, Kopfzeilen sind fixiert und mit Filte
 
 ## Historie (Super-Admin)
 
-Unter Admin → **Historie** steht jede Änderung: Mitglieder (Registrierung, Name, Rolle, Sperre, Entfernen, Profilbild, Passwort), Buchungen (Rückgängig, Storno, Nachtrag), Einladen und Zählen, Getränke, Tage, Easter Eggs und System (Zähler, Import, Zurücksetzen). Datum wählen, die Bereiche lassen sich aufklappen. Mit „auch normale Scans“ erscheinen zusätzlich alle Buchungen des Datums. Die Historie kann niemand ändern oder löschen – auch der Super-Admin nicht, und auch „Zurücksetzen / Werkszustand“ lässt sie stehen.
+Unter Admin → **Historie** steht jede Änderung: Mitglieder (Registrierung, Name, Rolle, Sperre, Entfernen, Profilbild, Passwort), Buchungen (Rückgängig, Storno, Nachtrag), Einladen und Zählen, Getränke, Tage, Easter Eggs und System (Zähler, Import, Zurücksetzen). Datum wählen, die Bereiche lassen sich aufklappen. Mit „auch normale Scans“ erscheinen zusätzlich alle Buchungen des Datums. Die Historie kann niemand ändern. Löschen kann sie nur der Super-Admin über „Zurücksetzen / Werkszustand“ (Häkchen „Historie“, mit Passwort und Backup vorher); danach bleibt ein Eintrag stehen, wer wann zurückgesetzt hat.
 
 ## Buchungen einer Person korrigieren
 
@@ -366,8 +366,9 @@ Admin → ⚙️ Einstellungen → Daten → roter Block → **Zurücksetzen / W
 | Einstellungen auf Standard | Texte, Abschnitte/Überschriften, Kontakt, Datenschutz, Farben, Rückgängig, Funktionen, Partymodus, Backup-Erinnerung |
 | Gruppen | alle Gruppen (Personen bleiben, nur ohne Gruppe) |
 | Profilbilder | alle Profilbilder |
+| Historie | das ganze Protokoll; danach steht nur noch ein Eintrag, wer wann was zurückgesetzt hat (braucht die Regeln ab v101) |
 
-Danach: Passwort eingeben → automatisches Backup (Download-Ordner) → letzte Bestätigung mit der Liste. **Immer erhalten bleiben** die Personen und Konten (sie gelten auch für Stundentracker und WexSuperAdmin; löschen nur in WexSuperAdmin), die Historie (laut Regeln unlöschbar) und die persönlichen Ansichten der Admins.
+Danach: Passwort eingeben → automatisches Backup (Download-Ordner) → letzte Bestätigung mit der Liste. **Immer erhalten bleiben** die Personen und Konten (sie gelten auch für Stundentracker und WexSuperAdmin; löschen nur in WexSuperAdmin) und die persönlichen Ansichten der Admins.
 
 ## Rollen
 
@@ -482,13 +483,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 100**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 100 auf 101):
-- in `index.html`: `const APP_VERSION = '100';`
-- in `sw.js`: `const VERSION = 'strichliste-v100';`
+Aktuell ist **Version 101**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 101 auf 102):
+- in `index.html`: `const APP_VERSION = '101';`
+- in `sw.js`: `const VERSION = 'strichliste-v101';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 100“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 101“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

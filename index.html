@@ -848,7 +848,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '100';
+const APP_VERSION = '101';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2652,7 +2652,8 @@ const RESET_PARTS = [
   { k: 'eggs', t: 'Eigene Easter Eggs und Fasnets-Titel', d: 'selbst angelegte Easter Eggs, Kategorien, Titel und Bestenlisten-Einstellungen (zurück auf Standard)', cfg: ['eggs', 'eggcats', 'titles', 'best'] },
   { k: 'cfg', t: 'Einstellungen auf Standard', d: 'Texte, Abschnitte/Überschriften, Kontakt, Datenschutz, Farben, Rückgängig, Funktionen, Partymodus, Backup-Erinnerung', cfg: ['texts', 'sections', 'contact', 'privacy', 'theme', 'undo', 'features', 'party', 'backup'] },
   { k: 'groups', t: 'Gruppen', d: 'alle Gruppen (die Personen bleiben, nur ohne Gruppe)', cfg: ['groups'] },
-  { k: 'av', t: 'Profilbilder', d: 'alle Profilbilder', cols: ['avatars'] }
+  { k: 'av', t: 'Profilbilder', d: 'alle Profilbilder', cols: ['avatars'] },
+  { k: 'log', t: 'Historie', d: 'das ganze Protokoll aller Änderungen – danach steht nur noch ein Eintrag, dass zurückgesetzt wurde', cols: ['log'] }
 ];
 let resetSel = null;
 const resetChosen = () => { const o = resetSel || {}; const k = new Set(RESET_PARTS.filter(x => o[x.k] != null ? o[x.k] : x.on).map(x => x.k)); RESET_PARTS.forEach(x => { if (k.has(x.k)) (x.needs || []).forEach(n => k.add(n)); }); return k; };
@@ -2661,7 +2662,7 @@ function resetFormHTML() {
   return '<div class="full" style="font-size:.88rem"><b>Was soll gelöscht werden?</b> Alles angehakt = Werkszustand.</div>' +
     RESET_PARTS.map(x => '<label class="chk full rsopt"><input type="checkbox" data-rs="' + x.k + '"' + (K.has(x.k) ? ' checked' : '') + (forced.has(x.k) ? ' disabled' : '') + '><span><b>' + esc(x.t) + '</b><br><small>' + esc(x.d) + (forced.has(x.k) ? ' – gehört zu „Buchungen und Tage“' : '') + '</small></span></label>').join('') +
     '<div class="row full" style="margin-top:0"><button class="b sm" data-act="rsAll">Alles anhaken (Werkszustand)</button><button class="b sm" data-act="rsNone">Nichts</button></div>' +
-    '<div class="full" style="font-size:.8rem;color:var(--mu)">Bleibt immer: <b>Personen und Konten</b> (gelten auch für Stundentracker und WexSuperAdmin – löschen nur dort), die <b>Historie</b> (lässt sich laut Regeln nicht löschen) und die persönlichen Ansichten der Admins.</div>' +
+    '<div class="full" style="font-size:.8rem;color:var(--mu)">Bleibt immer: <b>Personen und Konten</b> (gelten auch für Stundentracker und WexSuperAdmin – löschen nur dort) und die persönlichen Ansichten der Admins.</div>' +
     '<div class="full" style="font-size:.8rem;color:var(--mu)">Vorher wird automatisch ein Backup gespeichert (Download-Ordner).</div>' +
     '<label class="f full">Zur Bestätigung dein Passwort<input id="rsPw" type="password" autocomplete="current-password"></label>' +
     '<div class="full row" style="margin-top:0"><button class="b dng" data-act="resetGo">Endgültig löschen</button><button class="b" data-act="resetToggle">Abbrechen</button></div>';
@@ -2670,9 +2671,10 @@ document.addEventListener('change', e => { const c = e.target.closest && e.targe
 async function resetWipe(K) {
   const cols = new Set(), cfg = new Set(); let n = 0;
   RESET_PARTS.forEach(x => { if (K.has(x.k)) { (x.cols || []).forEach(c => cols.add(c)); (x.cfg || []).forEach(c => cfg.add(c)); } });
-  for (const c of cols) {
+  // Historie zuerst: fehlen die neuen Regeln, bricht es ab, bevor etwas anderes gelöscht ist
+  for (const c of [...cols].sort((x, y) => (y === 'log') - (x === 'log'))) {
     try { const snap = await F.getDocs(col(c)); n += snap.docs.length; await commitInChunks(snap.docs.map(d => ({ ref: d.ref, del: true }))); }
-    catch (err) { console.warn(c, err); if (!(err && err.code === 'permission-denied' && ['busloc', 'buscode'].includes(c))) throw err; }
+    catch (err) { console.warn(c, err); if (err && err.code === 'permission-denied' && c === 'log') throw new Error('Historie: keine Berechtigung – sind die neuen Firebase-Regeln (v101) veröffentlicht?'); if (!(err && err.code === 'permission-denied' && ['busloc', 'buscode'].includes(c))) throw err; }
   }
   if (cfg.size) { await commitInChunks([...cfg].map(id => ({ ref: dref('config', id), del: true }))); n += cfg.size; }
   const upd = { dirty: F.deleteField(), recountFull: F.deleteField() };
@@ -6475,8 +6477,10 @@ adminBody.addEventListener('click', async e => {
     catch (err) { b.disabled = false; toast('Passwort falsch'); return; }
     if (!await superGuard((all ? 'Werkszustand herstellen' : 'Zurücksetzen') + ' – gelöscht wird: ' + names.join(', '), { pwDone: true })) { b.disabled = false; return; }
     try {
-      logEv('system', (all ? 'setzt die Strichliste auf Werkszustand zurück: ' : 'setzt zurück: ') + names.join(', '));
+      const what = (all ? 'setzt die Strichliste auf Werkszustand zurück: ' : 'setzt zurück: ') + names.join(', ');
+      if (!K.has('log')) logEv('system', what);
       const n = await resetWipe(K);
+      if (K.has('log')) logEv('system', what + ' (' + n + ' Einträge gelöscht, Backup vorher gespeichert)'); // einziger Eintrag danach
       showReset = false; resetSel = null; toast('Zurückgesetzt: ' + n + ' Einträge gelöscht');
     } catch (err) { toast('Zurücksetzen fehlgeschlagen: ' + (err.code || err.message)); }
     b.disabled = false; renderAdmin();
