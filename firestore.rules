@@ -289,6 +289,27 @@ service cloud.firestore {
     match /prefs/{uid} {
       allow read, write: if signedIn() && request.auth.uid == uid;
     }
+    // Strichliste – Bus-Check-in: Der Admin zeigt im Bus einen QR-Code, der alle 20 Sekunden wechselt.
+    // Den gültigen Code kennen nur Admins (buscode); einchecken geht nur mit dem aktuellen oder vorigen Code,
+    // solange der Check-in offen ist. Jeder checkt nur sich selbst ein (Dokument-ID = Tag + "_" + Nutzer-ID).
+    match /buscode/{day} {
+      allow read, write: if isAdmin();
+    }
+    function busOk(d) {
+      let b = get(/databases/$(database)/documents/buscode/$(d.day)).data;
+      return d.keys().hasOnly(['uid', 'name', 'day', 't', 'code', 'how'])
+        && d.uid == request.auth.uid && d.how == 'qr' && d.code is string && d.day is string
+        && b.get('open', false) == true && request.time.toMillis() < b.get('until', 0)
+        && (d.code == b.get('code', '-') || d.code == b.get('prev', '-'));
+    }
+    match /checkins/{id} {
+      allow read: if isReader() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isAdmin()
+        || (slActive() && request.resource.data.day is string
+            && id == request.resource.data.day + '_' + request.auth.uid && busOk(request.resource.data));
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
     // Tageszusammenfassungen für die tägliche Zählerprüfung: nur der Super-Admin
     match /dsum/{id} { allow read, write: if isSuper(); }
 

@@ -112,6 +112,13 @@ Admin → **Personen** → **„Für Strichliste sperren“** sperrt die Person 
 
 **„Aus Strichliste entfernen“** (Super-Admin) und **Anmeldung ablehnen** wirken ebenfalls nur hier (`slGone` + `slBlock`): Die Person verschwindet aus den Listen der Strichliste und kann nicht buchen; das Konto und andere Apps bleiben unberührt. Unter „Entfernte Konten“ lässt sich das rückgängig machen. **Konten löschen geht nur in WexSuperAdmin** – Löschanträge werden in der Strichliste nur angezeigt.
 
+### Bus-Check-in (wer ist wirklich dabei?)
+Admin → 📅 Tag → **Bus-Check-in** → **🚌 Check-in starten** (15 Minuten). Auf dem Admin-Handy erscheint ein großer QR-Code, der sich **alle 20 Sekunden ändert**. Mitglieder sehen oben in der App „🚌 Bus-Check-in läuft“ und scannen den Code mit „📷 QR-Code scannen“.
+- **Schutz gegen „von zu Hause“:** Den gültigen Code kennt nur der Server (`buscode`, nur Admins lesbar). Die Firebase-Regeln lassen einen Check-in nur mit dem aktuellen oder vorigen Code zu, nur solange der QR-Code auf dem Admin-Handy offen ist, und jeder kann nur sich selbst einchecken. Ein per WhatsApp weitergeschicktes Foto ist nach spätestens 40 Sekunden wertlos.
+- Der Admin sieht live, wer eingecheckt ist, und **„Haben heute gebucht, aber nicht eingecheckt“**. Wer kein Handy dabei hat, kann vom Admin eingetragen werden; Einträge lassen sich auch entfernen.
+- Alles wird protokolliert (Start, Ende, Check-ins, manuelle Einträge) und steht in der **Excel-Auswertung** im Blatt „Bus-Check-in“ sowie in der Übersicht („Im Bus eingecheckt“).
+- Braucht die neuen Regeln (`buscode`, `checkins`) – siehe `firestore.rules` im Stundentracker-Repo.
+
 ### Ein- und Auschecken per Knopf
 Admin → Tag → **Mitnehmen und zurückzählen**: Umschalter **⬆️ Einladen** / **⬇️ Übrig zählen**, darunter jedes Getränk mit **−**, **+1** und Knöpfen für die Gebinde (z. B. „+Kasten 20“). Die Zahl zeigt den aktuellen Stand; Getränke unter dem Mindestbestand sind rot. Scannen (📷 Einladen / Rest zählen per Scan) geht weiterhin, ist aber nur noch die Alternative.
 
@@ -448,13 +455,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 93**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 93 auf 94):
-- in `index.html`: `const APP_VERSION = '93';`
-- in `sw.js`: `const VERSION = 'strichliste-v93';`
+Aktuell ist **Version 94**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 94 auf 95):
+- in `index.html`: `const APP_VERSION = '94';`
+- in `sw.js`: `const VERSION = 'strichliste-v94';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 93“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 94“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

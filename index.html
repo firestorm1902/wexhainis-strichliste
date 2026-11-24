@@ -216,6 +216,10 @@ input.n{min-width:3em}
 .mode{flex-wrap:wrap}.mode button{flex:1 1 auto;min-height:2.4rem;white-space:normal}
 .lgmode button{padding:8px 6px}
 .askrow{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line)}.askrow .bellrow{flex:1;min-width:0;border-bottom:0;width:auto}
+.busnote{display:flex;flex-direction:column;gap:6px}.busnote .b{align-self:flex-start}
+.busqr{background:#fff;border-radius:16px;padding:14px;max-width:340px;margin:8px auto}.busqr svg{display:block;width:100%;height:auto}
+.businfo{text-align:center;font-size:1rem;margin:4px 0 8px;position:relative}.businfo i{display:block;height:4px;background:var(--wy);border-radius:2px;margin:6px auto 0;max-width:340px;transform-origin:left}
+@keyframes busbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 .chklist{display:flex;flex-direction:column;border-top:1px solid var(--line)}
 .chkrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
 .chkrow.low{background:rgba(198,40,40,.08)}
@@ -717,6 +721,7 @@ body.noauth main{display:none!important}
     <div class="note" id="msg" hidden></div>
     <div id="installNote" class="note install" hidden></div>
     <div id="dsNote" class="note" hidden></div>
+    <div id="busBox" hidden></div>
     <div id="askBox" hidden></div>
     <div id="last" hidden></div>
     <section id="listSec" hidden><h2 id="listHead" data-tx="listHead">Deine Getränke heute</h2><div id="list"></div><div id="reqBox" class="reqbox" hidden></div></section>
@@ -823,7 +828,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '93';
+const APP_VERSION = '94';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1035,7 +1040,7 @@ function startUserListeners() {
   }, fail('meta'));
 }
 function listenActiveDay() {
-  stop('activeDay'); stop('mine'); stop('live'); stop('ueggs'); stop('drv'); S.driver = false;
+  stop('activeDay'); stop('mine'); stop('live'); stop('ueggs'); stop('drv'); stop('myBus'); S.driver = false; S.myBus = null;
   S.activeDay = null; S.activeLoaded = false; S.myScans = []; S.pending = 0; S.groupEggs = []; S.myEggs = [];
   if (!S.active) { S.activeLoaded = true; renderAll(); return; }
   const uid = S.user.uid, dayId = S.active;
@@ -1054,6 +1059,8 @@ function listenActiveDay() {
   }, err => console.warn('live', err));
   // eigene Easter Eggs des Tages
   unsub.drv = F.onSnapshot(dref('drv', uid + '_' + dayId), snap => { S.driver = snap.exists(); renderScan(); }, err => console.warn('drv', err));
+  stop('myBus'); S.myBus = null;
+  unsub.myBus = F.onSnapshot(dref('checkins', dayId + '_' + uid), snap => { S.myBus = snap.exists() ? snap.data() : null; renderBusBox(); }, err => console.warn('checkin', err));
   unsub.ueggs = F.onSnapshot(dref('ueggs', uid + '_' + dayId), snap => {
     S.myEggs = snap.exists() ? (snap.data().items || []).slice().sort((a, b) => a.t - b.t) : [];
     renderHist();
@@ -1066,7 +1073,7 @@ function listenActiveDay() {
       if (S.isAdmin && navigator.onLine) fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Scannen beenden');
       S.activeDay = null;
     }
-    S.activeLoaded = true; renderAll(); checkLowStock(); checkOverScan(); checkSoldOut();
+    S.activeLoaded = true; renderAll(); renderBusBox(); checkLowStock(); checkOverScan(); checkSoldOut();
   }, fail('activeDay'));
   const q = F.query(col('scans'), F.where('uid', '==', S.user.uid), F.where('day', '==', S.active));
   unsub.mine = F.onSnapshot(q, { includeMetadataChanges: true }, snap => {
@@ -1147,10 +1154,11 @@ function listenActiveScans() {
     S.activeScans = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); checkLowStock(); checkOverScan(); checkSoldOut(); usedCheckSoon();
   }, err => console.warn('activeScans', err));
 }
-function stopAdminListeners() { stop('reqsAll'); S.reqs = []; stop('asksAll'); S.asks = []; stop('inbox'); S.inbox = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
+function stopAdminListeners() { stop('dayBus'); S.dayBus = []; stop('reqsAll'); S.reqs = []; stop('asksAll'); S.asks = []; stop('inbox'); S.inbox = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
   if (S.dayScansFor === S.selDay && unsub.dayScans) return;
   stop('dayScans'); stop('dayDrv'); stop('dayUndos'); S.dayScans = []; S.dayDrivers = []; S.dayUndos = []; S.dayScansFor = S.selDay;
+  busListen();
   if (S.selDay) unsub.dayUndos = F.onSnapshot(F.query(col('undos'), F.where('day', '==', S.selDay)), snap => { S.dayUndos = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.t - b.t); renderAdmin(); }, err => console.warn('undos', err));
   if (S.selDay) unsub.dayDrv = F.onSnapshot(F.query(col('drv'), F.where('day', '==', S.selDay)), snap => { S.dayDrivers = snap.docs.map(d => d.data()); renderAdmin(); }, err => console.warn('dayDrv', err));
   if (!S.selDay) return;
@@ -3405,6 +3413,7 @@ async function book(pid, src) {
     '</span></div>' + (uc.on ? '<div class="last-r"><button class="b sm" data-undo="' + id + '" data-up="' + pid + '" data-bt="' + data.t + '">Rückgängig</button><small class="last-cd"></small></div>' : '<small class="last-cd"></small>'), uc.on ? uc.secs : 6);
 }
 function onMainCode(code) {
+  if (/^WEXBUS:/.test(code)) { busCheckin(code); return; }
   if (!S.activeDay || !S.me) return;
   const p = byCode(code);
   if (p) { book(p.id, 'scan'); return; }
@@ -3719,6 +3728,87 @@ async function openSheet(opts) {
   const err = await camStart(boxSheet, onSheetCode);
   if (err) boxSheet.ph.innerHTML = err;
 }
+/* ---------- Bus-Check-in: wer ist wirklich dabei? ----------
+   Der Admin startet den Check-in (days.bus) und zeigt im Bus einen QR-Code, der sich alle 20 Sekunden ändert.
+   Den gültigen Code kennt nur der Server (buscode/{Tag}, nur Admins lesen) – die Regeln lassen einen Check-in nur mit
+   dem aktuellen oder vorigen Code zu, solange das Fenster offen ist. Ein weitergeleitetes Foto ist nach spätestens 40 s wertlos.
+   Jeder Check-in steht in checkins/{Tag_uid} (Uhrzeit, per QR oder vom Admin eingetragen) und kommt in die Excel-Auswertung. */
+const BUS_ROT = 20000, BUS_MIN = 15;
+const busOpen = d => !!(d && d.bus && d.bus.open && (d.bus.until || 0) > Date.now());
+let busTimer = null, busCode = null;
+const busRand = () => { const a = new Uint8Array(6); crypto.getRandomValues(a); return [...a].map(x => x.toString(36).padStart(2, '0')).join('').slice(0, 10); };
+function renderBusBox() {
+  const el = $('busBox'); if (!el) return;
+  const d = S.activeDay, ok = memberOk && memberOk() && busOpen(d);
+  if (!ok && !S.myBus) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = S.myBus ? '<div class="note ok" style="margin-top:10px">🚌 <b>Im Bus eingecheckt</b> um ' + fmtTime(S.myBus.t) + ' Uhr.</div>'
+    : '<div class="note busnote" style="margin-top:10px"><b>🚌 Bus-Check-in läuft</b><span>Scanne den QR-Code auf dem Handy des Getränke-Admins.</span><button class="b pri" data-busscan>📷 QR-Code scannen</button></div>';
+}
+$('busBox').addEventListener('click', e => { if (e.target.closest('[data-busscan]')) $('startBtn').click(); });
+async function busCheckin(raw) {
+  const m = raw.match(/^WEXBUS:([^:]+):(\w+)$/); if (!m) { toast('Unbekannter QR-Code'); return; }
+  const [, day, code] = m;
+  if (!S.user || !S.me) { toast('Bitte erst anmelden'); return; }
+  if (S.myBus && S.active === day) { toast('Du bist schon eingecheckt'); return; }
+  try {
+    await F.setDoc(dref('checkins', day + '_' + S.user.uid), { uid: S.user.uid, name: S.me, day, t: Date.now(), code, how: 'qr' });
+    showLast('last', '<div><b>🚌 Eingecheckt</b><span>Schön, dass du dabei bist!</span></div><small class="last-cd"></small>', 5);
+    buzz && buzz(80); logEv('person', 'checkt in den Bus ein', day);
+  } catch (err) { showLast('last unk', '<div><b>Check-in hat nicht geklappt</b><span>Der Code ist abgelaufen oder der Check-in ist beendet. Bitte den aktuellen QR-Code direkt beim Admin scannen.</span></div><small class="last-cd"></small>', 8); }
+}
+// Admin: Liste des gewählten Tages
+function busListen() {
+  stop('dayBus'); S.dayBus = [];
+  if (!S.selDay) return;
+  unsub.dayBus = F.onSnapshot(F.query(col('checkins'), F.where('day', '==', S.selDay)), snap => { S.dayBus = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.t - b.t); renderAdmin(); if (!$('modal').hidden && $('busQr')) busQrInfo(); }, err => console.warn('checkins', err));
+}
+function busSection(day) {
+  if (!day) return '';
+  const L = S.dayBus || [], open = busOpen(day), ids = new Set(L.map(x => x.uid));
+  const booked = [...new Set((S.dayScans || []).map(x => x.uid))].filter(u => u && !ids.has(u));
+  const members = Object.keys(S.users || {}).filter(k => { const u = S.users[k]; return !goneSL(u) && !u.pending && !u.blocked && !u.slBlock && !ids.has(k); }).sort((a, b) => uname(a).localeCompare(uname(b), 'de'));
+  let h = '<section><h2>Bus-Check-in (' + L.length + ')</h2>';
+  h += open ? '<div class="note ok" style="margin-bottom:8px">Läuft bis ' + fmtTime(day.bus.until) + ' Uhr' + (day.bus.byName ? ' · gestartet von ' + esc(day.bus.byName) : '') + '</div>'
+    : '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Einmal pro Tag im Bus starten: Alle scannen den QR-Code auf deinem Handy. Er ändert sich alle 20 Sekunden – ein weitergeschicktes Foto hilft niemandem zu Hause.</div>';
+  if (S.isAdmin) h += '<div class="row" style="margin-top:0">' + (open ? '<button class="b pri" data-act="busShow">📱 QR-Code zeigen</button><button class="b" data-act="busStop">Beenden</button>'
+    : '<button class="b pri" data-act="busStart">🚌 Check-in starten' + (L.length ? ' (neue Runde)' : '') + '</button>') + '</div>';
+  h += L.length ? '<div style="margin-top:8px">' + L.map(x => '<div class="rw"><span>' + fmtTime(x.t) + '</span><span>' + esc(x.name || uname(x.uid)) + '</span><small>' + (x.how === 'admin' ? 'eingetragen von ' + esc(x.byName || 'Admin') : 'QR-Code') + '</small>' + (S.isAdmin ? '<button class="b sm" data-act="busDel" data-id="' + esc(x.id) + '" aria-label="entfernen">✕</button>' : '') + '</div>').join('') + '</div>' : '<div class="empty" style="padding:6px 0">Noch niemand eingecheckt.</div>';
+  if (booked.length) h += '<div class="note bad" style="margin-top:8px"><b>Haben heute gebucht, aber nicht eingecheckt:</b> ' + booked.map(u => esc(uname(u))).join(', ') + '</div>';
+  if (S.isAdmin) h += '<div class="row"><select id="busAdd" style="flex:1"><option value="">Ohne Handy dabei? Person wählen …</option>' + members.map(k => '<option value="' + k + '">' + esc(uname(k)) + '</option>').join('') + '</select><button class="b sm" data-act="busAdd">Eintragen</button></div>';
+  return h + '</section>';
+}
+function busQrHTML() { return '<h2>🚌 Bus-Check-in</h2><div id="busQr" class="busqr"></div><div id="busInfo" class="businfo"></div><p style="font-size:.85rem;color:var(--mu);text-align:center">Alle öffnen die Strichliste und tippen auf „QR-Code scannen“. Bildschirm anlassen – der Code wechselt alle 20 Sekunden. Solange dieses Fenster zu ist, kann niemand einchecken.</p><div class="row" style="justify-content:center"><button class="b" data-busclose>Pause – später „QR-Code zeigen“</button></div>'; }
+function busQrInfo() { const day = S.days.find(d => d.id === busCode.day), n = (S.dayBus || []).length; if ($('busInfo')) $('busInfo').innerHTML = '<b>' + n + '</b> eingecheckt' + (day && day.bus ? ' · bis ' + fmtTime(day.bus.until) + ' Uhr' : '') + '<i id="busBar"></i>'; }
+async function busRotate(dayId, until) {
+  const prev = busCode && busCode.day === dayId ? busCode.code : '';
+  busCode = { day: dayId, code: busRand() };
+  fire(F.setDoc(dref('buscode', dayId), { open: true, code: busCode.code, prev, until, t: Date.now() }), 'Bus-Code');
+  await window.__zxReady;
+  const box = $('busQr'); if (!box) return;
+  try { const svg = new ZXing.BrowserQRCodeSvgWriter().write('WEXBUS:' + dayId + ':' + busCode.code, 300, 300); if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 300 300'); svg.setAttribute('width', '100%'); svg.removeAttribute('height'); box.innerHTML = ''; box.appendChild(svg); }
+  catch (e) { box.innerHTML = '<div class="note bad">QR-Code konnte nicht erzeugt werden.</div>'; }
+  busQrInfo(); const bar = $('busBar'); if (bar) { bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = 'busbar ' + BUS_ROT / 1000 + 's linear'; }
+}
+function busShow(day) {
+  openModal(busQrHTML());
+  try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => { busShow.lock = l; }).catch(() => {}); } catch (e) {}
+  clearInterval(busTimer); busRotate(day.id, day.bus.until);
+  let next = Date.now() + BUS_ROT;
+  busTimer = setInterval(() => { // jede Sekunde prüfen: Fenster zu → Code sofort ungültig
+    const d = S.days.find(x => x.id === day.id);
+    if ($('modal').hidden || !$('busQr') || !busOpen(d)) { busHide(day.id, !busOpen(d)); return; }
+    if (Date.now() >= next) { next = Date.now() + BUS_ROT; busRotate(day.id, d.bus.until); }
+  }, 1000);
+}
+function busHide(dayId, closed) {
+  clearInterval(busTimer); busTimer = null;
+  try { if (busShow.lock) busShow.lock.release(); } catch (e) {} busShow.lock = null;
+  // ohne sichtbaren QR-Code ist kein Check-in möglich
+  fire(F.setDoc(dref('buscode', dayId), { open: false, t: Date.now() }, { merge: true }), 'Bus-Code');
+  if (closed && !$('modal').hidden && $('busQr')) closeModal();
+}
+$('modalBody').addEventListener('click', e => { if (e.target.closest('[data-busclose]')) { closeModal(); if (busCode) busHide(busCode.day); } });
 /* ---------- Ein-/Auschecken per Knopf (Scannen ist nur noch die Alternative) ----------
    Modus „Einladen“ ändert days.load, „Übrig zählen“ days.count. Pro Getränk: −1, +1 und ein Knopf pro Gebinde. */
 let chkMode = 'load';
@@ -4031,6 +4121,7 @@ function renderAdmin() {
     h += overSection(day, scans);
     if ((S.dayDrivers || []).length) h += '<div class="note">Fahrer heute: <b>' + S.dayDrivers.map(x => esc(uname(x.uid) !== '(Person)' ? uname(x.uid) : x.name || '')).join(', ') + '</b></div>';
     if (!RO && canSee('eggs')) h += eggPreview(day, scans);
+    h += busSection(day);
     if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2>' + mustBlock(day) + chkBlock(day) +
       '<div class="row" style="margin-top:8px"><button class="b sm" data-act="sheetLoad">📷 Einladen per Scan</button><button class="b sm" data-act="sheetCount">📷 Rest zählen per Scan</button></div>' + packEditor() + '</section>';
     h += '<section><h2>Abgleich</h2>' + (rows.length ? '<div class="tw"><table><thead><tr><th>Getränk</th><th>Mit</th><th>Gebucht</th><th>Soll</th><th>Übrig</th><th>Diff.</th></tr></thead><tbody>' +
@@ -5206,13 +5297,13 @@ const ADM_KEY = 'strichliste_adm_open';
 /* ---------- Reiter im Admin-Bereich ---------- */
 const ADM_TABS = [['todo', '📥 Aufgaben'], ['day', '📅 Tag'], ['drinks', '🍺 Getränke'], ['stats', '📊 Auswertung'], ['people', '👥 Personen'], ['set', '⚙️ Einstellungen']];
 const TAB_OF = { 'Neue Anmeldungen': 'todo', 'Korrekturanträge': 'todo', 'Löschanträge': 'todo', 'Posteingang': 'todo',
-  'Tag': 'day', 'Zu viel gescannt': 'day', 'Mitnehmen und zurückzählen': 'day', 'Abgleich': 'day', 'Nach Person': 'day', 'Buchung nachtragen': 'day', 'Buchungen dieses Tages': 'day', 'Anstehende Easter Eggs': 'day',
+  'Tag': 'day', 'Bus-Check-in': 'day', 'Zu viel gescannt': 'day', 'Mitnehmen und zurückzählen': 'day', 'Abgleich': 'day', 'Nach Person': 'day', 'Buchung nachtragen': 'day', 'Buchungen dieses Tages': 'day', 'Anstehende Easter Eggs': 'day',
   'Getränke': 'drinks', 'Lager': 'drinks',
   'Zurückgenommene Buchungen': 'stats', 'Zu wenig gebucht': 'stats', 'Alle Tage': 'stats', 'Excel-Auswertung': 'stats', 'Historie': 'stats',
   'Personen': 'people', 'Gruppen': 'people', 'Neu registriert': 'people', 'Datenschutz-Bestätigungen': 'people',
   'Einstellungen': 'set', 'Fasnets-Titel': 'set', 'Easter Eggs verwalten': 'set', 'Partymodus': 'set', 'Daten': 'set' };
 const tabOf = k => TAB_OF[k] || 'set';
-const KEEP_EMPTY = ['Getränke', 'Personen', 'Gruppen', 'Buchungen dieses Tages'];
+const KEEP_EMPTY = ['Getränke', 'Personen', 'Gruppen', 'Buchungen dieses Tages', 'Bus-Check-in'];
 let admTab = null; try { admTab = localStorage.getItem('strichliste_admtab'); } catch (e) {}
 function setAdmTab(t) { admTab = t; try { localStorage.setItem('strichliste_admtab', t); } catch (e) {} }
 let admTabAuto = true; // beim ersten Öffnen: Aufgaben, wenn etwas offen ist
@@ -5559,6 +5650,15 @@ async function buildReport(from, to) {
   const bk = [[H('Datum'), H('Uhrzeit'), H('Ziel'), H('Name'), H('Getränk'), H('Sorte'), H('Preis'), H('Art')]];
   days.forEach(d => byDay[d.id].forEach(s => bk.push([D(d.date), { v: XL.time(s.t), s: 6 }, d.place || '', nameOf(s), pname(s.p), CAT_ONE[catOf(P(s.p))] || '', E(price(s.p)), SRC[s.src] || s.src || ''])));
 
+  // Bus-Check-in
+  const bus = await Promise.all(days.map(d => F.getDocs(F.query(col('checkins'), F.where('day', '==', d.id))).then(s => s.docs.map(x => x.data())).catch(() => [])));
+  const busByDay = {}; days.forEach((d, i) => { busByDay[d.id] = bus[i].sort((a, b) => a.t - b.t); });
+  const bc = [[H('Datum'), H('Ziel'), H('Name'), H('Uhrzeit'), H('Art'), H('Hat gebucht')]];
+  days.forEach(d => {
+    const bookedU = new Set(byDay[d.id].map(s => s.uid)), inU = new Set(busByDay[d.id].map(x => x.uid));
+    busByDay[d.id].forEach(x => bc.push([D(d.date), d.place || '', x.name || uname(x.uid), { v: XL.time(x.t), s: 6 }, x.how === 'admin' ? 'vom Admin eingetragen' : 'QR-Code', bookedU.has(x.uid) ? 'ja' : 'nein']));
+    if (busByDay[d.id].length) [...bookedU].filter(u => u && !inU.has(u)).forEach(u => bc.push([D(d.date), d.place || '', uname(u), null, 'nicht eingecheckt', 'ja']));
+  });
   // Getränke
   const gt = [[H('Getränk'), H('Sorte'), H('Preis'), H('Warnen ab'), H('Gebinde'), H('Barcodes')]];
   S.products.forEach(p => gt.push([p.name, CAT_ONE[catOf(p)] || '', E(p.price || 0), p.low || null, packsText(p.packs), (p.codes || []).join(', ')]));
@@ -5581,9 +5681,9 @@ async function buildReport(from, to) {
     ['Wert der Fehlmenge', E(missVal)],
     [],
     [{ v: 'Tage im Zeitraum', s: 3 }],
-    [H('Datum'), H('Ziel'), H('Getränke gebucht'), H('Wert'), H('Personen'), H('Abgeschlossen')]
+    [H('Datum'), H('Ziel'), H('Getränke gebucht'), H('Wert'), H('Personen'), H('Abgeschlossen'), H('Im Bus eingecheckt')]
   ];
-  days.forEach(d => { const l = byDay[d.id]; ov.push([D(d.date), d.place || '', l.length, E(l.reduce((a, s) => a + price(s.p), 0)), new Set(l.map(s => s.uid)).size, d.closed ? 'ja' : 'nein']); });
+  days.forEach(d => { const l = byDay[d.id]; ov.push([D(d.date), d.place || '', l.length, E(l.reduce((a, s) => a + price(s.p), 0)), new Set(l.map(s => s.uid)).size, d.closed ? 'ja' : 'nein', busByDay[d.id].length || null]); });
   ov.push([]);
   ov.push([{ v: 'Hinweis: Kosten mit den aktuellen Preisen der Getränke berechnet.', s: 0 }]);
 
@@ -5592,6 +5692,7 @@ async function buildReport(from, to) {
     { name: 'Pro Person', rows: pp, widths: [24, 28, ...usedP.map(() => 12), 16, 14], freeze: 1, filter: 1, filterEnd: last },
     { name: 'Person pro Tag', rows: ppt, widths: [12, 22, 24, 24, 16, 9, 10, 11], freeze: 1, filter: 1 },
     { name: 'Abgleich pro Tag', rows: abg, widths: [12, 22, 24, 16, 13, 10, 10, 10, 10, 10, 13, 14], freeze: 1, filter: 1 },
+    { name: 'Bus-Check-in', rows: bc, widths: [12, 22, 24, 9, 22, 12], freeze: 1, filter: 1 },
     { name: 'Buchungen', rows: bk, widths: [12, 9, 22, 24, 24, 16, 10, 14], freeze: 1, filter: 1 },
     { name: 'Getränke', rows: gt, widths: [26, 18, 10, 11, 26, 40], freeze: 1, filter: 1 }
   ]);
@@ -5701,6 +5802,27 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'pickDay') { S.selDay = id; listenDayScans(); renderAdmin(); window.scrollTo(0, 0); }
   else if (a === 'missCheck') checkMissing();
+  else if (a === 'busStart' && day) {
+    const until = Date.now() + BUS_MIN * 60000;
+    fire(F.updateDoc(dref('days', day.id), { bus: { open: true, until, by: S.user.uid, byName: S.me || '', startedAt: Date.now() } }), 'Bus-Check-in');
+    day.bus = { open: true, until, by: S.user.uid, byName: S.me || '' };
+    logEv('tag', 'startet den Bus-Check-in (' + BUS_MIN + ' Minuten)', day.id); busShow(day);
+  }
+  else if (a === 'busShow' && day && busOpen(day)) busShow(day);
+  else if (a === 'busStop' && day) {
+    if (!await ask('Bus-Check-in beenden? Danach kann niemand mehr per QR-Code einchecken.', { ok: 'Beenden' })) return;
+    fire(F.updateDoc(dref('days', day.id), { 'bus.open': false, 'bus.until': Date.now() }), 'Bus-Check-in'); busHide(day.id, true);
+    logEv('tag', 'beendet den Bus-Check-in (' + (S.dayBus || []).length + ' eingecheckt)', day.id); toast('Check-in beendet');
+  }
+  else if (a === 'busAdd' && day) {
+    const uid = $('busAdd').value; if (!uid) { toast('Bitte eine Person wählen'); return; }
+    fire(F.setDoc(dref('checkins', day.id + '_' + uid), { uid, name: uname(uid), day: day.id, t: Date.now(), how: 'admin', by: S.user.uid, byName: S.me || '' }), 'Check-in');
+    logEv('person', 'trägt ' + uname(uid) + ' als im Bus ein', day.id); toast(uname(uid) + ' eingetragen');
+  }
+  else if (a === 'busDel' && id) {
+    const x = (S.dayBus || []).find(c => c.id === id); if (!x || !await ask((x.name || 'Person') + ' aus dem Bus-Check-in entfernen?', { ok: 'Entfernen', danger: true })) return;
+    fire(F.deleteDoc(dref('checkins', id)), 'Check-in'); logEv('person', 'entfernt ' + (x.name || '') + ' aus dem Bus-Check-in', x.day);
+  }
   else if (a === 'packSave') {
     const items = [...new Set(($('packTxt').value || '').split('\n').map(x => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 40);
     S.packlist = { items }; fire(F.setDoc(dref('config', 'packlist'), { items, t: Date.now() }), 'Packliste'); logEv('einladen', 'ändert die Packliste (' + items.length + ' Dinge)'); toast('Packliste gespeichert');
@@ -5961,7 +6083,7 @@ adminBody.addEventListener('click', async e => {
    Sichert alle Daten, die sich nicht aus anderen neu berechnen lassen. Zähler und Bestenliste
    werden nach dem Import aus den Buchungen neu berechnet. Logins (Firebase Authentication) lassen sich nicht sichern. */
 const BACKUP_V = 4;
-const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['undos', 'Rückgängig-Protokoll'], ['asks', 'Rückfragen'], ['stockmv', 'Lagerbewegungen'], ['avatars', 'Profilbilder']];
+const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['undos', 'Rückgängig-Protokoll'], ['asks', 'Rückfragen'], ['checkins', 'Bus-Check-ins'], ['stockmv', 'Lagerbewegungen'], ['avatars', 'Profilbilder']];
 const bkCfg = () => Object.assign({ every: 30, t: 0 }, S.backupCfg || {});
 const bkAvPref = () => { try { return localStorage.getItem('strichliste_bkav') !== '0'; } catch (e) { return true; } };
 // Zeitstempel aus Firestore als { __ts: ms } speichern und beim Import zurückverwandeln
