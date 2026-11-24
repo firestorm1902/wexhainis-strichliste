@@ -102,7 +102,7 @@ Jedes Rückgängig wird gemerkt: wer, wann, welches Getränk, und wie viele Seku
 
 **Übersicht über alle Tage:** Admin → „Zurückgenommene Buchungen“ → „Übersicht laden“ zeigt nach Person, wer wie oft zurückgenommen hat (diese Saison oder alles), mit den häufigsten Getränken. Wurde vorher bei „Zu wenig gebucht“ auf „Tage prüfen“ getippt, sind Fälle bei fehlenden Getränken rot markiert.
 
-**Rückfragen an Mitglieder:** Fehlt beim Abgleich ein Getränk und hat jemand es an dem Tag zurückgenommen, gibt es im „Prüfen“-Hinweis den Knopf „Rückfrage an …“ (auch in der Übersicht bei markierten Fällen: „Fragen“). Der Text ist vorausgefüllt und lässt sich ändern. Das Mitglied sieht die Rückfrage oben in der App (mit Benachrichtigung und Zahl am App-Symbol) und antwortet mit „Ja, bitte nachbuchen“, „Nein, nur vertippt“ oder eigenem Text. Die Antwort steht beim Abgleich des Tages unter „Rückfragen“, der Admin bekommt einen Hinweis. Ohne Differenz gibt es keinen Rückfrage-Knopf. Antwortet das Mitglied mit „Ja, bitte nachbuchen“, erscheint beim Admin der Knopf „1× Pils nachbuchen“ (so oft wie zurückgenommen, höchstens so viele wie fehlen) – ein Tipp, kurze Bestätigung, fertig; danach steht dort „Nachgebucht“. Bei eigener Antwort führt „Nachtragen …“ zum Formular, bei „Nein, nur vertippt“ gibt es keinen Nachbuchen-Knopf.
+**Rückfragen an Mitglieder:** Fehlt beim Abgleich ein Getränk und hat jemand es an dem Tag zurückgenommen, gibt es im „Prüfen“-Hinweis den Knopf „Rückfrage an …“ (auch in der Übersicht bei markierten Fällen: „Fragen“). Der Text ist vorausgefüllt und lässt sich ändern. Das Mitglied sieht die Rückfrage oben in der App (mit Benachrichtigung und Zahl am App-Symbol) und antwortet mit „Ja, bitte nachbuchen“, „Nein, nur vertippt“ oder eigenem Text. Die Antwort steht beim Abgleich des Tages unter „Rückfragen“, der Admin bekommt einen Hinweis. Ohne Differenz gibt es keinen Rückfrage-Knopf. Rückfragen lassen sich unter **📥 Aufgaben** mit 🗑 endgültig löschen; gehört eine zu einem gelöschten Tag, steht dort „Tag gelöscht“ (bei mehreren: „Alle ohne Tag löschen“). Wird ein Tag gelöscht, verschwinden seine Rückfragen und sein Rückgängig-Protokoll mit. Antwortet das Mitglied mit „Ja, bitte nachbuchen“, erscheint beim Admin der Knopf „1× Pils nachbuchen“ (so oft wie zurückgenommen, höchstens so viele wie fehlen) – ein Tipp, kurze Bestätigung, fertig; danach steht dort „Nachgebucht“. Bei eigener Antwort führt „Nachtragen …“ zum Formular, bei „Nein, nur vertippt“ gibt es keinen Nachbuchen-Knopf.
 
 ### Konto-Bereich oben
 Der Kopf der App bleibt beim Scrollen oben stehen. Darin steht dein Profilbild mit „Name · Rolle ▾“. Antippen klappt den Konto-Bereich auf: Name, Rolle, Gruppe, E-Mail, **📷 Foto aufnehmen** (öffnet direkt die Frontkamera), **🖼️ Bild wählen** (Galerie; auch durch Tippen aufs Bild), **Bild entfernen**, **Passwort ändern** und **Abmelden** (mit Rückfrage). Diese Knöpfe sind dafür von der Startseite verschwunden; dort bleiben nur „Ich fahre heute“, Easter Eggs und Party.
@@ -448,13 +448,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 92**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 92 auf 93):
-- in `index.html`: `const APP_VERSION = '92';`
-- in `sw.js`: `const VERSION = 'strichliste-v92';`
+Aktuell ist **Version 93**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 93 auf 94):
+- in `index.html`: `const APP_VERSION = '93';`
+- in `sw.js`: `const VERSION = 'strichliste-v93';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 92“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 93“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

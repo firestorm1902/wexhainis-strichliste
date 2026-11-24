@@ -215,6 +215,7 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 input.n{min-width:3em}
 .mode{flex-wrap:wrap}.mode button{flex:1 1 auto;min-height:2.4rem;white-space:normal}
 .lgmode button{padding:8px 6px}
+.askrow{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line)}.askrow .bellrow{flex:1;min-width:0;border-bottom:0;width:auto}
 .chklist{display:flex;flex-direction:column;border-top:1px solid var(--line)}
 .chkrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
 .chkrow.low{background:rgba(198,40,40,.08)}
@@ -822,7 +823,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '92';
+const APP_VERSION = '93';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1667,12 +1668,24 @@ function memGoto(go) {
     else if (go === 'ask') { const el = $('askBox'); if (el && !el.hidden) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); else toast('Diese Rückfrage ist nicht mehr offen'); }
   }, 80);
 }
+// Rückfragen endgültig löschen (z. B. wenn der Tag nicht mehr existiert)
+async function askRemove(ids) {
+  ids = ids.filter(Boolean); if (!ids.length || !S.isAdmin) return;
+  if (!await ask(ids.length === 1 ? 'Diese Rückfrage samt Antwort endgültig löschen?' : ids.length + ' Rückfragen samt Antworten endgültig löschen?', { ok: 'Löschen', danger: true })) return;
+  ids.forEach(id => fire(F.deleteDoc(dref('asks', id)), 'Rückfrage löschen'));
+  S.asks = (S.asks || []).filter(a => !ids.includes(a.id));
+  logEv('buchung', 'löscht ' + ids.length + ' Rückfrage' + (ids.length > 1 ? 'n' : '')); toast('Gelöscht'); renderAdmin(); if (typeof renderBell === 'function') renderBell();
+}
 function admGoto(sec, dayId) {
   closeModal(); setView('admin');
   const name = secTitle(sec) || sec;
   // Der Tag der Meldung muss es noch geben, sonst zeigt der Admin-Bereich keinen Abgleich
   if (dayId) {
-    if (!S.days.some(d => d.id === dayId)) { toast('Der Tag zu dieser Meldung existiert nicht mehr'); return; }
+    if (!S.days.some(d => d.id === dayId)) {
+      const orph = (S.asks || []).filter(a => a.day === dayId).map(a => a.id);
+      if (orph.length && S.isAdmin) askRemove(orph); else toast('Der Tag zu dieser Meldung existiert nicht mehr');
+      return;
+    }
     if (S.selDay !== dayId) { S.selDay = dayId; listenDayScans(); }
   }
   admSet(sec, true); admTabAuto = false; setAdmTab(tabOf(sec));
@@ -5264,7 +5277,12 @@ function adminNav(el, navX) {
   if (!tabs.some(([t]) => t === admTab)) admTab = tabs.some(([t]) => t === 'day') ? 'day' : (tabs[0] || [])[0];
   if (admTab === 'todo') {
     const box = document.createElement('section'); box.className = 'todo-sum';
-    box.innerHTML = todoN ? (asks.length ? '<h3 class="sub3">💬 Antworten auf deine Rückfragen</h3>' + asks.map(a => '<button type="button" class="bellrow" data-askgo="' + esc(a.day) + '"><span>' + esc(a.name) + '</span><span>' + esc(String(a.answer).slice(0, 80)) + '</span><small>Abgleich ›</small></button>').join('') : '')
+    const orph = asks.filter(a => !S.days.some(d => d.id === a.day));
+    box.innerHTML = todoN ? (asks.length ? '<h3 class="sub3">💬 Antworten auf deine Rückfragen</h3>' + asks.map(a => { const gone = orph.includes(a);
+        return '<div class="askrow">' + (gone ? '<div class="bellrow" style="cursor:default"><span>' + esc(a.name) + '</span><span>' + esc(String(a.answer).slice(0, 80)) + '</span><small style="color:var(--pen)">Tag gelöscht</small></div>'
+          : '<button type="button" class="bellrow" data-askgo="' + esc(a.day) + '"><span>' + esc(a.name) + '</span><span>' + esc(String(a.answer).slice(0, 80)) + '</span><small>Abgleich ›</small></button>') +
+          '<button type="button" class="b sm" data-askrm="' + a.id + '" aria-label="Meldung endgültig löschen">🗑</button></div>'; }).join('') +
+        (orph.length > 1 ? '<div class="row"><button class="b sm dng" data-askrm="*">Alle ' + orph.length + ' ohne Tag löschen</button></div>' : '') : '')
       : '<div class="note ok">Alles erledigt – keine offenen Aufgaben. 👍</div>';
     el.prepend(box);
   }
@@ -5333,6 +5351,7 @@ $('modalBody').addEventListener('click', e => {
 $('adminBody').addEventListener('click', e => {
   const tb = e.target.closest('[data-admtab]'); if (tb) { setAdmTab(tb.dataset.admtab); renderAdmin(); window.scrollTo({ top: 0, behavior: 'instant' }); return; }
   const ag = e.target.closest('[data-askgo]'); if (ag) { admGoto('Abgleich', ag.dataset.askgo); return; }
+  const ar = e.target.closest('[data-askrm]'); if (ar) { askRemove(ar.dataset.askrm === '*' ? (S.asks || []).filter(a => !S.days.some(d => d.id === a.day)).map(a => a.id) : [ar.dataset.askrm]); return; }
   if (e.target.closest('[data-admord]')) { openModal(ordHTML()); return; }
   const go = e.target.closest('[data-admgo]');
   if (go) {
@@ -5832,7 +5851,9 @@ adminBody.addEventListener('click', async e => {
     if (!await superGuard('Tag „' + dayLabel(day) + '“ mit ' + S.dayScans.length + ' Buchungen löschen')) return;
     try {
       const sc = (await F.getDocs(F.query(col('scans'), F.where('day', '==', day.id)))).docs;
-      await commitInChunks(sc.map(d => ({ ref: d.ref, del: true })).concat([{ ref: dref('days', day.id), del: true }]));
+      const extra = [];
+      for (const c of ['asks', 'undos']) { try { (await F.getDocs(F.query(col(c), F.where('day', '==', day.id)))).docs.forEach(d => extra.push({ ref: d.ref, del: true })); } catch (e) {} }
+      await commitInChunks(sc.map(d => ({ ref: d.ref, del: true })).concat(extra, [{ ref: dref('days', day.id), del: true }]));
       if (S.active === day.id) fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Tag deaktivieren');
       markDirty(day.id);
       toast('Tag gelöscht'); logEv('tag', 'löscht ' + dayLabel(day) + ' mit ' + sc.length + ' Buchungen', day.id);
