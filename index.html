@@ -851,7 +851,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.0.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.1.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -5347,7 +5347,7 @@ async function superGuard(what, opt) {
     catch (err) { toast(err && err.code === 'auth/too-many-requests' ? 'Zu viele Versuche – bitte später nochmal' : 'Passwort falsch'); return false; }
   }
   let file = '';
-  try { file = await makeBackup('vor: ' + what); }
+  try { file = await makeBackup('vor: ' + what, { av: true }); } // vor dem Löschen immer mit Profilbildern
   catch (err) {
     console.error(err);
     if (!await ask('Das automatische Backup ist fehlgeschlagen. Trotzdem ohne Backup weitermachen?', { title: 'Kein Backup', ok: 'Ohne Backup weiter', cancel: 'Abbrechen', danger: true })) return false;
@@ -6519,8 +6519,8 @@ const bkAvPref = () => { try { return localStorage.getItem('strichliste_bkav') !
 // Zeitstempel aus Firestore als { __ts: ms } speichern und beim Import zurückverwandeln
 const bkOut = v => v && typeof v === 'object' ? (typeof v.toMillis === 'function' ? { __ts: v.toMillis() } : Array.isArray(v) ? v.map(bkOut) : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, bkOut(x)]))) : v;
 const bkIn = v => v && typeof v === 'object' ? (Array.isArray(v) ? v.map(bkIn) : Object.keys(v).length === 1 && typeof v.__ts === 'number' ? (F.Timestamp ? F.Timestamp.fromMillis(v.__ts) : v.__ts) : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, bkIn(x)]))) : v;
-async function makeBackup(reason) {
-  const withAv = bkAvPref(), out = { v: BACKUP_V, app: APP_VERSION, exported: new Date().toISOString(), by: S.me || S.user.email, active: S.active || null, meta: {}, data: {}, skipped: [] };
+async function makeBackup(reason, opt) {
+  const withAv = (opt && opt.av) || bkAvPref(), out = { v: BACKUP_V, app: APP_VERSION, exported: new Date().toISOString(), by: S.me || S.user.email, active: S.active || null, meta: {}, data: {}, skipped: [] };
   toast('Backup wird erstellt …');
   for (const [c, label] of BACKUP_COLS) {
     if (c === 'avatars' && !withAv) { out.skipped.push(label + ' (nicht gewählt)'); continue; }
@@ -6541,21 +6541,56 @@ async function makeBackup(reason) {
 }
 async function restoreBackup(d) {
   if (!d || !d.data || typeof d.data !== 'object') return restoreLegacy(d);
-  const cnt = BACKUP_COLS.filter(([c]) => d.data[c]).map(([c, l]) => Object.keys(d.data[c]).length + ' ' + l).join(', ');
-  if (!await ask('Backup vom ' + (d.exported ? new Date(d.exported).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : '?') + (d.by ? ' (' + d.by + ')' : '') + ' importieren?\n\n' + cnt + '.',
-    { title: 'Backup importieren', ok: 'Importieren', note: 'Einträge mit gleicher Kennung werden überschrieben, alle anderen bleiben erhalten. Zähler und Bestenliste werden danach neu berechnet.' })) return;
-  const ops = [];
-  // Historie lässt sich nicht ändern: nur Einträge ergänzen, die fehlen
-  let logHave = new Set(); if (d.data.log) { try { logHave = new Set((await F.getDocs(col('log'))).docs.map(x => x.id)); } catch (e) { delete d.data.log; } }
-  BACKUP_COLS.forEach(([c]) => { const m = d.data[c]; if (!m) return; Object.keys(m).forEach(id => { if ((c === 'config' && id === 'backup') || (c === 'log' && logHave.has(id))) return; ops.push({ ref: dref(c, id), data: bkIn(m[id]) }); }); });
+  const sel = await bkPick(d); if (!sel) return;
+  const { cols, mode } = sel, ops = [];
+  // vorhandene Kennungen: Historie immer nur ergänzen (lässt sich nicht ändern), sonst nur bei „nur fehlende ergänzen“
+  const have = {};
+  for (const c of cols) if (c === 'log' || mode === 'add') { try { have[c] = new Set((await F.getDocs(col(c))).docs.map(x => x.id)); } catch (e) { if (c === 'log') { toast('Historie: keine Berechtigung – wird übersprungen'); have[c] = null; } else have[c] = new Set(); } }
+  cols.forEach(c => { const m = d.data[c]; if (!m || have[c] === null) return; Object.keys(m).forEach(id => { if ((c === 'config' && id === 'backup') || (have[c] && have[c].has(id))) return; ops.push({ ref: dref(c, id), data: bkIn(m[id]) }); }); });
+  if (!ops.length) { toast('Nichts zu importieren – alles schon vorhanden'); return; }
   try {
     toast('Importiere ' + ops.length + ' Einträge …'); await commitInChunks(ops);
-    const st = { recountFull: true };
-    if (d.active && !S.active) st.active = String(d.active);
-    if (d.meta && d.meta.eggs != null) st.eggs = d.meta.eggs;
-    await F.setDoc(dref('meta', 'state'), st, { merge: true });
-    toast('Import fertig: ' + ops.length + ' Einträge'); logEv('system', 'importiert ein Backup vom ' + (d.exported || '?').slice(0, 10) + ' (' + ops.length + ' Einträge)');
+    const st = {};
+    if (cols.some(c => ['scans', 'days', 'products', 'users'].includes(c))) st.recountFull = true;
+    if (cols.includes('days') && d.active && !S.active) st.active = String(d.active);
+    if (cols.includes('config') && d.meta && d.meta.eggs != null) st.eggs = d.meta.eggs;
+    if (Object.keys(st).length) await F.setDoc(dref('meta', 'state'), st, { merge: true });
+    const lbl = BACKUP_COLS.filter(([c]) => cols.includes(c)).map(([, l]) => l).join(', ');
+    toast('Import fertig: ' + ops.length + ' Einträge'); logEv('system', 'importiert aus dem Backup vom ' + (d.exported || '?').slice(0, 10) + ': ' + lbl + (mode === 'add' ? ' (nur fehlende)' : '') + ' – ' + ops.length + ' Einträge');
   } catch (err) { console.error(err); toast('Import fehlgeschlagen: ' + (err.code === 'permission-denied' ? 'Keine Berechtigung – sind die neuen Firebase-Regeln veröffentlicht?' : (err.code || err.message))); }
+}
+/* Auswahl beim Import: welche Bereiche, und ob gleiche Einträge überschrieben oder nur fehlende ergänzt werden */
+const BK_OFF = ['users', 'avatars', 'log']; // standardmäßig aus: Personen gelten auch für die anderen Apps
+const BK_HINT = { users: 'gilt auch für Stundentracker und WexSuperAdmin – überschreibt Rollen und Sperren mit dem alten Stand', scans: 'passt nur zusammen mit den Tagen und Getränken', days: 'mit Einladen, Zählen und Bus-Einstellungen', config: 'Texte, Abschnitte, Gruppen, Easter Eggs, Titel, Kontakt …', log: 'wird nur ergänzt, nie überschrieben' };
+function bkPick(d) {
+  return new Promise(res => {
+    const C = BACKUP_COLS.filter(([c]) => d.data[c] && Object.keys(d.data[c]).length);
+    const when = d.exported ? new Date(d.exported).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : '?';
+    openModal('<h2>📥 Backup importieren</h2><div style="font-size:.85rem;color:var(--mu);margin-bottom:8px">Backup vom ' + esc(when) + (d.by ? ' (' + esc(d.by) + ')' : '') + (d.app ? ' · Version ' + esc(d.app) : '') + '. Was soll importiert werden?</div>' +
+      '<div class="row" style="margin-top:0"><button class="b sm" data-bkall="1">Alles</button><button class="b sm" data-bkall="0">Nichts</button></div>' +
+      '<div class="bkpick">' + C.map(([c, l]) => '<label class="chk rsopt"><input type="checkbox" data-bkc="' + c + '"' + (BK_OFF.includes(c) ? '' : ' checked') + '><span><b>' + esc(l) + '</b> <small>(' + Object.keys(d.data[c]).length + ')</small>' + (BK_HINT[c] ? '<br><small>' + esc(BK_HINT[c]) + '</small>' : '') + '</span></label>').join('') + '</div>' +
+      '<h3 class="sub3">Wenn es einen Eintrag schon gibt</h3>' +
+      '<label class="chk"><input type="radio" name="bkMode" value="over" checked> mit dem Stand aus dem Backup überschreiben</label>' +
+      '<label class="chk"><input type="radio" name="bkMode" value="add"> behalten – nur fehlende Einträge ergänzen</label>' +
+      '<div style="font-size:.8rem;color:var(--mu);margin:6px 0">Was nicht im Backup steht, bleibt immer erhalten. Zähler und Bestenliste werden danach neu berechnet.</div>' +
+      '<div class="row"><button class="b pri" data-bkgo>Importieren</button><button class="b" data-bkno>Abbrechen</button></div>');
+    const body = $('modalBody');
+    const done = v => { body.removeEventListener('click', on); obs.disconnect(); if (v !== undefined) closeModal(); res(v || null); };
+    const on = async e => {
+      const a = e.target.closest('[data-bkall]'); if (a) { body.querySelectorAll('[data-bkc]').forEach(x => { x.checked = a.dataset.bkall === '1'; }); return; }
+      if (e.target.closest('[data-bkno]')) { done(null); return; }
+      if (e.target.closest('[data-bkgo]')) {
+        const cols = [...body.querySelectorAll('[data-bkc]:checked')].map(x => x.dataset.bkc);
+        if (!cols.length) { toast('Bitte mindestens einen Bereich wählen'); return; }
+        const mode = (body.querySelector('[name=bkMode]:checked') || {}).value || 'over';
+        if (cols.includes('users') && mode === 'over' && !await ask('Personen überschreiben? Rollen, Sperren und Gruppen werden auf den Stand des Backups gesetzt – auch für Stundentracker und WexSuperAdmin.', { title: 'Personen', ok: 'Ja, überschreiben', danger: true })) return;
+        done({ cols, mode });
+      }
+    };
+    body.addEventListener('click', on);
+    const obs = new MutationObserver(() => { if ($('modal').hidden || !body.querySelector('[data-bkgo]')) { body.removeEventListener('click', on); obs.disconnect(); res(null); } });
+    obs.observe($('modal'), { attributes: true, attributeFilter: ['hidden'] }); obs.observe(body, { childList: true });
+  });
 }
 // ältere Backups (bis Version 52) und Daten aus der Offline-Version
 async function restoreLegacy(d) {
@@ -6607,6 +6642,9 @@ function renderVersion() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.1.0', d: '2026-11-24', i: [
+    ['s', 'Das automatische Backup vor dem Löschen oder Zurücksetzen enthält immer die Profilbilder.'],
+    ['s', 'Backup importieren: auswählen, welche Bereiche importiert werden, und ob vorhandene Einträge überschrieben oder nur fehlende ergänzt werden. Personen sind standardmäßig abgewählt.'] ] },
   { v: '2.0.0', d: '2026-11-24', i: [
     ['m', 'Neue Versionsnummer im Muster v2.0.0 (vorher fortlaufend bis 103).'],
     ['m', 'Versionsverlauf: unten auf die Versionsnummer tippen. Jeder sieht die Neuerungen, die für ihn gelten.'],

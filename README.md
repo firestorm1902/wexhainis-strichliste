@@ -201,11 +201,11 @@ Startet die Kamera nicht, zeigt die App eine Anleitung passend zu Gerät (Androi
 ## Backup
 
 - **Backup speichern** (Admin → Daten) lädt eine JSON-Datei mit allem, was sich nicht neu berechnen lässt: Getränke (mit Sorte, Limits, Lager), Tage, Buchungen, Personen (mit Rolle, Gruppe, „unter 18“), alle Einstellungen (auch Gruppen, Fasnets-Titel, Easter-Egg-Regeln, Datenschutz, Nachtmodus), Korrekturanträge, Posteingang, Historie, Sammelalben, Easter-Egg-Verläufe, Fahrer-Markierungen und – abwählbar – Profilbilder. Nicht enthalten: Zähler und Bestenliste (werden nach dem Import neu berechnet) und die Logins (liegen bei Firebase Authentication). Vollständig wird es nur beim Super-Admin; Getränke-Admins fehlen Posteingang und Historie.
-- **Backup importieren** (Super-Admin) zeigt vorher, was in der Datei steckt, und schreibt alle Felder vollständig zurück. Gleiche Einträge werden überschrieben, andere bleiben. Die Historie wird nur ergänzt, nie geändert. Ältere Backups und Daten der Offline-Version lassen sich weiter importieren.
+- **Backup importieren** (Super-Admin) zeigt vorher, was in der Datei steckt (mit Anzahl), und du hakst an, was importiert wird. **Personen**, Profilbilder und Historie sind standardmäßig abgewählt – Personen gelten auch für Stundentracker und WexSuperAdmin, beim Überschreiben fragt die App extra nach. Dazu wählst du, ob vorhandene Einträge **überschrieben** oder **behalten** werden (dann werden nur fehlende ergänzt). Was nicht im Backup steht, bleibt immer. Die Historie wird nur ergänzt, nie geändert. Ältere Backups und Daten der Offline-Version lassen sich weiter importieren.
 - **Erinnerung:** Der Super-Admin stellt unter Daten ein, nach wie vielen Tagen ohne Backup erinnert wird (Standard 30, 0 = nie). Dann steht oben im Admin-Bereich „Zeit für ein Backup“ mit „Jetzt sichern“, und Admins bekommen einmal am Tag einen Hinweis.
 - Die Datei enthält persönliche Daten – sicher aufbewahren (nicht in die WhatsApp-Gruppe).
 
-- **Automatisches Backup vor dem Löschen (Super-Admin):** Bevor der Super-Admin etwas Größeres löscht – einen Tag mit Buchungen, eine Person (auf Wunsch mit Buchungen), einen Personeneintrag endgültig, alle erledigten Anträge oder Nachrichten, oder „Zurücksetzen / Werkszustand“ –, kommen nacheinander: **Passwort erneut eingeben**, ein **automatisches Backup** (JSON-Datei im Download-Ordner, Name mit Datum und Uhrzeit) und eine **letzte Bestätigung**, die den Dateinamen nennt. Schlägt das Backup fehl, fragt die App, ob trotzdem ohne Backup weitergemacht werden soll. Getränke-Admins sind davon nicht betroffen.
+- **Automatisches Backup vor dem Löschen (Super-Admin):** Bevor der Super-Admin etwas Größeres löscht – einen Tag mit Buchungen, eine Person (auf Wunsch mit Buchungen), einen Personeneintrag endgültig, alle erledigten Anträge oder Nachrichten, oder „Zurücksetzen / Werkszustand“ –, kommen nacheinander: **Passwort erneut eingeben**, ein **automatisches Backup** (JSON-Datei im Download-Ordner, Name mit Datum und Uhrzeit; immer mit Profilbildern, egal wie das Häkchen „Profilbilder mitsichern“ steht) und eine **letzte Bestätigung**, die den Dateinamen nennt. Schlägt das Backup fehl, fragt die App, ob trotzdem ohne Backup weitergemacht werden soll. Getränke-Admins sind davon nicht betroffen.
 
 ## Bedienung
 
@@ -485,14 +485,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.0.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.1.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.0.0';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.0.0';`
+- in `index.html`: `const APP_VERSION = '2.1.0';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.1.0';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -501,7 +501,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.0.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.1.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
