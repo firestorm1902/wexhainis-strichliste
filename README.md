@@ -114,7 +114,7 @@ Admin → **Personen** → **„Für Strichliste sperren“** sperrt die Person 
 
 ### Bus-Check-in (wer ist wirklich dabei?)
 Admin → 📅 Tag → **Bus-Check-in**: Busse anlegen (z. B. „Bus 1“, „Bus 2“), pro Bus einen **Bus-Leiter** wählen (jedes Mitglied, auch ohne Admin-Rechte), Dauer wählen (15 Min. bis 2 Std.) → **🚌 Check-in starten**.
-- **Bus-Leiter** sehen oben in der App „Du bist Bus-Leiter: Bus 2“. Ihr Handy teilt alle 30 Sekunden den Standort, solange die App offen ist. Sie sehen, wer in ihrem Bus eingecheckt ist, können Personen ohne Handy per Name eintragen und Einträge entfernen. Sie selbst sind automatisch eingecheckt.
+- **Bus-Leiter** sehen oben in der App „Du bist Bus-Leiter: Bus 2“. Ihr Handy teilt alle 30 Sekunden den Standort, solange die App offen ist. Sie sehen, wer in ihrem Bus eingecheckt ist, können Personen ohne Handy über die **Suche** eintragen (nur registrierte, freigeschaltete und nicht gesperrte Mitglieder – die Liste wird beim Start gespeichert und von den Firebase-Regeln geprüft) und Einträge entfernen. Sie selbst sind automatisch eingecheckt.
 - **Mitglieder** tippen **„📍 Ich bin im Bus“**. Die App ermittelt einmal den Standort; eingecheckt wird nur, wer nahe bei einem Bus-Leiter ist (ca. 400 m) – und zwar automatisch im richtigen Bus. Das prüfen die Firebase-Regeln auf dem Server, nicht nur die App.
 - **QR-Code bleibt als zweiter Weg:** Der Admin kann jederzeit „📱 QR-Code zeigen“ – der Code wechselt alle 20 Sekunden und gilt nur, solange er angezeigt wird. Gedacht für alle, die keinen Standort teilen können oder wollen.
 - **Admin** sieht die Check-ins nach Bus getrennt, „Haben heute gebucht, aber nicht eingecheckt“, kann Personen eintragen (mit Bus-Auswahl) und entfernen.
@@ -460,13 +460,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 96**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 96 auf 97):
-- in `index.html`: `const APP_VERSION = '96';`
-- in `sw.js`: `const VERSION = 'strichliste-v96';`
+Aktuell ist **Version 97**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 97 auf 98):
+- in `index.html`: `const APP_VERSION = '97';`
+- in `sw.js`: `const VERSION = 'strichliste-v97';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 96“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 97“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

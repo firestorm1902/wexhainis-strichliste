@@ -294,7 +294,7 @@ service cloud.firestore {
     //     schreibt busgeo (sein Standort) und checkins in einem Zug; erlaubt nur, wenn es nahe beim Bus-Leiter ist
     //     (ca. 400 m, Leiter-Standort höchstens 3 Minuten alt) und der Check-in offen ist. Standorte lesen nur Admins.
     //  2. QR-Code: Der Admin zeigt einen Code, der alle 20 Sekunden wechselt (buscode, nur Admins lesen).
-    // Bus-Leiter dürfen in ihrem Bus Personen ohne Handy eintragen und Einträge entfernen.
+    // Bus-Leiter dürfen in ihrem Bus registrierte Personen ohne Handy eintragen (nur aus days.bus.roster) und Einträge entfernen.
     function busCfg(day) { return get(/databases/$(database)/documents/days/$(day)).data.get('bus', {}); }
     function busIsOpen(day) { let b = busCfg(day); return b.get('open', false) == true && request.time.toMillis() < b.get('until', 0); }
     function busLeaderOf(day, bus) { return busCfg(day).get('buses', {}).get(bus, {}).get('leader', '') == request.auth.uid; }
@@ -353,7 +353,10 @@ service cloud.firestore {
             && request.resource.data.keys().hasOnly(['uid', 'name', 'day', 'bus', 't', 'how', 'by', 'byName'])
             && request.resource.data.by == request.auth.uid
             && id == request.resource.data.day + '_' + request.resource.data.uid
-            && busLeaderOf(request.resource.data.day, request.resource.data.bus) && busIsOpen(request.resource.data.day));
+            && busLeaderOf(request.resource.data.day, request.resource.data.bus) && busIsOpen(request.resource.data.day)
+            // nur registrierte, nicht gesperrte Mitglieder (Liste days.bus.roster, beim Start vom Admin gespeichert)
+            && request.resource.data.uid in busCfg(request.resource.data.day).get('roster', {})
+            && request.resource.data.name == busCfg(request.resource.data.day).get('roster', {})[request.resource.data.uid]);
       allow update: if false;
       allow delete: if isAdmin() || (slActive() && busLeaderOf(resource.data.day, resource.data.get('bus', '')));
     }
