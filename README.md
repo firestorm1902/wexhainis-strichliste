@@ -485,13 +485,23 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 103**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 103 auf 104):
-- in `index.html`: `const APP_VERSION = '103';`
-- in `sw.js`: `const VERSION = 'strichliste-v103';`
+Aktuell ist **Version v2.0.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+- **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
+- **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
+- **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
+
+Nach Änderungen an zwei Stellen gleich ändern:
+- in `index.html`: `const APP_VERSION = '2.0.0';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.0.0';`
+
+Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
+
+### Versionsverlauf
+Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, was für seine Rolle gilt: Mitglieder die Mitglieder-Neuerungen, der Vorstand zusätzlich Vorstand-Themen, Admins zusätzlich Admin-Themen, der Super-Admin alles (mit Kennzeichnung, für wen ein Punkt gilt). Gibt es seit dem letzten Öffnen eine neue Version, steht „neu“ daneben. Der Super-Admin blendet den Verlauf unter Admin → Einstellungen → „Versionsverlauf anzeigen“ für alle ein oder aus (er selbst sieht ihn weiter).
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 103“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.0.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

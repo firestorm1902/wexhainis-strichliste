@@ -227,6 +227,8 @@ input.n{min-width:3em}
 .businfo{text-align:center;font-size:1rem;margin:4px 0 8px;position:relative}.businfo i{display:block;height:4px;background:var(--wy);border-radius:2px;margin:6px auto 0;max-width:340px;transform-origin:left}
 @keyframes busbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 .rsopt{align-items:flex-start}.rsopt small{color:var(--mu)}.rsopt input:disabled+span{opacity:.75}
+.clv{border-top:1px solid var(--line);padding:8px 0}.clh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.clh small{color:var(--mu)}
+.clv ul{margin:4px 0 0;padding-left:1.2em}.clv li{margin:2px 0;font-size:.9rem}.cltag{font-size:.68rem;border:1px solid var(--line);border-radius:6px;padding:0 4px;color:var(--mu);white-space:nowrap}
 .flow{display:flex;align-items:stretch;gap:3px;margin:10px 0 4px;padding:2px 0}
 .flowstep{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;border:1.5px solid var(--line);border-radius:12px;background:var(--white);color:var(--ink);font:inherit;padding:7px 4px;cursor:pointer;text-align:center}
 .flowstep b{font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.flowstep small{font-size:.64rem;color:var(--mu);line-height:1.15}
@@ -849,7 +851,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '103';
+const APP_VERSION = '2.0.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4905,6 +4907,7 @@ function settingsSection() {
   const c = S.contact || {}, b = bestCfg(), people = Object.keys(S.users).filter(k => !goneSL(S.users[k]) && !S.users[k].pending).map(k => ({ uid: k, name: S.users[k].name || '' })).sort((x, y) => x.name.localeCompare(y.name, 'de'));
   const opt = (L, cur) => L.map(x => '<option value="' + x[0] + '"' + (String(cur) === String(x[0]) ? ' selected' : '') + '>' + x[1] + '</option>').join('');
   let h = '<section><h2>Einstellungen (Super-Admin)</h2>';
+  h += '<label class="chk" style="margin-bottom:8px"><input type="checkbox" id="clOk"' + (S.features && S.features.changelog === false ? '' : ' checked') + '> Versionsverlauf anzeigen – alle tippen unten auf die Versionsnummer und sehen, was für ihre Rolle neu ist</label>';
   h += '<h3 class="sub3">Kontakt</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erscheint bei „Konto wartet auf Freischaltung“, „gesperrt“, „keine Rechte“ und in der Hilfe.</div>' +
     '<div class="grid2"><label class="f full">Name<input id="ctName" value="' + esc(c.name || S.me || '') + '"></label>' +
     '<div class="f" style="font-size:.82rem;color:var(--mu);align-self:end">Mitglieder schreiben dir über den Posteingang in der App.</div>' +
@@ -5192,7 +5195,7 @@ function deviceInfo() {
   const ua = navigator.userAgent || '';
   const os = /iPhone|iPad|iPod/.test(ua) ? 'iOS ' + ((ua.match(/OS (\d+[_\d]*)/) || [])[1] || '').replace(/_/g, '.') : /Android/.test(ua) ? 'Android ' + ((ua.match(/Android ([\d.]+)/) || [])[1] || '') : (navigator.platform || '');
   const br = /CriOS|Chrome\//.test(ua) ? 'Chrome ' + ((ua.match(/(?:CriOS|Chrome)\/(\d+)/) || [])[1] || '') : /FxiOS|Firefox\//.test(ua) ? 'Firefox' : /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
-  return ['Version ' + APP_VERSION, os, br, screen.width + '×' + screen.height, window.__isStandalone ? 'installierte App' : 'im Browser', navigator.onLine ? 'online' : 'offline',
+  return ['Version v' + APP_VERSION, os, br, screen.width + '×' + screen.height, window.__isStandalone ? 'installierte App' : 'im Browser', navigator.onLine ? 'online' : 'offline',
     'Ansicht ' + ($('v-admin').hidden ? 'Scannen' : 'Admin'), S.isSuper ? 'Super-Admin' : S.isAdmin ? 'Getränke-Admin' : S.isBoard ? 'Vorstand' : 'Mitglied'].filter(Boolean).join(' · ').slice(0, 600);
 }
 function msgForm(kind) {
@@ -5508,6 +5511,11 @@ $('adminBody').addEventListener('click', e => {
   const b = e.target.closest('[data-set^="party"]'); if (!b || !S.isAdmin) return;
   if (b.dataset.set === 'partyStart' && partyAllowed()) partyStart(+$('partyDur').value);
   if (b.dataset.set === 'partyOff') partyStop();
+});
+$('adminBody').addEventListener('change', e => {
+  if (e.target.id !== 'clOk' || !S.isSuper) return;
+  const on = e.target.checked, F_ = Object.assign({}, S.features || {}, { changelog: on, t: Date.now() });
+  S.features = F_; fire(F.setDoc(dref('config', 'features'), F_), 'Versionsverlauf'); logEv('system', 'Versionsverlauf ' + (on ? 'eingeblendet' : 'ausgeblendet')); renderVersion();
 });
 $('adminBody').addEventListener('change', e => {
   if (e.target.id !== 'partyOk' || !S.isSuper) return;
@@ -6586,11 +6594,81 @@ $('fileIn').addEventListener('change', async e => {
 
 /* ---------- Start ---------- */
 function renderVersion() {
-  let txt = 'Version ' + APP_VERSION;
+  let txt = '';
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) txt += ' · offline verfügbar';
   const nr = typeof unreadReplies === 'function' ? unreadReplies() : 0;
-  $('ver').innerHTML = esc(txt) + ' · <button class="linkbtn" id="dsLink">Datenschutz</button>' + (S.user && S.meDoc ? ' · <button class="linkbtn" data-msg="' + (nr ? 'mine' : 'new') + '">Kontakt & Feedback' + (nr ? ' <b class="nbadge">' + nr + ' neu</b>' : '') + '</button>' : '');
+  const vt = 'Version v' + APP_VERSION, clNew = clVisible() && clSeen() !== APP_VERSION;
+  $('ver').innerHTML = (clVisible() ? '<button class="linkbtn" id="verBtn" title="Versionsverlauf">' + esc(vt) + (clNew ? ' <b class="nbadge">neu</b>' : '') + '</button>' : esc(vt)) + esc(txt) + ' · <button class="linkbtn" id="dsLink">Datenschutz</button>' + (S.user && S.meDoc ? ' · <button class="linkbtn" data-msg="' + (nr ? 'mine' : 'new') + '">Kontakt & Feedback' + (nr ? ' <b class="nbadge">' + nr + ' neu</b>' : '') + '</button>' : '');
   $('dsLink').onclick = () => openModal(privacyHTML());
+  if ($('verBtn')) $('verBtn').onclick = openChangelog;
+}
+/* ---------- Versionsverlauf (Tippen auf die Versionsnummer) ----------
+   Rolle je Eintrag: m = alle Mitglieder, b = Vorstand, a = Admins, s = Super-Admin.
+   Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
+   Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
+const CHANGELOG = [
+  { v: '2.0.0', d: '2026-11-24', i: [
+    ['m', 'Neue Versionsnummer im Muster v2.0.0 (vorher fortlaufend bis 103).'],
+    ['m', 'Versionsverlauf: unten auf die Versionsnummer tippen. Jeder sieht die Neuerungen, die für ihn gelten.'],
+    ['s', 'Versionsverlauf lässt sich unter Einstellungen für alle ein- und ausblenden.'] ] },
+  { v: '103', old: 1, d: '2026-11-24', i: [
+    ['m', 'Bus-Check-in: „Ich bin im Bus“ probiert es bis zu 3-mal mit frischem Standort.'],
+    ['m', 'Bus-Leiter teilen ihren Standort öfter (alle 15 Sekunden) und bekommen einen Hinweis, wenn er zu ungenau ist.'],
+    ['s', 'Firebase-Regeln: Wer aus dem Check-in entfernt wurde, kann sich wieder per Standort einchecken.'] ] },
+  { v: '102', old: 1, d: '2026-11-24', i: [
+    ['m', 'Bus-Check-in ohne Kamera: 6-stelligen Code eingeben („Code eingeben“).'],
+    ['a', 'Unter dem Bus-QR-Code steht der Code groß zum Abtippen.'] ] },
+  { v: '100–101', old: 1, d: '2026-11-24', i: [
+    ['s', 'Zurücksetzen bis zum Werkszustand: auswählen, was gelöscht wird (Statistiken, Tage, Getränke, Einstellungen, Profilbilder, Historie …), mit Backup vorher.'] ] },
+  { v: '99', old: 1, d: '2026-11-24', i: [
+    ['m', 'Neu unter „Mein Konto“: Meine Bus-Check-ins. Die Meldung „Eingecheckt“ verschwindet nach 3 Minuten.'],
+    ['a', 'Bus-Check-in: Die Personensuche findet auch später Freigeschaltete und zeigt, warum jemand fehlt.'] ] },
+  { v: '98', old: 1, d: '2026-11-24', i: [
+    ['a', 'Admin-Bereich: Suchfeld, der Tag als Ablauf (Einladen → Freigeben → Läuft → Zählen → Abschluss), Seltenes unter „Mehr …“, Start immer im Reiter „Tag“.'],
+    ['b', 'Der Vorstand kann „Zu wenig gebucht“ und „Alle Tage“ freigegeben bekommen (nur lesen).'],
+    ['s', 'Gefährliche Aktionen stehen in einem rot umrandeten Block unter „Daten“.'] ] },
+  { v: '94–97', old: 1, d: '2026-11-24', i: [
+    ['m', 'Bus-Check-in: „Ich bin im Bus“ (Standort) oder QR-Code scannen.'],
+    ['a', 'Bus-Check-in starten, mehrere Busse mit Bus-Leitern, Personen ohne Handy eintragen.'],
+    ['a', 'Anwesenheit: Übersicht pro Ausfahrt und pro Person, auch als Excel.'] ] },
+  { v: '90–93', old: 1, d: '2026-11-24', i: [
+    ['a', 'Admin-Bereich in Reiter aufgeteilt (Aufgaben, Tag, Getränke, Auswertung, Personen, Einstellungen).'],
+    ['a', 'Einladen und Zurückzählen auch per Knopf statt Scannen; verwaiste Rückfragen löschen.'] ] },
+  { v: '80–89', old: 1, d: '2026-11-23', i: [
+    ['m', 'Verbesserungen und Fehlerbehebungen.'] ] },
+  { v: '56–78', old: 1, d: '2026-11-21', i: [
+    ['m', 'Kopfbereich mit Konto bleibt beim Scrollen sichtbar; Hilfe, wenn die Kamera nicht geht – passend zu Handy und Browser.'],
+    ['m', 'Rückfragen der Admins beantworten.'],
+    ['a', 'Lagersystem mit Bestand und Lagerbewegungen; Mindest-Mitnahme mit Hinweis beim Einladen (Packliste).'],
+    ['a', 'Glocke mit offenen Aufgaben; Admin-Bereiche selbst anordnen und ausblenden.'],
+    ['a', 'Buchungsgrenze pro Getränk und Tag; Protokoll aller zurückgenommenen Buchungen.'],
+    ['a', 'Jugendschutz pro Person einstellbar.'],
+    ['s', 'Texte und Überschriften direkt in der App ändern; Sperre nur für die Strichliste (andere Apps bleiben frei).'] ] },
+  { v: '23–55', old: 1, d: '2026-11-20', i: [
+    ['m', 'Korrektur beantragen; Kontakt & Feedback an den Super-Admin.'],
+    ['m', 'Partymodus zum Mitmachen; Fasnets-Titel im Rückblick.'],
+    ['a', '„Zu wenig gebucht“ über alle Tage; Backup speichern und importieren.'],
+    ['s', 'Easter Eggs in Kategorien verwalten; Partymodus erlauben.'] ] },
+  { v: '5–22', old: 1, d: '2026-11-19', i: [
+    ['m', 'Getränke scannen und buchen, Easter Eggs, Profilbild, Fahrer-Modus.'],
+    ['m', 'Bestenliste, Sammelalbum, Mein Konto (auch als Excel) und Saison-Rückblick; Datenschutz-Hinweis.'],
+    ['b', 'Rolle Vorstand: Admin-Bereich nur lesen, Excel-Export.'],
+    ['a', 'Tage anlegen, Einladen und Abgleich, Bestandswarnung, Excel-Auswertung, Benachrichtigungen.'],
+    ['s', 'Historie aller Änderungen; Gruppen.'] ] }
+];
+const clVisible = () => !(S.features && S.features.changelog === false) || S.isSuper;
+const clSeen = () => { try { return localStorage.getItem('strichliste_clseen') || ''; } catch (e) { return ''; } };
+function clRoles() { return S.isSuper ? 'mbas' : S.isAdmin ? 'mba' : S.isBoard ? 'mb' : 'm'; }
+function openChangelog() {
+  const R = clRoles(), RL = { b: 'Vorstand', a: 'Admins', s: 'Super-Admin' };
+  const L = CHANGELOG.map(e => Object.assign({}, e, { i: e.i.filter(x => R.includes(x[0])) })).filter(e => e.i.length);
+  let h = '<h2>🕘 Versionsverlauf</h2>' + (S.isSuper && S.features && S.features.changelog === false ? '<div class="note bad" style="margin-bottom:8px">Für alle anderen ausgeblendet (Einstellungen).</div>' : '') +
+    '<div style="font-size:.82rem;color:var(--mu);margin-bottom:8px">Du siehst die Neuerungen für ' + ({ m: 'Mitglieder', mb: 'Mitglieder und Vorstand', mba: 'Mitglieder, Vorstand und Admins', mbas: 'alle Rollen' })[R] + '.</div>';
+  h += L.map(e => '<div class="clv"><div class="clh"><b>' + (e.old ? 'Version ' + esc(e.v) : 'v' + esc(e.v)) + '</b><small>' + fmtDate(e.d) + (e.old ? ' · alte Zählung' : '') + (e.v === APP_VERSION ? ' · aktuell' : '') + '</small></div><ul>' +
+    e.i.map(x => '<li>' + esc(x[1]) + (x[0] !== 'm' && R.length > 1 ? ' <span class="cltag">' + RL[x[0]] + '</span>' : '') + '</li>').join('') + '</ul></div>').join('');
+  openModal(h);
+  try { localStorage.setItem('strichliste_clseen', APP_VERSION); } catch (e) {}
+  renderVersion();
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
 function stickyCheck() { const t = document.querySelector('header.top'); if (!t) return; t.classList.remove('nostick'); t.classList.toggle('nostick', t.offsetHeight > innerHeight * 0.3); document.documentElement.style.setProperty('--toph', (t.classList.contains('nostick') ? 0 : t.offsetHeight) + 'px'); }
