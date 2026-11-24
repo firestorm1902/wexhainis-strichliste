@@ -120,6 +120,8 @@ Admin → 📅 Tag → **Bus-Check-in**: Busse anlegen (z. B. „Bus 1“, „Bu
 - **Admin** sieht die Check-ins nach Bus getrennt, „Haben heute gebucht, aber nicht eingecheckt“, kann Personen eintragen (mit Bus-Auswahl) und entfernen.
 - **Datenschutz:** Gespeichert wird, dass und wann jemand eingecheckt hat und in welchem Bus. Die Standorte sehen nur Admins; sie werden beim **Beenden** gelöscht. Der Datenschutzhinweis der App erklärt das.
 - **Tipp:** Den Check-in erst nach der Abfahrt starten – am Treffpunkt stehen auch Leute in der Nähe, die nicht mitfahren.
+- **Personensuche (ohne Handy dabei):** Die Liste wird beim Start gespeichert. Solange ein Admin die App offen hat, wird sie laufend ergänzt (neu Freigeschaltete kommen dazu, Gesperrte fliegen raus). Ist der Bus-Leiter selbst Admin, findet er sowieso alle freigeschalteten Mitglieder. Taucht jemand nicht auf, steht dort der Grund (z. B. „noch nicht freigeschaltet“, „gesperrt“, „schon eingecheckt (Bus 2)“).
+- Die Meldung „🚌 Eingecheckt“ steht 3 Minuten auf der Startseite. Danach steht der Check-in unter **Mein Konto → Meine Bus-Check-ins**.
 - Alles wird protokolliert und steht in der **Excel-Auswertung** (Blatt „Bus-Check-in“ mit Bus und Art; Übersicht „Im Bus eingecheckt“).
 - **Übersicht:** Admin → 📊 Auswertung → **Anwesenheit (Bus-Check-ins)**: pro Ausfahrt (wie viele im Bus, je Bus, wer gebucht hat ohne einzuchecken) und pro Person (bei wie vielen Ausfahrten dabei, Tage zum Aufklappen), wahlweise diese Saison oder alles; „Auffällig“ zeigt, wer mehrmals gebucht hat, ohne eingecheckt zu sein. **📄 Excel: nur Anwesenheit** lädt eine eigene Datei (Übersicht, pro Tag, pro Person, alle Check-ins). Die gesammelte Excel-Auswertung enthält dieselben Blätter „Anwesenheit pro Tag“ und „Anwesenheit pro Person“.
 - Braucht die neuen Regeln (`buscode`, `busloc`, `busgeo`, `checkins`) – siehe `firestore.rules` im Stundentracker-Repo.
@@ -466,13 +468,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 98**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 98 auf 99):
-- in `index.html`: `const APP_VERSION = '98';`
-- in `sw.js`: `const VERSION = 'strichliste-v98';`
+Aktuell ist **Version 99**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 99 auf 100):
+- in `index.html`: `const APP_VERSION = '99';`
+- in `sw.js`: `const VERSION = 'strichliste-v99';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 98“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 99“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

@@ -847,7 +847,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '98';
+const APP_VERSION = '99';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1059,7 +1059,7 @@ function startUserListeners() {
   }, fail('meta'));
 }
 function listenActiveDay() {
-  stop('activeDay'); stop('mine'); stop('live'); stop('ueggs'); stop('drv'); stop('myBus'); S.driver = false; S.myBus = null;
+  stop('activeDay'); stop('mine'); stop('live'); stop('ueggs'); stop('drv'); stop('myBus'); S.driver = false; S.myBus = null; stop('myChecks'); S.myChecksFor = null; S.myChecks = null;
   S.activeDay = null; S.activeLoaded = false; S.myScans = []; S.pending = 0; S.groupEggs = []; S.myEggs = [];
   if (!S.active) { S.activeLoaded = true; renderAll(); return; }
   const uid = S.user.uid, dayId = S.active;
@@ -1078,7 +1078,7 @@ function listenActiveDay() {
   }, err => console.warn('live', err));
   // eigene Easter Eggs des Tages
   unsub.drv = F.onSnapshot(dref('drv', uid + '_' + dayId), snap => { S.driver = snap.exists(); renderScan(); }, err => console.warn('drv', err));
-  stop('myBus'); S.myBus = null;
+  stop('myBus'); S.myBus = null; stop('myChecks'); S.myChecksFor = null; S.myChecks = null;
   unsub.myBus = F.onSnapshot(dref('checkins', dayId + '_' + uid), snap => { S.myBus = snap.exists() ? snap.data() : null; renderBusBox(); }, err => console.warn('checkin', err));
   unsub.ueggs = F.onSnapshot(dref('ueggs', uid + '_' + dayId), snap => {
     S.myEggs = snap.exists() ? (snap.data().items || []).slice().sort((a, b) => a.t - b.t) : [];
@@ -1118,13 +1118,13 @@ function startAdminListeners() {
     const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !goneSL(S.users[k]) && k !== (S.user && S.user.uid));
     if (knownPending && pend.some(k => !knownPending.includes(k))) { noteToast('Neue Anmeldung wartet auf Freischaltung'); buzz(120); }
     knownPending = pend;
-    renderAdmin();
+    busRosterSync(); renderAdmin();
   }, err => { if (err && err.code !== 'permission-denied') console.error(err); });
   const q = F.query(col('days'), F.orderBy('date', 'desc'), F.limit(150));
   unsub.days = F.onSnapshot(q, snap => {
     S.days = snap.docs.map(d => Object.assign({ id: d.id, load: {}, count: {} }, d.data()));
     if (!S.days.find(d => d.id === S.selDay)) S.selDay = (S.days.find(d => d.id === S.active) || S.days[0] || {}).id || null;
-    listenDayScans(); renderAdmin(); if (!$('sheet').hidden) renderSheet();
+    listenDayScans(); busRosterSync(); renderAdmin(); if (!$('sheet').hidden) renderSheet();
   }, fail('days'));
 }
 // Rechte prüfen: diese Dokumente dürfen laut Regeln nur Admins bzw. Super-Admins lesen
@@ -3135,7 +3135,7 @@ function renderKonto() {
   h += '<div class="wstats" style="margin-top:0"><div style="background:var(--white);border:1.5px solid var(--line)"><b style="color:var(--ink)">' + K.L.length + '</b><span style="color:var(--mu)">Getränke</span></div><div style="background:var(--white);border:1.5px solid var(--line)"><b style="color:var(--ink)">' + money(K.cost) + '</b><span style="color:var(--mu)">Kosten</span></div></div>';
   const open = (S.myReqs || []).filter(r => r.status === 'open').length;
   h += '<div class="reqbox" style="margin:0 0 10px"><span>Stimmt etwas nicht?</span><button class="b sm" data-req="new">Korrektur beantragen</button>' + ((S.myReqs || []).length ? '<button class="linkbtn" data-req="mine">Meine Anträge' + (open ? ' (' + open + ' offen)' : '') + '</button>' : '') + '</div>';
-  if (!K.L.length) return h + '<div class="empty">In diesem Zeitraum keine Buchungen.</div>';
+  if (!K.L.length) return h + '<div class="empty">In diesem Zeitraum keine Buchungen.</div>' + myChecksHTML();
   h += '<h2 style="font-size:1.05rem">Nach Getränk</h2>' + Object.keys(K.byP).sort((a, b) => K.byP[b] - K.byP[a]).map(id => '<div class="rw"><span></span><span>' + esc(pname(id)) + '</span><small>' + K.byP[id] + '× · ' + money(K.byP[id] * K.price(id)) + '</small></div>').join('');
   h += '<h2 style="font-size:1.05rem;margin-top:14px">Nach Tag</h2><div class="tabhint" style="margin-bottom:2px">Tag antippen für die Details</div>' + Object.keys(K.byDay).sort((a, b) => dayDate(K.byDay[b][0]).localeCompare(dayDate(K.byDay[a][0]))).map(id => {
     const l = K.byDay[id], di = (S.dayInfo || {})[id] || {}, m = {};
@@ -3144,7 +3144,28 @@ function renderKonto() {
       Object.keys(m).map(p => '<div class="rw"><span></span><span>' + esc(pname(p)) + '</span><small>' + m[p] + '× · ' + money(m[p] * K.price(p)) + '</small></div>').join('') + '</details>';
   }).join('');
   h += '<div class="row"><button class="b pri" data-xa="kExcel">Als Excel speichern</button></div><div style="font-size:.78rem;color:var(--mu);margin-top:6px">Kosten mit den aktuellen Preisen.</div>';
-  return h;
+  return h + myChecksHTML();
+}
+/* Eigene Bus-Check-ins (für „Mein Konto“) */
+
+function myChecksLoad() {
+  if (!S.user || S.myChecksFor === S.user.uid) return;
+  S.myChecksFor = S.user.uid; stop('myChecks');
+  unsub.myChecks = F.onSnapshot(F.query(col('checkins'), F.where('uid', '==', S.user.uid)), snap => {
+    S.myChecks = snap.docs.map(d => d.data()).sort((a, b) => b.t - a.t);
+    if (extraTab === 'konto') renderExtra();
+  }, err => { console.warn('myChecks', err); S.myChecks = []; });
+}
+function myChecksHTML() {
+  myChecksLoad();
+  const L = S.myChecks;
+  if (!L || !L.length) return '';
+  const dayOf = id => (S.days || []).find(x => x.id === id) || (S.activeDay && S.activeDay.id === id ? S.activeDay : null);
+  return '<h2 style="font-size:1.05rem;margin-top:14px">🚌 Meine Bus-Check-ins</h2>' + L.map(x => {
+    const di = (S.dayInfo || {})[x.day] || {}, d = dayOf(x.day), date = di.date || (d && d.date) || isoOf(new Date(x.t)), place = di.place || (d && d.place) || '';
+    const bn = x.bus && d && d.bus ? busName(d, x.bus) : '';
+    return '<div class="rw"><span></span><span><b>' + esc(fmtDate(date)) + '</b>' + (place ? '<br><small>' + esc(place) + '</small>' : '') + '</span><small>' + fmtTime(x.t) + ' Uhr' + (bn ? ' · ' + esc(bn) : '') + '<br>' + esc(howTxt(x)) + '</small></div>';
+  }).join('');
 }
 function kontoExcel() {
   const K = kontoData(kontoPeriod), se = season(), H = t => ({ v: t, s: 1 }), E = v => ({ v: Math.round(v * 100) / 100, s: 2 });
@@ -3762,6 +3783,7 @@ const myLeadBus = d => (busList(d).find(b => S.user && b.leader === S.user.uid) 
 let busTimer = null, busCode = null;
 const busRand = () => { const a = new Uint8Array(6); crypto.getRandomValues(a); return [...a].map(x => x.toString(36).padStart(2, '0')).join('').slice(0, 10); };
 const HOW_TXT = { qr: 'QR-Code', geo: 'Standort', leader: 'vom Bus-Leiter', admin: 'vom Admin' };
+const BUS_NOTE_MS = 3 * 60 * 1000; // so lange bleibt „Eingecheckt“ auf der Startseite stehen
 const howTxt = x => (HOW_TXT[x.how] || x.how || '') + (x.byName && (x.how === 'leader' || x.how === 'admin') ? ' (' + x.byName + ')' : '');
 
 /* ---------- Mitglieder und Bus-Leiter: Kasten oben auf der Startseite ---------- */
@@ -3780,7 +3802,12 @@ function renderBusBox() {
       (L.length ? '<div class="buslist">' + L.map(x => '<div class="rw"><span>' + fmtTime(x.t) + '</span><span>' + esc(x.name || '') + '</span><small>' + esc(howTxt(x)) + '</small><button class="b sm" data-busrm="' + esc(x.id) + '" aria-label="entfernen">✕</button></div>').join('') + '</div>' : '') +
       '<div style="margin-top:4px"><small>Ohne Handy dabei? Registrierte Person suchen:</small>' + busPickHTML('lb') + '</div></div>';
   }
-  if (S.myBus) h += '<div class="note ok" style="margin-top:10px">🚌 <b>Eingecheckt</b>' + (S.myBus.bus ? ' in ' + esc(busName(d, S.myBus.bus)) : '') + ' um ' + fmtTime(S.myBus.t) + ' Uhr.</div>';
+  const myAge = S.myBus ? Date.now() - S.myBus.t : 0;
+  if (S.myBus && myAge < BUS_NOTE_MS) {
+    h += '<div class="note ok" style="margin-top:10px">🚌 <b>Eingecheckt</b>' + (S.myBus.bus ? ' in ' + esc(busName(d, S.myBus.bus)) : '') + ' um ' + fmtTime(S.myBus.t) + ' Uhr.<br><small>Nachsehen kannst du das später unter „Mein Konto“.</small></div>';
+    clearTimeout(renderBusBox.hideT); renderBusBox.hideT = setTimeout(renderBusBox, BUS_NOTE_MS - myAge + 500);
+  }
+  else if (S.myBus) {}
   else if (open && !lead) h += '<div class="note busnote" style="margin-top:10px"><b>🚌 Bus-Check-in läuft</b><span>Tippe auf „Ich bin im Bus“ – die App prüft einmal deinen Standort (nur ob du nahe beim Bus-Leiter bist).</span>' +
     '<div class="row" style="margin-top:2px"><button class="b pri" data-busgeo' + (busGeoBusy ? ' disabled' : '') + '>' + (busGeoBusy ? '📍 Prüfe Standort …' : '📍 Ich bin im Bus') + '</button><button class="b sm" data-busscan>oder QR-Code scannen</button></div></div>';
   const f = $('lbFind'), q = f ? f.value : '', foc = f && document.activeElement === f; // Suche beim Neu-Zeichnen behalten
@@ -3795,9 +3822,10 @@ $('busBox').addEventListener('click', e => {
   const pk = e.target.closest('[data-pick]');
   if (pk && pk.dataset.pickfor === 'lb') {
     const d = S.activeDay, lead = myLeadBus(d), uid = pk.dataset.pick, R = (d && d.bus && d.bus.roster) || {};
-    if (!d || !lead || !R[uid]) return;
-    fire(F.setDoc(dref('checkins', d.id + '_' + uid), { uid, name: R[uid], day: d.id, bus: lead, t: Date.now(), how: 'leader', by: S.user.uid, byName: S.me || '' }), 'Check-in');
-    logEv('person', 'Bus-Leiter trägt ' + R[uid] + ' als im ' + busName(d, lead) + ' ein', d.id); toast(R[uid] + ' eingetragen');
+    const nm = R[uid] || (S.isAdmin && busEligible((S.users || {})[uid]) ? uname(uid) : '');
+    if (!d || !lead || !nm) return;
+    fire(F.setDoc(dref('checkins', d.id + '_' + uid), { uid, name: nm, day: d.id, bus: lead, t: Date.now(), how: 'leader', by: S.user.uid, byName: S.me || '' }), 'Check-in');
+    logEv('person', 'Bus-Leiter trägt ' + nm + ' als im ' + busName(d, lead) + ' ein', d.id); toast(nm + ' eingetragen');
     $('lbFind').value = ''; busPickFill('lb');
   }
 });
@@ -3806,9 +3834,25 @@ $('busBox').addEventListener('click', e => {
    Bus-Leiter: Liste kommt aus days.bus.roster (beim Start vom Admin gespeichert) – die Regeln lassen nur diese zu.
    Admin: aus der Personenliste. Schon Eingecheckte werden nicht angeboten. */
 const busEligible = u => !!u && !goneSL(u) && !u.pending && !u.blocked && !u.slBlock && !u.deleted;
+let busRosterLast = '';
+function busRosterSync() {
+  if (!S.isAdmin || !S.users || !Object.keys(S.users).length) return;
+  (S.days || []).filter(d => busOpen(d)).forEach(d => {
+    const R = {}; Object.keys(S.users).forEach(k => { if (busEligible(S.users[k])) R[k] = uname(k); });
+    const old = d.bus.roster || {}, same = Object.keys(R).length === Object.keys(old).length && Object.keys(R).every(k => old[k] === R[k]);
+    const key = d.id + JSON.stringify(R);
+    if (same || key === busRosterLast) return;
+    busRosterLast = key; fire(F.updateDoc(dref('days', d.id), { 'bus.roster': R }), 'Bus-Liste');
+  });
+}
 function busPickHTML(pre) { return '<div class="buspick"><input id="' + pre + 'Find" placeholder="🔎 Name suchen …" autocomplete="off" enterkeyhint="search"><div id="' + pre + 'Res" class="pickres"></div></div>'; }
 function busCands(pre) {
-  if (pre === 'lb') { const d = S.activeDay, R = (d && d.bus && d.bus.roster) || {}, inU = new Set((S.activeBus || []).map(x => x.uid)); return Object.keys(R).filter(k => !inU.has(k)).map(k => ({ uid: k, name: R[k] })); }
+  if (pre === 'lb') {
+    const d = S.activeDay, R = (d && d.bus && d.bus.roster) || {}, inU = new Set((S.activeBus || []).map(x => x.uid));
+    const M = Object.assign({}, R); // Admins dürfen jedes freigeschaltete Mitglied eintragen, auch wer erst nach dem Start dazukam
+    if (S.isAdmin) Object.keys(S.users || {}).forEach(k => { if (busEligible(S.users[k])) M[k] = M[k] || uname(k); });
+    return Object.keys(M).filter(k => !inU.has(k)).map(k => ({ uid: k, name: M[k] }));
+  }
   const inU = new Set((S.dayBus || []).map(x => x.uid));
   return Object.keys(S.users || {}).filter(k => busEligible(S.users[k]) && !inU.has(k)).map(k => ({ uid: k, name: uname(k) }));
 }
@@ -3819,7 +3863,19 @@ function busPickFill(pre) {
   if (!q) { box.innerHTML = ''; return; }
   const L = busCands(pre).filter(x => normName(x.name).split(/\s+/).some(w => w.startsWith(q)) || (q.length >= 3 && normName(x.name).includes(q))).sort((a, b) => a.name.localeCompare(b.name, 'de')).slice(0, 8);
   box.innerHTML = L.length ? L.map(x => '<button type="button" class="pickrow" data-pick="' + esc(x.uid) + '" data-pickfor="' + pre + '">' + avatarHTML(x.uid, x.name, 26) + '<span>' + esc(x.name) + '</span><b>+ eintragen</b></button>').join('')
-    : '<div class="empty" style="padding:6px 0">Niemand gefunden – nur registrierte, nicht gesperrte Mitglieder, die noch nicht eingecheckt sind.</div>';
+    : '<div class="empty" style="padding:6px 0">' + busWhyNot(pre, q) + '</div>';
+}
+// Warum taucht jemand nicht auf? (Admins sehen alle Personen, Bus-Leiter nur die Liste)
+function busWhyNot(pre, q) {
+  const hit = k => normName(uname(k)).split(/\s+/).some(w => w.startsWith(q)) || (q.length >= 3 && normName(uname(k)).includes(q));
+  const done = pre === 'lb' ? (S.activeBus || []) : (S.dayBus || []);
+  const out = [];
+  done.filter(x => normName(x.name || '').split(/\s+/).some(w => w.startsWith(q))).forEach(x => { const d = pre === 'lb' ? S.activeDay : selDayObj(); out.push(esc(x.name) + ': schon eingecheckt' + (x.bus && d ? ' (' + esc(busName(d, x.bus)) + ')' : '') + ' um ' + fmtTime(x.t)); });
+  if (S.isAdmin) Object.keys(S.users || {}).filter(k => hit(k) && !done.some(x => x.uid === k)).forEach(k => { const u = S.users[k];
+    const why = goneSL(u) || u.deleted ? 'Konto gelöscht' : u.pending ? 'noch nicht freigeschaltet (Aufgaben → Neue Anmeldungen)' : u.blocked || u.slBlock ? 'gesperrt' : '';
+    if (why) out.push(esc(uname(k)) + ': ' + why); });
+  if (out.length) return out.slice(0, 4).join('<br>');
+  return 'Niemand gefunden. Angeboten werden registrierte, freigeschaltete, nicht gesperrte Mitglieder, die noch nicht eingecheckt sind.' + (pre === 'lb' && !S.isAdmin ? ' Wer sich erst nach dem Start registriert hat, kommt dazu, sobald ein Admin die App offen hat.' : '');
 }
 document.addEventListener('input', e => { const t = e.target; if (t.id === 'lbFind') busPickFill('lb'); if (t.id === 'abFind') busPickFill('ab'); });
 /* ---------- Check-in per Standort ----------
