@@ -813,7 +813,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '90';
+const APP_VERSION = '91';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -5285,7 +5285,7 @@ $('modalBody').addEventListener('click', e => {
     if (S.isSuper) {
       const t = {}; $('ordList').querySelectorAll('[data-ordt]').forEach(i => { const v = i.value.trim(); if (v && v !== i.dataset.ordt) t[i.dataset.ordt] = v; });
       const old = JSON.stringify(S.secTitles || {}); S.secTitles = Object.assign({}, S.secTitles || {}); Object.keys(S.secTitles).forEach(k => { if (keys.includes(k)) delete S.secTitles[k]; }); Object.assign(S.secTitles, t);
-      if (JSON.stringify(S.secTitles) !== old) { fire(F.setDoc(dref('config', 'sections'), { titles: S.secTitles, t: Date.now() }, { merge: true }), 'Überschriften'); logEv('system', 'ändert Überschriften im Admin-Bereich'); }
+      if (JSON.stringify(S.secTitles) !== old) { S.secCfg = Object.assign({}, S.secCfg || {}, { titles: S.secTitles, t: Date.now() }); fire(F.setDoc(dref('config', 'sections'), S.secCfg), 'Überschriften'); logEv('system', 'ändert Überschriften im Admin-Bereich'); }
     }
     closeModal(); renderAdmin(); toast('Gespeichert');
   }

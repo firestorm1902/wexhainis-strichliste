@@ -445,13 +445,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 90**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 90 auf 91):
-- in `index.html`: `const APP_VERSION = '90';`
-- in `sw.js`: `const VERSION = 'strichliste-v90';`
+Aktuell ist **Version 91**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 91 auf 92):
+- in `index.html`: `const APP_VERSION = '91';`
+- in `sw.js`: `const VERSION = 'strichliste-v91';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 90“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 91“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
