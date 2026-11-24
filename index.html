@@ -225,6 +225,20 @@ input.n{min-width:3em}
 .busqr{background:#fff;border-radius:16px;padding:14px;max-width:340px;margin:8px auto}.busqr svg{display:block;width:100%;height:auto}
 .businfo{text-align:center;font-size:1rem;margin:4px 0 8px;position:relative}.businfo i{display:block;height:4px;background:var(--wy);border-radius:2px;margin:6px auto 0;max-width:340px;transform-origin:left}
 @keyframes busbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.flow{display:flex;align-items:stretch;gap:3px;margin:10px 0 4px;padding:2px 0}
+.flowstep{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;border:1.5px solid var(--line);border-radius:12px;background:var(--white);color:var(--ink);font:inherit;padding:7px 4px;cursor:pointer;text-align:center}
+.flowstep b{font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.flowstep small{font-size:.64rem;color:var(--mu);line-height:1.15}
+.flowstep .fi{font-size:1.05rem;line-height:1}
+.flowstep .fn{width:1.6em;height:1.6em;border-radius:50%;display:grid;place-items:center;background:var(--line);font-weight:800;font-size:.8rem}
+.flowstep.done .fn{background:#2e7d32;color:#fff}.flowstep.done{opacity:.8}
+.flowstep.next{border-color:var(--wy);box-shadow:0 0 0 2px var(--wy)}.flowstep.next .fn{background:var(--wy);color:#141414}
+.flowarr{display:none}
+.flownext{font-size:.82rem;color:var(--mu);margin-bottom:6px}
+.danger{border:2px solid var(--pen);border-radius:12px;padding:10px 12px;margin-top:12px}.danger>b{color:var(--pen)}
+.admfind{position:relative}.admfind input{width:100%;padding:7px 10px;font-size:.9rem}
+.admqres{position:absolute;left:0;right:0;top:100%;z-index:40;background:var(--bg);border-radius:0 0 12px 12px;box-shadow:0 10px 24px rgba(0,0,0,.3);max-height:50vh;overflow:auto}
+.admqres:empty{display:none}.admqres .pickrow{padding:9px 10px}
+.admmore{justify-content:center;margin:10px 0}
 .chklist{display:flex;flex-direction:column;border-top:1px solid var(--line)}
 .chkrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
 .chkrow.low{background:rgba(198,40,40,.08)}
@@ -833,7 +847,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '97';
+const APP_VERSION = '98';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4030,6 +4044,28 @@ async function buildBusReport() {
     ['Ausfahrten mit Check-in', anw.rows.length], ['Personen eingecheckt', anw.people.filter(x => x.in.length).length], ['Check-ins gesamt', anw.rows.reduce((a, r) => a + r.n, 0)]];
   return XL.build([{ name: 'Übersicht', rows: ov, widths: [32, 22] }].concat(anwSheets(anw, H, D), [{ name: 'Alle Check-ins', rows: bc, widths: [12, 22, 12, 24, 9, 26, 12], freeze: 1, filter: 1 }]));
 }
+/* ---------- Der Tag als Ablauf: ① Einladen → ② Freigeben → ③ Läuft → ④ Zurückzählen → ⑤ Abgleich & Abschließen ---------- */
+function dayFlow(day) {
+  const sc = S.dayScansFor === day.id ? S.dayScans : [], load = day.load || {}, cnt = day.count || {};
+  const loaded = Object.keys(load).filter(k => load[k] > 0), counted = loaded.filter(k => cnt[k] != null);
+  const mm = mustMissing(day), act = day.id === S.active && !day.closed;
+  const st = [
+    { k: 'Mitnehmen und zurückzählen', ic: '⬆️', t: 'Einladen', done: loaded.length > 0 && !mm.drinks.length && !mm.items.length, info: loaded.length ? loaded.reduce((a, k) => a + load[k], 0) + ' Fl.' + (mm.drinks.length || mm.items.length ? ' · fehlt noch' : '') : 'noch nichts', mode: 'load' },
+    { k: 'Tag', ic: '🔓', t: 'Freigeben', done: act || day.closed || sc.length > 0, info: act ? 'freigegeben' : day.closed ? 'war frei' : 'noch nicht' },
+    { k: 'Buchungen dieses Tages', ic: '🍺', t: 'Läuft', done: day.closed || counted.length > 0, info: sc.length + ' gebucht' },
+    { k: 'Mitnehmen und zurückzählen', ic: '⬇️', t: 'Zählen', done: loaded.length > 0 && counted.length === loaded.length, info: loaded.length ? counted.length + '/' + loaded.length + ' gezählt' : '–', mode: 'count' },
+    { k: 'Abgleich', ic: '🏁', t: 'Abschluss', done: !!day.closed, info: day.closed ? 'fertig' : 'offen' }
+  ];
+  const next = st.findIndex(x => !x.done);
+  return '<div class="flow" role="list">' + st.map((x, i) => '<button type="button" role="listitem" class="flowstep' + (x.done ? ' done' : '') + (i === next ? ' next' : '') + '" data-flow="' + i + '" data-flowsec="' + esc(x.k) + '"' + (x.mode ? ' data-flowmode="' + x.mode + '"' : '') + '>' +
+    '<span class="fn">' + (x.done ? '✓' : i + 1) + '</span><span class="fi" aria-hidden="true">' + x.ic + '</span><b>' + x.t + '</b><small>' + esc(x.info) + '</small></button>').join('<i class="flowarr">›</i>') + '</div>' +
+    (next >= 0 ? '<div class="flownext">Als Nächstes: <b>' + st[next].t + '</b></div>' : '<div class="flownext">Alles erledigt 👍</div>');
+}
+$('adminBody').addEventListener('click', e => {
+  const f = e.target.closest('[data-flowsec]'); if (!f) return;
+  if (f.dataset.flowmode && typeof chkMode !== 'undefined') chkMode = f.dataset.flowmode;
+  admGoto(f.dataset.flowsec, S.selDay);
+});
 /* ---------- Ein-/Auschecken per Knopf (Scannen ist nur noch die Alternative) ----------
    Modus „Einladen“ ändert days.load, „Übrig zählen“ days.count. Pro Getränk: −1, +1 und ein Knopf pro Gebinde. */
 let chkMode = 'load';
@@ -4215,6 +4251,7 @@ let newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' }
 
 function setView(v) {
   if (cam.box === boxMain) camStop();
+  if (v === 'admin' && $('v-admin').hidden && typeof admTabAuto !== 'undefined') admTabAuto = true; // beim Öffnen: Aufgaben oder Tag
   $('v-scan').hidden = v !== 'scan'; $('v-admin').hidden = v !== 'admin';
   $('backBtn').hidden = v !== 'admin';
   if (v === 'admin') renderAdmin(); else renderScan();
@@ -4317,7 +4354,7 @@ function renderAdmin() {
   h += '<section><h2>Tag</h2>';
   if (S.days.length) {
     h += '<div class="row" style="margin-top:0"><select data-sel="day" style="flex:1">' + S.days.map(d => '<option value="' + d.id + '"' + (d.id === S.selDay ? ' selected' : '') + '>' + esc(dayLabel(d)) + (d.id === S.active && !d.closed ? ' (freigegeben)' : '') + (d.closed ? ' (abgeschlossen)' : '') + '</option>').join('') + '</select>' +
-      '<button class="b" data-act="toggleNewDay">Neuer Tag</button></div>';
+      '<button class="b" data-act="toggleNewDay">Neuer Tag</button></div>' + (day ? dayFlow(day) : '');
   }
   if ((showNewDay || !S.days.length) && !RO) {
     const pv = S.days.find(d => d.date <= todayISO());
@@ -4415,8 +4452,8 @@ function renderAdmin() {
   if (S.products.length) h += lagerSection();
   if (S.days.length) h += undoAllSection();
   if (S.days.length) h += anwSection();
-  if (S.days.length > 1 && !RO) {
-    h += missSection();
+  if (S.days.length > 1 && (!RO || boardSees('Zu wenig gebucht'))) h += missSection();
+  if (S.days.length > 1 && (!RO || boardSees('Alle Tage'))) {
     h += '<section class="daylist"><h2>Alle Tage</h2>' + S.days.map(d => {
       const o = overview && overview[d.id];
       return '<div class="rw"><span>' + fmtDate(d.date) + '</span><span>' + esc(d.place || '–') + '</span><small>' + (o == null ? '' : o + ' gebucht') + '</small>' + (d.id === S.active && !d.closed ? '<span class="tag act">freigegeben</span>' : d.closed ? '<span class="tag cls">fertig</span>' : '') + '<button class="b sm" data-act="pickDay" data-id="' + d.id + '">Öffnen</button></div>';
@@ -4470,15 +4507,17 @@ function renderAdmin() {
     ('Notification' in window && Notification.permission !== 'granted' ? '<button class="b sm" data-act="notifyPerm">Warnungen aufs Handy erlauben</button>' : '') +
     (S.isSuper ? '<button class="b sm" data-act="eggsToggle">Easter Eggs: ' + (eggsOn() ? 'an' : 'aus') + '</button><button class="b sm" data-act="recount">Zähler neu berechnen</button>' : '') +
     (S.isSuper && S.dsumDenied ? '<div class="note bad" style="flex-basis:100%">Die Firebase-Regeln sind veraltet: Die tägliche Zählerprüfung ist ausgesetzt. Bitte <b>firestore.rules</b> neu in die Firebase-Konsole einfügen und veröffentlichen.</div>' : '') +
-    '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button>' + (S.isSuper ? '<button class="b sm" data-act="restore">Backup importieren</button>' : '') +
-    (day && S.isSuper ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') +
-    (S.isSuper ? '<button class="b sm dng" data-act="resetToggle">Statistiken zurücksetzen</button>' : '') + '</div>' +
+    '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button></div>' +
+    backupBox() +
+    (S.isSuper ? '<div class="danger"><b>⚠️ Vorsicht – kann nicht rückgängig gemacht werden</b><div class="row" style="margin-top:6px"><button class="b sm" data-act="restore">Backup importieren</button>' +
+      (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') +
+      '<button class="b sm dng" data-act="resetToggle">Statistiken zurücksetzen</button></div>' : '') +
     (S.isSuper && showReset ? '<div class="grid2" style="margin-top:10px;border:2px solid var(--pen);border-radius:12px;padding:12px;background:var(--white)">' +
       '<div class="full" style="font-size:.88rem">Löscht alle Easter-Egg-Zähler (Gruppe und Personen, heute und seit Beginn), alle Easter-Egg-Verläufe, Sammelalben und Bestenlisten. Danach können alle Easter Eggs neu ausgelöst werden. Das Protokoll bleibt erhalten.</div>' +
       '<label class="chk full"><input type="checkbox" id="rsData"> Auch alle Buchungen und Tage löschen</label>' +
       '<label class="f full">Zur Bestätigung dein Passwort<input id="rsPw" type="password" autocomplete="current-password"></label>' +
       '<div class="full row" style="margin-top:0"><button class="b dng" data-act="resetGo">Endgültig zurücksetzen</button><button class="b" data-act="resetToggle">Abbrechen</button></div></div>' : '') +
-    backupBox() +
+    (S.isSuper ? '</div>' : '') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + ' (Abmelden über „Scannen“). „Backup importieren“ liest auch ältere Backups und Daten aus der Offline-Version.</div></section>';
   const navX = el.querySelector('.admnav-in') ? el.querySelector('.admnav-in').scrollLeft : 0;
   const y0 = window.scrollY; // Neu-Zeichnen darf die Seite nicht verschieben (z. B. beim Tippen im Abgleich)
@@ -4664,7 +4703,7 @@ $('adminBody').addEventListener('change', e => {
 
 const ROLE_LABEL = { '': 'Mitglied', admin: 'Getränke-Admin', vorstand: 'Vorstand' };
 // Vorstand: alles nur lesen – Eingaben werden zu Text, Knöpfe außer Excel verschwinden
-const RO_ACTS = ['xlAll', 'xlMonth', 'xlDay', 'xlGo', 'missCheck', 'pickDay', 'undoAllLoad', 'undoAllPer', 'anwLoad', 'anwPer', 'anwXl'];
+const RO_ACTS = ['xlAll', 'xlMonth', 'xlDay', 'xlGo', 'missCheck', 'pickDay', 'undoAllLoad', 'undoAllPer', 'anwLoad', 'anwPer', 'anwXl', 'overview'];
 function readOnly(el) {
   el.querySelectorAll('button').forEach(b => { if (!RO_ACTS.includes(b.dataset.act)) b.remove(); });
   el.querySelectorAll('input,select,textarea').forEach(x => {
@@ -5525,6 +5564,10 @@ const TAB_OF = { 'Neue Anmeldungen': 'todo', 'Korrekturanträge': 'todo', 'Lösc
   'Personen': 'people', 'Gruppen': 'people', 'Neu registriert': 'people', 'Datenschutz-Bestätigungen': 'people',
   'Einstellungen': 'set', 'Fasnets-Titel': 'set', 'Easter Eggs verwalten': 'set', 'Partymodus': 'set', 'Daten': 'set' };
 const tabOf = k => TAB_OF[k] || 'set';
+const ADM_MORE = ['Partymodus', 'Fasnets-Titel', 'Easter Eggs verwalten'];
+let admMore = false;
+const BOARD_OPTIN = ['Zu wenig gebucht', 'Alle Tage']; // Vorstand sieht sie nur, wenn der Super-Admin sie freigibt
+const boardSees = k => !!(S.secCfg && Array.isArray(S.secCfg.boardExtra) && S.secCfg.boardExtra.includes(k));
 const KEEP_EMPTY = ['Getränke', 'Personen', 'Gruppen', 'Buchungen dieses Tages', 'Bus-Check-in'];
 let admTab = null; try { admTab = localStorage.getItem('strichliste_admtab'); } catch (e) {}
 function setAdmTab(t) { admTab = t; try { localStorage.setItem('strichliste_admtab', t); } catch (e) {} }
@@ -5586,7 +5629,7 @@ function adminNav(el, navX) {
   const asks = (S.asks || []).filter(a => a.answer && !a.booked && a.by === (S.user && S.user.uid));
   const todoN = (byTab.todo || []).reduce((a, x) => a + (+((x.firstElementChild.textContent.match(/\((\d+)\)\s*$/) || [])[1]) || 0), 0) + asks.length;
   const tabs = ADM_TABS.filter(([t]) => t === 'todo' ? !RO_now() : (byTab[t] || []).length);
-  if (admTabAuto) { admTabAuto = false; if (todoN && !RO_now()) admTab = 'todo'; }
+  if (admTabAuto) { admTabAuto = false; admTab = todoN && !RO_now() ? 'todo' : 'day'; }
   if (!tabs.some(([t]) => t === admTab)) admTab = tabs.some(([t]) => t === 'day') ? 'day' : (tabs[0] || [])[0];
   if (admTab === 'todo') {
     const box = document.createElement('section'); box.className = 'todo-sum';
@@ -5599,7 +5642,9 @@ function adminNav(el, navX) {
       : '<div class="note ok">Alles erledigt – keine offenen Aufgaben. 👍</div>';
     el.prepend(box);
   }
-  secs.forEach(x => { x.hidden = tabOf(x.firstElementChild.dataset.adm) !== admTab; });
+  secs.forEach(x => { const k = x.firstElementChild.dataset.adm; x.hidden = tabOf(k) !== admTab || (!admMore && ADM_MORE.includes(k)); });
+  const moreN = secs.filter(x => tabOf(x.firstElementChild.dataset.adm) === admTab && ADM_MORE.includes(x.firstElementChild.dataset.adm)).length;
+  if (moreN) { const mb = document.createElement('div'); mb.className = 'row admmore'; mb.innerHTML = '<button class="b sm" data-admmore>' + (admMore ? '▴ Weniger' : '▾ Mehr … (' + moreN + ': ' + secs.filter(x => ADM_MORE.includes(x.firstElementChild.dataset.adm)).map(x => esc(secTitle(x.firstElementChild.dataset.adm) || x.firstElementChild.dataset.adm)).join(', ') + ')') + '</button>'; const vis = secs.filter(x => !x.hidden), dat = vis.find(x => x.firstElementChild.dataset.adm === 'Daten'); if (dat) dat.before(mb); else (vis.pop() || el.lastElementChild).after(mb); }
   const allSecs = secs; secs = secs.filter(x => !x.hidden);
   const items = secs.map((sec, i) => {
     const h2 = sec.firstElementChild, k = h2.dataset.adm, open = admOpen(k);
@@ -5610,9 +5655,10 @@ function adminNav(el, navX) {
   });
   const nav = document.createElement('nav'); nav.className = 'admnav'; nav.setAttribute('aria-label', 'Admin-Bereiche');
   const tabBar = '<div class="admtabs" role="tablist">' + tabs.map(([t, l]) => '<button type="button" role="tab" aria-selected="' + (t === admTab) + '" class="admtab' + (t === admTab ? ' on' : '') + '" data-admtab="' + t + '">' + l + (t === 'todo' && todoN ? ' <em>' + todoN + '</em>' : '') + '</button>').join('') + '</div>';
-  nav.innerHTML = tabBar + (secs.length > 1 ? '<div class="admnav-in">' + items.join('') + '</div>' : '') + '<div class="admnav-all"><button class="b sm" data-admord="1">⇅ Anordnen' + (hid.length ? ' (' + hid.length + ' ausgeblendet)' : '') + '</button><button class="b sm" data-admall="1">Alle auf</button><button class="b sm" data-admall="0">Alle zu</button></div>';
+  nav.innerHTML = tabBar + '<div class="admfind"><input id="admQ" placeholder="🔎 Suchen: Bereich, Getränk, Person, Tag …" autocomplete="off" enterkeyhint="search"><div id="admQRes" class="admqres"></div></div>' + (secs.length > 1 ? '<div class="admnav-in">' + items.join('') + '</div>' : '') + '<div class="admnav-all"><button class="b sm" data-admord="1">⇅ Anordnen' + (hid.length ? ' (' + hid.length + ' ausgeblendet)' : '') + '</button><button class="b sm" data-admall="1">Alle auf</button><button class="b sm" data-admall="0">Alle zu</button></div>';
   el.prepend(nav);
   { const ni = nav.querySelector('.admnav-in'); if (ni) ni.scrollLeft = navX || 0; }
+  { const q = $('admQ'); if (q) { q.value = admQ; if (admQFocus) { q.focus({ preventScroll: true }); try { q.setSelectionRange(admQ.length, admQ.length); } catch (e) {} } if (admQ) admFindFill(); } }
 }
 function ordHTML() {
   const L = admSeen.slice();
@@ -5620,7 +5666,7 @@ function ordHTML() {
     (S.isSuper ? '<p style="font-size:.85rem;color:var(--mu)">„Admins“ = für die Getränke-Admins sichtbar, „Vorstand“ = für den Vorstand sichtbar (immer nur lesend, Excel-Export geht). „Als Standard für alle“ speichert diese Reihenfolge für alle, die keine eigene haben.</p>' : '') +
     '<div id="ordList">' + L.map((k, i) => '<div class="ordrow' + (admHidden.includes(k) ? ' off' : '') + '" data-k="' + esc(k) + '"><label class="ordshow" title="anzeigen"><input type="checkbox" data-ordshow' + (admHidden.includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' anzeigen"><small>' + (S.isSuper ? 'ich' : 'zeigen') + '</small></label>' +
       (S.isSuper ? '<label class="ordshow" title="für alle Admins"><input type="checkbox" data-ordall' + (secAllHidden().includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' für alle Admins"><small>Admins</small></label>' +
-        '<label class="ordshow" title="für den Vorstand (nur lesen)"><input type="checkbox" data-ordbd' + (secBoardHidden().includes(k) ? '' : ' checked') + ' aria-label="' + esc(k) + ' für den Vorstand"><small>Vorstand</small></label>' : '') + '<span class="ordbtns"><button type="button" class="b sm" data-ord="up" aria-label="nach oben"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="b sm" data-ord="down" aria-label="nach unten"' + (i < L.length - 1 ? '' : ' disabled') + '>↓</button></span>' +
+        '<label class="ordshow" title="für den Vorstand (nur lesen)"><input type="checkbox" data-ordbd' + ((BOARD_OPTIN.includes(k) ? boardSees(k) : !secBoardHidden().includes(k)) ? ' checked' : '') + ' aria-label="' + esc(k) + ' für den Vorstand"><small>Vorstand</small></label>' : '') + '<span class="ordbtns"><button type="button" class="b sm" data-ord="up" aria-label="nach oben"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="b sm" data-ord="down" aria-label="nach unten"' + (i < L.length - 1 ? '' : ' disabled') + '>↓</button></span>' +
       (S.isSuper ? '<label class="f ordname"><small>' + esc(k) + '</small><input data-ordt="' + esc(k) + '" maxlength="40" value="' + esc(secTitle(k)) + '" placeholder="' + esc(k) + '"></label>' : '<span class="ordname">' + esc(secTitle(k) || k) + '</span>') + '</div>').join('') + '</div>' +
     '<div class="row"><button class="b pri" id="ordSave">Speichern</button>' + (S.isSuper ? '<button class="b" id="ordDef">Speichern + als Standard für alle</button>' : '') + '<button class="b" id="ordReset">' + (secDefOrder().length ? 'Auf Standard zurücksetzen' : 'Alles zurücksetzen') + '</button></div>';
 }
@@ -5638,10 +5684,11 @@ $('modalBody').addEventListener('click', e => {
     const keys = [...$('ordList').children].map(r => r.dataset.k);
     if (S.isSuper) {
       const allHid = [...$('ordList').children].filter(r => { const c = r.querySelector('[data-ordall]'); return c && !c.checked; }).map(r => r.dataset.k).concat(secAllHidden().filter(k => !keys.includes(k)));
-      const bdHid = [...$('ordList').children].filter(r => { const c = r.querySelector('[data-ordbd]'); return c && !c.checked; }).map(r => r.dataset.k).concat(secBoardHidden().filter(k => !keys.includes(k)));
-      const cfg = { hidden: allHid, hiddenBoard: bdHid };
+      const bdHid = [...$('ordList').children].filter(r => { const c = r.querySelector('[data-ordbd]'); return c && !c.checked && !BOARD_OPTIN.includes(r.dataset.k); }).map(r => r.dataset.k).concat(secBoardHidden().filter(k => !keys.includes(k)));
+      const bdExtra = [...$('ordList').children].filter(r => { const c = r.querySelector('[data-ordbd]'); return c && c.checked && BOARD_OPTIN.includes(r.dataset.k); }).map(r => r.dataset.k);
+      const cfg = { hidden: allHid, hiddenBoard: bdHid, boardExtra: bdExtra };
       if (e.target.id === 'ordDef') cfg.order = keys.concat(secDefOrder().filter(k => !keys.includes(k)));
-      if (JSON.stringify(allHid) !== JSON.stringify(secAllHidden()) || JSON.stringify(bdHid) !== JSON.stringify(secBoardHidden()) || cfg.order) {
+      if (JSON.stringify(allHid) !== JSON.stringify(secAllHidden()) || JSON.stringify(bdHid) !== JSON.stringify(secBoardHidden()) || JSON.stringify(bdExtra) !== JSON.stringify((S.secCfg || {}).boardExtra || []) || cfg.order) {
         S.secCfg = Object.assign({}, S.secCfg || {}, cfg);
         fire(F.setDoc(dref('config', 'sections'), Object.assign({}, cfg, { t: Date.now() }), { merge: true }), 'Bereiche für alle');
         logEv('system', (cfg.order ? 'legt Standard-Reihenfolge fest' : '') + (cfg.order && allHid.length ? ', ' : '') + (allHid.length ? 'blendet für Admins aus: ' + allHid.join(', ') : '') + (bdHid.length ? ' · für den Vorstand aus: ' + bdHid.join(', ') : ''));
@@ -5660,6 +5707,36 @@ $('modalBody').addEventListener('click', e => {
     closeModal(); renderAdmin(); toast('Gespeichert');
   }
   if (e.target.id === 'ordReset') { saveAdmOrder([]); saveAdmHidden([]); closeModal(); renderAdmin(); toast('Standard: alles sichtbar, ursprüngliche Reihenfolge'); }
+});
+/* Suche im Admin-Bereich: springt zum Bereich, Getränk, zur Person oder zum Tag */
+let admQ = '', admQFocus = false;
+const ADM_WORDS = { backup: 'Daten', sichern: 'Daten', csv: 'Daten', import: 'Daten', excel: 'Excel-Auswertung', auswertung: 'Excel-Auswertung', packliste: 'Mitnehmen und zurückzählen', einladen: 'Mitnehmen und zurückzählen', zählen: 'Mitnehmen und zurückzählen', bus: 'Bus-Check-in', check: 'Bus-Check-in', anwesen: 'Anwesenheit', lager: 'Lager', inventur: 'Lager', nachkaufen: 'Lager', mindest: 'Getränke', barcode: 'Getränke', preis: 'Getränke', rückgängig: 'Einstellungen', nachtmodus: 'Einstellungen', texte: 'Einstellungen', party: 'Partymodus', titel: 'Fasnets-Titel', egg: 'Easter Eggs verwalten', gruppe: 'Gruppen', sperr: 'Personen', u18: 'Personen', jugend: 'Personen', antrag: 'Korrekturanträge', nachricht: 'Posteingang', rückfrage: 'Abgleich', fehlt: 'Zu wenig gebucht', nachtragen: 'Buchung nachtragen', historie: 'Historie', protokoll: 'Historie' };
+function admFindFill() {
+  const box = $('admQRes'); if (!box) return;
+  const q = normName(admQ.trim()); if (q.length < 2) { box.innerHTML = ''; return; }
+  const out = [], has = k => !!document.querySelector('#adminBody h2[data-adm="' + k + '"]') || ADM_MORE.includes(k);
+  const keys = [...new Set(Object.keys(TAB_OF).concat(admSeen || []))];
+  keys.forEach(k => { const t = secTitle(k) || k; if ((normName(t).includes(q) || normName(k).includes(q)) && (admSeen || []).includes(k)) out.push({ ic: '📂', t, sub: 'Bereich', go: { sec: k } }); });
+  Object.keys(ADM_WORDS).forEach(w => { if ((w.startsWith(q) || q.startsWith(w)) && (admSeen || []).includes(ADM_WORDS[w]) && !out.some(o => o.go.sec === ADM_WORDS[w])) out.push({ ic: '📂', t: secTitle(ADM_WORDS[w]) || ADM_WORDS[w], sub: 'Bereich', go: { sec: ADM_WORDS[w] } }); });
+  S.products.filter(p => normName(p.name).includes(q)).slice(0, 5).forEach(p => out.push({ ic: '🍺', t: p.name, sub: 'Getränk', go: { sec: 'Getränke', open: p.id } }));
+  Object.keys(S.users || {}).filter(k => !goneSL(S.users[k]) && normName(S.users[k].name).includes(q)).slice(0, 5).forEach(k => out.push({ ic: '👤', t: S.users[k].name, sub: 'Person', go: { sec: 'Personen', open: 'u' + k } }));
+  S.days.filter(d => normName(d.place).includes(q) || (d.date || '').includes(admQ.trim()) || normName(fmtDate(d.date)).includes(q)).slice(0, 5).forEach(d => out.push({ ic: '📅', t: dayLabel(d), sub: 'Tag', go: { sec: 'Tag', day: d.id } }));
+  admFindFill.list = out.slice(0, 12);
+  box.innerHTML = out.length ? admFindFill.list.map((o, i) => '<button type="button" class="pickrow" data-admq="' + i + '"><span>' + o.ic + '</span><span>' + esc(o.t) + '</span><b>' + esc(o.sub) + ' ›</b></button>').join('') : '<div class="empty" style="padding:6px 0">Nichts gefunden.</div>';
+}
+document.addEventListener('input', e => { if (e.target.id === 'admQ') { admQ = e.target.value; admFindFill(); } });
+document.addEventListener('focusin', e => { if (e.target.id === 'admQ') admQFocus = true; });
+document.addEventListener('focusout', e => { if (e.target.id === 'admQ') admQFocus = false; });
+$('adminBody').addEventListener('click', e => {
+  const r = e.target.closest('[data-admq]');
+  if (r) {
+    const o = (admFindFill.list || [])[+r.dataset.admq]; if (!o) return;
+    admQ = ''; admQFocus = false; if (ADM_MORE.includes(o.go.sec)) admMore = true;
+    admGoto(o.go.sec, o.go.day);
+    if (o.go.open) setTimeout(() => { const d = document.querySelector('#adminBody details[data-k="' + o.go.open + '"]'); if (d) { d.open = true; const t = document.querySelector('header.top'); window.scrollTo({ top: d.getBoundingClientRect().top + scrollY - (t ? t.offsetHeight : 0) - 70, behavior: 'instant' }); } }, 400);
+    return;
+  }
+  if (e.target.closest('[data-admmore]')) { admMore = !admMore; renderAdmin(); return; }
 });
 $('adminBody').addEventListener('click', e => {
   const tb = e.target.closest('[data-admtab]'); if (tb) { setAdmTab(tb.dataset.admtab); renderAdmin(); window.scrollTo({ top: 0, behavior: 'instant' }); return; }

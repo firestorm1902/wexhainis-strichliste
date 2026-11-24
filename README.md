@@ -153,7 +153,13 @@ Auch Mitglieder haben oben neben dem Namen eine **🔔**. Sie zählt neue Meldun
 Gibt es im Admin-Bereich etwas zu tun, steht oben neben dem Namen eine **🔔 mit Zahl**: neue Anmeldungen, Löschanträge, offene Korrekturanträge, Antworten auf eigene Rückfragen und (Super-Admin) ungelesene Nachrichten. Antippen zeigt die Liste; ein Eintrag springt direkt in den passenden Bereich. **Später erinnern**: in 1, 3 oder 8 Stunden oder morgen früh – spätestens am nächsten Morgen um 8 Uhr meldet sich die Glocke wieder (mit Hinweis), solange noch etwas offen ist. Neue Aufgaben zeigt sie auch während der Pause sofort.
 
 ### Admin-Bereich: Reiter
-Der Admin-Bereich ist in Reiter aufgeteilt: **📥 Aufgaben** (neue Anmeldungen, Anträge, Löschanträge, Posteingang, Antworten auf Rückfragen – mit Zahl), **📅 Tag**, **🍺 Getränke** (mit Lager), **📊 Auswertung**, **👥 Personen** und **⚙️ Einstellungen**. Ist etwas offen, öffnet der Admin-Bereich mit „Aufgaben“, sonst mit dem zuletzt benutzten Reiter. Bereiche ohne Einträge („… (0)“) werden ausgeblendet. Die Glocke springt direkt in den richtigen Reiter. Der Vorstand sieht nur die Reiter mit Bereichen, die er sehen darf.
+Der Admin-Bereich ist in Reiter aufgeteilt: **📥 Aufgaben** (neue Anmeldungen, Anträge, Löschanträge, Posteingang, Antworten auf Rückfragen – mit Zahl), **📅 Tag**, **🍺 Getränke** (mit Lager), **📊 Auswertung**, **👥 Personen** und **⚙️ Einstellungen**. Ist etwas offen, öffnet der Admin-Bereich mit „Aufgaben“, sonst immer mit „Tag“. Bereiche ohne Einträge („… (0)“) werden ausgeblendet. Die Glocke springt direkt in den richtigen Reiter. Der Vorstand sieht nur die Reiter mit Bereichen, die er sehen darf.
+
+- **Suche:** Unter den Reitern steht ein Suchfeld. Es findet Bereiche (auch über Stichwörter wie „Backup“, „Packliste“, „Inventur“), Getränke, Personen und Tage. Ein Tipp auf einen Treffer springt hin und klappt das Getränk bzw. die Person gleich auf.
+- **Der Tag als Ablauf:** Im Bereich „Tag“ steht der Ablauf ① Einladen → ② Freigeben → ③ Läuft (x gebucht) → ④ Zählen → ⑤ Abschluss. Erledigte Schritte haben einen Haken, der nächste fällige ist gelb umrandet. Antippen springt zum passenden Bereich.
+- **Mehr …:** Selten Gebrauchtes (Partymodus, Fasnets-Titel, Easter Eggs verwalten) ist im Reiter „Einstellungen“ unter „Mehr …“ eingeklappt. Die Suche findet es trotzdem.
+- **Vorsicht-Block:** „Backup importieren“, „Diesen Tag löschen“ und „Statistiken zurücksetzen“ stehen nur für den Super-Admin ganz unten unter „Daten“ in einem rot umrandeten Block.
+- **Vorstand:** „Zu wenig gebucht“ und „Alle Tage“ sieht der Vorstand standardmäßig nicht. Der Super-Admin kann sie über „⇅ Anordnen“ mit dem Häkchen „Vorstand“ freigeben (nur lesen).
 
 ### Bereiche anordnen und umbenennen
 Im Admin-Bereich oben **⇅ Anordnen**: Jeder Admin legt die Reihenfolge der Bereiche für sich fest und blendet mit dem Häkchen „zeigen“ Bereiche aus, die er nicht braucht (gilt nur für ihn, auf allen seinen Geräten). Der Knopf zeigt, wie viele ausgeblendet sind; „Alles zurücksetzen“ holt alles zurück. Der Super-Admin kann dort zusätzlich die **Überschriften** für alle ändern (leer = Standard), mit dem Häkchen **„Admins“** Bereiche für die Getränke-Admins und mit **„Vorstand“** für den Vorstand ausblenden (der Vorstand sieht immer nur lesend, Excel-Export geht) und mit **„Speichern + als Standard für alle“** die Standard-Reihenfolge festlegen. Wer keine eigene Reihenfolge hat (oder „Auf Standard zurücksetzen“ tippt), bekommt diese.
@@ -460,13 +466,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 97**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 97 auf 98):
-- in `index.html`: `const APP_VERSION = '97';`
-- in `sw.js`: `const VERSION = 'strichliste-v97';`
+Aktuell ist **Version 98**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 98 auf 99):
+- in `index.html`: `const APP_VERSION = '98';`
+- in `sw.js`: `const VERSION = 'strichliste-v98';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 97“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 98“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
