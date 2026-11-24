@@ -325,7 +325,8 @@ service cloud.firestore {
     }
     match /busgeo/{id} {
       allow read, delete: if isAdmin();
-      allow create: if slActive()
+      // update: ein alter eigener Standort (z. B. nach Entfernen aus dem Check-in) darf überschrieben werden
+      allow create, update: if slActive()
         && request.resource.data.keys().hasOnly(['uid', 'day', 'bus', 'lat', 'lng', 't'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.day is string && request.resource.data.bus is string

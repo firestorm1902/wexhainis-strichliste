@@ -121,6 +121,8 @@ Admin → 📅 Tag → **Bus-Check-in**: Busse anlegen (z. B. „Bus 1“, „Bu
 - **Datenschutz:** Gespeichert wird, dass und wann jemand eingecheckt hat und in welchem Bus. Die Standorte sehen nur Admins; sie werden beim **Beenden** gelöscht. Der Datenschutzhinweis der App erklärt das.
 - **Tipp:** Den Check-in erst nach der Abfahrt starten – am Treffpunkt stehen auch Leute in der Nähe, die nicht mitfahren.
 - **Personensuche (ohne Handy dabei):** Die Liste wird beim Start gespeichert. Solange ein Admin die App offen hat, wird sie laufend ergänzt (neu Freigeschaltete kommen dazu, Gesperrte fliegen raus). Ist der Bus-Leiter selbst Admin, findet er sowieso alle freigeschalteten Mitglieder. Taucht jemand nicht auf, steht dort der Grund (z. B. „noch nicht freigeschaltet“, „gesperrt“, „schon eingecheckt (Bus 2)“).
+- **Standort klappt nicht?** „Ich bin im Bus“ probiert es bis zu 3-mal (sofort, nach 8 und nach 15 Sekunden) mit frischem Standort. Der Bus-Leiter teilt seinen Standort alle 15 Sekunden und bei jeder neuen Position; die Strichliste muss bei ihm offen und der Bildschirm an sein. Ist sein Standort ungenau (über 150 m), zeigt die App ihm einen Hinweis. Wer aus dem Check-in entfernt wurde, kann sich danach wieder per Standort einchecken (braucht die Regeln ab v103).
+- **Ohne Kamera:** Unter dem QR-Code steht ein 6-stelliger Code (wechselt mit dem QR-Code alle 20 Sekunden). Mitglieder tippen in der Strichliste auf **„Code eingeben“** und geben ihn ein – das zählt wie ein gescannter QR-Code.
 - Die Meldung „🚌 Eingecheckt“ steht 3 Minuten auf der Startseite. Danach steht der Check-in unter **Mein Konto → Meine Bus-Check-ins**.
 - Alles wird protokolliert und steht in der **Excel-Auswertung** (Blatt „Bus-Check-in“ mit Bus und Art; Übersicht „Im Bus eingecheckt“).
 - **Übersicht:** Admin → 📊 Auswertung → **Anwesenheit (Bus-Check-ins)**: pro Ausfahrt (wie viele im Bus, je Bus, wer gebucht hat ohne einzuchecken) und pro Person (bei wie vielen Ausfahrten dabei, Tage zum Aufklappen), wahlweise diese Saison oder alles; „Auffällig“ zeigt, wer mehrmals gebucht hat, ohne eingecheckt zu sein. **📄 Excel: nur Anwesenheit** lädt eine eigene Datei (Übersicht, pro Tag, pro Person, alle Check-ins). Die gesammelte Excel-Auswertung enthält dieselben Blätter „Anwesenheit pro Tag“ und „Anwesenheit pro Person“.
@@ -483,13 +485,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 101**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 101 auf 102):
-- in `index.html`: `const APP_VERSION = '101';`
-- in `sw.js`: `const VERSION = 'strichliste-v101';`
+Aktuell ist **Version 103**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 103 auf 104):
+- in `index.html`: `const APP_VERSION = '103';`
+- in `sw.js`: `const VERSION = 'strichliste-v103';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 101“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 103“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
