@@ -112,6 +112,9 @@ Admin → **Personen** → **„Für Strichliste sperren“** sperrt die Person 
 
 **„Aus Strichliste entfernen“** (Super-Admin) und **Anmeldung ablehnen** wirken ebenfalls nur hier (`slGone` + `slBlock`): Die Person verschwindet aus den Listen der Strichliste und kann nicht buchen; das Konto und andere Apps bleiben unberührt. Unter „Entfernte Konten“ lässt sich das rückgängig machen. **Konten löschen geht nur in WexSuperAdmin** – Löschanträge werden in der Strichliste nur angezeigt.
 
+### Ein- und Auschecken per Knopf
+Admin → Tag → **Mitnehmen und zurückzählen**: Umschalter **⬆️ Einladen** / **⬇️ Übrig zählen**, darunter jedes Getränk mit **−**, **+1** und Knöpfen für die Gebinde (z. B. „+Kasten 20“). Die Zahl zeigt den aktuellen Stand; Getränke unter dem Mindestbestand sind rot. Scannen (📷 Einladen / Rest zählen per Scan) geht weiterhin, ist aber nur noch die Alternative.
+
 ### Mindestens mitnehmen
 Admin → **Getränke** → bei jedem Getränk **„Mindestens mitnehmen (Flaschen)“**. Admin → **Mitnehmen und zurückzählen** → **Packliste bearbeiten**: Dinge, die immer mit müssen (Flaschenöffner, Becher, Kasse …), pro Tag zum Abhaken. Fehlt etwas, steht es rot im Bereich „Mitnehmen“, und die App fragt nach – beim Schließen des Einlade-Scanners und beim Freigeben des Tags.
 
@@ -445,13 +448,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 91**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 91 auf 92):
-- in `index.html`: `const APP_VERSION = '91';`
-- in `sw.js`: `const VERSION = 'strichliste-v91';`
+Aktuell ist **Version 92**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 92 auf 93):
+- in `index.html`: `const APP_VERSION = '92';`
+- in `sw.js`: `const VERSION = 'strichliste-v92';`
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 91“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 92“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

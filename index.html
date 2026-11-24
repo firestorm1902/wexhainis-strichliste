@@ -215,6 +215,15 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 input.n{min-width:3em}
 .mode{flex-wrap:wrap}.mode button{flex:1 1 auto;min-height:2.4rem;white-space:normal}
 .lgmode button{padding:8px 6px}
+.chklist{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.chkrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.chkrow.low{background:rgba(198,40,40,.08)}
+.chkname{display:flex;flex-direction:column;min-width:7rem;flex:1}.chkname small{color:var(--mu)}
+.chkbtns{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.chkbtns .b{min-width:46px;min-height:44px;padding:6px 10px;font-weight:700}
+.chkbtns .b.pk{font-size:.82rem;font-weight:600}
+.chkn{min-width:2.6em;text-align:center;font-size:1.25rem;font-weight:800}.chkn.bad{color:var(--pen)}
+.chkmode button{flex:1}
 .packl{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 8px}
 .lgday{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0}
 .lgtab td:nth-child(2){white-space:normal}
@@ -813,7 +822,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '91';
+const APP_VERSION = '92';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3697,6 +3706,36 @@ async function openSheet(opts) {
   const err = await camStart(boxSheet, onSheetCode);
   if (err) boxSheet.ph.innerHTML = err;
 }
+/* ---------- Ein-/Auschecken per Knopf (Scannen ist nur noch die Alternative) ----------
+   Modus „Einladen“ ändert days.load, „Übrig zählen“ days.count. Pro Getränk: −1, +1 und ein Knopf pro Gebinde. */
+let chkMode = 'load';
+function chkBlock(day) {
+  if (!day) return '';
+  const key = chkMode, cur = day[key] || {}, prods = S.products.slice().sort((a, b) => (b.must || 0) - (a.must || 0) || a.name.localeCompare(b.name, 'de'));
+  if (!prods.length) return '<div class="empty">Noch keine Getränke angelegt (Reiter „Getränke“).</div>';
+  return '<div class="mode chkmode" style="display:flex;margin:4px 0 6px">' + [['load', '⬆️ Einladen'], ['count', '⬇️ Übrig zählen']].map(([v, l]) => '<button type="button" data-chkm="' + v + '" class="' + (chkMode === v ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    '<div class="chklist">' + prods.map(p => {
+      const v = cur[p.id], n = v == null ? 0 : v, need = key === 'load' && p.must > 0 ? p.must : 0, low = need && n < need;
+      const packs = (p.packs || []).filter(k => k.n > 1).sort((a, b) => b.n - a.n).slice(0, 2);
+      return '<div class="chkrow' + (low ? ' low' : '') + '"><div class="chkname"><b>' + esc(p.name) + '</b><small>' + (key === 'count' ? (v == null ? 'noch nicht gezählt' : 'übrig') : 'mitgenommen') + (need ? ' · mind. ' + need : '') + (key === 'count' && (day.load || {})[p.id] ? ' · mit ' + day.load[p.id] : '') + '</small></div>' +
+        '<div class="chkbtns"><button type="button" class="b" data-chk="' + p.id + '" data-d="-1" aria-label="' + esc(p.name) + ' minus 1"' + (n ? '' : ' disabled') + '>−</button>' +
+        '<span class="chkn' + (low ? ' bad' : '') + '">' + (key === 'count' && v == null ? '–' : n) + '</span>' +
+        '<button type="button" class="b" data-chk="' + p.id + '" data-d="1" aria-label="' + esc(p.name) + ' plus 1">+1</button>' +
+        packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="' + k.n + '" aria-label="' + esc(p.name) + ' plus ' + esc(k.l) + '">+' + esc(k.l) + ' ' + k.n + '</button>').join('') + '</div></div>';
+    }).join('') + '</div>';
+}
+$('adminBody').addEventListener('click', e => {
+  const m = e.target.closest('[data-chkm]'); if (m) { chkMode = m.dataset.chkm; renderAdmin(); return; }
+  const b = e.target.closest('[data-chk]'); if (!b || !S.isAdmin) return;
+  const day = selDayObj(); if (!day) return;
+  const key = chkMode, pid = b.dataset.chk, cur = (day[key] || {})[pid];
+  let d = +b.dataset.d; if ((cur || 0) + d < 0) d = -(cur || 0);
+  if (!d && cur != null) return;
+  if (cur == null && key === 'count') setCount(day.id, pid, Math.max(0, d)); else incField(day.id, key, pid, d);
+  day[key] = Object.assign({}, day[key], { [pid]: Math.max(0, (cur || 0) + d) }); // sofort anzeigen, Mehrfachtipps rechnen richtig
+  logEv('einladen', (key === 'count' ? 'Rest gezählt: ' : 'Einladen: ') + (d > 0 ? '+' : '−') + Math.abs(d) + ' ' + pname(pid) + ' → ' + day[key][pid], day.id);
+  renderAdmin();
+});
 /* ---------- Mindestens mitnehmen: pro Getränk (products.must) und eine Packliste (config/packlist) ----------
    Beim Einladen (Fertig), beim Freigeben und im Bereich „Mitnehmen“ weist die App auf Vergessenes hin. Abgehakt wird pro Tag (days.packed). */
 const packItems = () => ((S.packlist || {}).items || []).filter(Boolean);
@@ -3979,8 +4018,8 @@ function renderAdmin() {
     h += overSection(day, scans);
     if ((S.dayDrivers || []).length) h += '<div class="note">Fahrer heute: <b>' + S.dayDrivers.map(x => esc(uname(x.uid) !== '(Person)' ? uname(x.uid) : x.name || '')).join(', ') + '</b></div>';
     if (!RO && canSee('eggs')) h += eggPreview(day, scans);
-    if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2>' + mustBlock(day) + '<div class="row" style="margin-top:0">' +
-      '<button class="b pri grow" data-act="sheetLoad">Einladen per Scan</button><button class="b grow" data-act="sheetCount">Rest zählen per Scan</button></div>' + packEditor() + '</section>';
+    if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2>' + mustBlock(day) + chkBlock(day) +
+      '<div class="row" style="margin-top:8px"><button class="b sm" data-act="sheetLoad">📷 Einladen per Scan</button><button class="b sm" data-act="sheetCount">📷 Rest zählen per Scan</button></div>' + packEditor() + '</section>';
     h += '<section><h2>Abgleich</h2>' + (rows.length ? '<div class="tw"><table><thead><tr><th>Getränk</th><th>Mit</th><th>Gebucht</th><th>Soll</th><th>Übrig</th><th>Diff.</th></tr></thead><tbody>' +
       rows.map(r => '<tr><td>' + esc(r.p.name) + '</td><td><input class="n" inputmode="numeric" data-load="' + r.p.id + '" value="' + r.l + '" aria-label="Mitgenommen ' + esc(r.p.name) + '"></td><td>' + r.u + '</td><td class="' + (lowLevel(r) ? 'bad' : '') + '">' + r.s + (lowLevel(r) ? ' <span class="lowtag">' + (lowLevel(r) === 'leer' ? 'leer' : 'knapp') + '</span>' : '') + '</td>' +
         '<td><input class="n" inputmode="numeric" data-cnt="' + r.p.id + '" value="' + (r.c == null ? '' : r.c) + '" aria-label="Übrig ' + esc(r.p.name) + '"></td>' +
