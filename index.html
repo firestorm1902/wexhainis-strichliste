@@ -249,6 +249,10 @@ input.n{min-width:3em}
 .fbbar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}.fbbar i{display:block;height:100%;border-radius:99px}
 .tdbar{max-width:640px;margin:0 auto 12px;padding:9px 14px;border-radius:12px;background:#3b2a05;color:#ffe9a8;border:1.5px solid var(--wy);font-size:.88rem;width:calc(100% - 32px)}.tdbar[hidden]{display:none}.tdbar .b{margin-left:6px}
 .tdnote{border-left-color:var(--wy)}#adminBody [data-tdlock]{opacity:.45;cursor:not-allowed}
+.progov{z-index:120}.progbar{height:12px;border-radius:99px;background:var(--line);overflow:hidden;margin:10px 0 6px}
+.progbar i{display:block;height:100%;width:0;background:var(--wy);border-radius:99px;transition:width .25s}.progbar i.bad{background:var(--pen)}
+.progbar i.busy{width:30%!important;animation:progbusy 1.1s ease-in-out infinite alternate}@keyframes progbusy{from{margin-left:0}to{margin-left:70%}}
+#progN{color:var(--mu)}
 .bc-txt{font-size:1.08rem!important;white-space:pre-line}
 .flow{display:flex;align-items:stretch;gap:3px;margin:10px 0 4px;padding:2px 0}
 .flowstep{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;border:1.5px solid var(--line);border-radius:12px;background:var(--white);color:var(--ink);font:inherit;padding:7px 4px;cursor:pointer;text-align:center}
@@ -875,7 +879,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.8.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.8.2'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2740,12 +2744,23 @@ document.addEventListener('change', e => { const c = e.target.closest && e.targe
 async function resetWipe(K) {
   const cols = new Set(), cfg = new Set(); let n = 0;
   RESET_PARTS.forEach(x => { if (K.has(x.k)) { (x.cols || []).forEach(c => cols.add(c)); (x.cfg || []).forEach(c => cfg.add(c)); } });
+  // erst zählen (für den Fortschrittsbalken), dann löschen
+  const order = [...cols].sort((x, y) => (y === 'log') - (x === 'log')), found = {};
+  prog.set('Zähle, was gelöscht wird …', 0, 0);
+  for (const c of order) { try { found[c] = (await F.getDocs(col(c))).docs; } catch (err) { found[c] = err; } }
+  const total = order.reduce((a, c) => a + (Array.isArray(found[c]) ? found[c].length : 0), 0) + cfg.size;
+  const label = c => (BACKUP_COLS.find(x => x[0] === c) || [c, ({ gstats: 'Zähler', gboard: 'Bestenliste', live: 'Gruppen-Meldungen', dsum: 'Tagesprüfung', dused: 'Buchungsgrenze', busgeo: 'Standorte', busloc: 'Standorte', buscode: 'Bus-Codes', bcread: 'Lesebestätigungen' })[c] || c])[1];
+  prog.set('Lösche …', 0, total);
   // Historie zuerst: fehlen die neuen Regeln, bricht es ab, bevor etwas anderes gelöscht ist
-  for (const c of [...cols].sort((x, y) => (y === 'log') - (x === 'log'))) {
-    try { const snap = await F.getDocs(col(c)); n += snap.docs.length; await commitInChunks(snap.docs.map(d => ({ ref: d.ref, del: true }))); }
+  for (const c of order) {
+    try {
+      if (!Array.isArray(found[c])) throw found[c];
+      const docs = found[c], base = n; prog.set('Lösche ' + label(c) + ' …', n, total);
+      await commitInChunks(docs.map(d => ({ ref: d.ref, del: true })), k => prog.set(null, base + k, total)); n += docs.length;
+    }
     catch (err) { console.warn(c, err); if (err && err.code === 'permission-denied' && c === 'log') throw new Error('Historie: keine Berechtigung – sind die neuen Firebase-Regeln (v101) veröffentlicht?'); if (!(err && err.code === 'permission-denied' && ['busloc', 'buscode'].includes(c))) throw err; }
   }
-  if (cfg.size) { await commitInChunks([...cfg].map(id => ({ ref: dref('config', id), del: true }))); n += cfg.size; }
+  if (cfg.size) { prog.set('Lösche Einstellungen …', n, total); await commitInChunks([...cfg].map(id => ({ ref: dref('config', id), del: true }))); n += cfg.size; prog.set(null, n, total); }
   const upd = { dirty: F.deleteField(), recountFull: F.deleteField() };
   if (K.has('stats')) upd.epoch = Date.now();
   if (K.has('data')) upd.active = null;
@@ -6228,13 +6243,39 @@ async function allScans() {
   return snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
 }
 const groupByDay = list => { const m = {}; list.forEach(s => { (m[s.day] = m[s.day] || []).push(s); }); return m; };
-async function commitInChunks(ops) {
-  for (let i = 0; i < ops.length; i += 400) {
+async function commitInChunks(ops, onStep) {
+  const N = onStep ? 100 : 400; // mit Fortschritt in kleineren Schritten, damit der Balken sichtbar läuft
+  for (let i = 0; i < ops.length; i += N) {
     const b = F.writeBatch(db);
-    ops.slice(i, i + 400).forEach(o => o.del ? b.delete(o.ref) : b.set(o.ref, o.data));
+    ops.slice(i, i + N).forEach(o => o.del ? b.delete(o.ref) : b.set(o.ref, o.data));
     await b.commit();
+    if (onStep) onStep(Math.min(ops.length, i + N));
   }
 }
+/* ---------- Fortschrittsanzeige für längere Lösch-Vorgänge ---------- */
+const prog = {
+  open(title) {
+    let el = $('progOv'); if (!el) { el = document.createElement('div'); el.id = 'progOv'; el.className = 'dlg progov'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); document.body.appendChild(el); }
+    el.innerHTML = '<div class="dlg-in"><h3 id="progT"></h3><p id="progL" aria-live="polite">Wird vorbereitet …</p><div class="progbar"><i id="progB"></i></div><small id="progN">&nbsp;</small><div class="dlg-btns" id="progBtns" hidden><button class="b pri" id="progOk">Fertig</button></div></div>';
+    $('progT').textContent = title; el.hidden = false; this.t0 = Date.now();
+    $('progOk').onclick = () => { el.hidden = true; };
+  },
+  set(label, done, total) {
+    if (!$('progOv')) return;
+    if (label != null) $('progL').textContent = label;
+    const pc = total ? Math.round(done / total * 100) : 0;
+    $('progB').style.width = (total ? pc : 5) + '%'; $('progB').classList.toggle('busy', !total);
+    $('progN').textContent = total ? done.toLocaleString('de-DE') + ' von ' + total.toLocaleString('de-DE') + ' (' + pc + ' %)' : ' ';
+  },
+  done(msg, ok) {
+    if (!$('progOv')) return;
+    $('progT').textContent = ok === false ? '⚠️ Abgebrochen' : '✅ Fertig';
+    $('progL').textContent = msg; $('progB').classList.remove('busy'); $('progB').style.width = ok === false ? $('progB').style.width : '100%';
+    $('progB').classList.toggle('bad', ok === false);
+    $('progN').textContent = 'Dauer: ' + Math.max(1, Math.round((Date.now() - this.t0) / 1000)) + ' s';
+    $('progBtns').hidden = false; $('progOk').focus({ preventScroll: true }); buzz && buzz(ok === false ? [60, 60, 60] : 80);
+  }
+};
 
 /* ---------- Admin-Ereignisse ---------- */
 const adminBody = $('adminBody');
@@ -6306,8 +6347,8 @@ adminBody.addEventListener('click', async e => {
     }
     const nid = newId('days');
     fire(F.setDoc(dref('days', nid), nd), 'Tag anlegen');
-    fire(F.setDoc(dref('meta', 'state'), { active: nid }, { merge: true }), 'Tag aktivieren');
-    S.selDay = nid; showNewDay = false; toast('Tag angelegt und aktiviert');
+    // nicht automatisch freigeben – gescannt wird erst nach „Zum Scannen freigeben“
+    S.selDay = nid; showNewDay = false; listenDayScans(); toast('Tag angelegt – zum Scannen freigeben, sobald es losgeht');
     logEv('tag', 'legt Tag an: ' + fmtDate(date) + (place ? ' – ' + place : '') + (carry && pv ? ' (Rest vom Vortag übernommen)' : ''), nid);
   }
   else if (a === 'pickDay') { S.selDay = id; listenDayScans(); renderAdmin(); window.scrollTo(0, 0); }
@@ -6501,15 +6542,19 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'delDay' && day && S.isSuper) {
     if (!await ask('„' + dayLabel(day) + '“ mit allen ' + S.dayScans.length + ' Buchungen löschen?')) return;
     if (!await superGuard('Tag „' + dayLabel(day) + '“ mit ' + S.dayScans.length + ' Buchungen löschen')) return;
+    prog.open('Tag „' + dayLabel(day) + '“ wird gelöscht'); prog.set('Zähle Buchungen …', 0, 0);
     try {
       const sc = (await F.getDocs(F.query(col('scans'), F.where('day', '==', day.id)))).docs;
       const extra = [];
       for (const c of ['asks', 'undos']) { try { (await F.getDocs(F.query(col(c), F.where('day', '==', day.id)))).docs.forEach(d => extra.push({ ref: d.ref, del: true })); } catch (e) {} }
-      await commitInChunks(sc.map(d => ({ ref: d.ref, del: true })).concat(extra, [{ ref: dref('days', day.id), del: true }]));
+      const ops = sc.map(d => ({ ref: d.ref, del: true })).concat(extra, [{ ref: dref('days', day.id), del: true }]);
+      prog.set('Lösche Buchungen …', 0, ops.length);
+      await commitInChunks(ops, k => prog.set(null, k, ops.length));
       if (S.active === day.id) fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Tag deaktivieren');
       markDirty(day.id);
-      toast('Tag gelöscht'); logEv('tag', 'löscht ' + dayLabel(day) + ' mit ' + sc.length + ' Buchungen', day.id);
-    } catch (err) { toast('Löschen fehlgeschlagen – Internet nötig'); }
+      logEv('tag', 'löscht ' + dayLabel(day) + ' mit ' + sc.length + ' Buchungen', day.id);
+      prog.done('„' + dayLabel(day) + '“ ist gelöscht – mit ' + sc.length + ' Buchungen' + (extra.length ? ' und ' + extra.length + ' weiteren Einträgen' : '') + '. Das Backup von vorher liegt im Download-Ordner.');
+    } catch (err) { prog.done('Löschen fehlgeschlagen' + (navigator.onLine ? ': ' + (err.code || err.message) : ' – Internet nötig') + '.', false); }
   }
   else if (a === 'assign') openSheet({ mode: 'assign', assignTo: id });
   else if (a === 'toggleNewProd') { showNewProd = !showNewProd; renderAdmin(); }
@@ -6607,13 +6652,15 @@ adminBody.addEventListener('click', async e => {
     try { await F.reauthenticateWithCredential(auth.currentUser, F.EmailAuthProvider.credential(auth.currentUser.email, pw)); }
     catch (err) { b.disabled = false; toast('Passwort falsch'); return; }
     if (!await superGuard((all ? 'Werkszustand herstellen' : 'Zurücksetzen') + ' – gelöscht wird: ' + names.join(', '), { pwDone: true })) { b.disabled = false; return; }
+    prog.open(all ? 'Werkszustand wird hergestellt' : 'Zurücksetzen');
     try {
       const what = (all ? 'setzt die Strichliste auf Werkszustand zurück: ' : 'setzt zurück: ') + names.join(', ');
       if (!K.has('log')) logEv('system', what);
       const n = await resetWipe(K);
       if (K.has('log')) logEv('system', what + ' (' + n + ' Einträge gelöscht, Backup vorher gespeichert)'); // einziger Eintrag danach
-      showReset = false; resetSel = null; toast('Zurückgesetzt: ' + n + ' Einträge gelöscht');
-    } catch (err) { toast('Zurücksetzen fehlgeschlagen: ' + (err.code || err.message)); }
+      showReset = false; resetSel = null;
+      prog.done(n.toLocaleString('de-DE') + ' Einträge gelöscht: ' + names.join(', ') + '. Das Backup von vorher liegt im Download-Ordner.');
+    } catch (err) { prog.done('Zurücksetzen fehlgeschlagen: ' + (err.code || err.message) + '. Was bis dahin gelöscht war, bleibt gelöscht – das Backup von vorher liegt im Download-Ordner.', false); }
     b.disabled = false; renderAdmin();
   }
 });
@@ -7125,6 +7172,10 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.8.2', d: '2026-11-25', i: [
+    ['a', 'Ein neuer Tag wird nur angelegt, nicht mehr automatisch zum Scannen freigegeben – das geht erst mit „Zum Scannen freigeben“. Ein gerade freigegebener Tag bleibt dabei freigegeben.'] ] },
+  { v: '2.8.1', d: '2026-11-25', i: [
+    ['s', 'Zurücksetzen und Tag löschen zeigen einen Fortschrittsbalken und am Ende eine Meldung, was gelöscht wurde.'] ] },
   { v: '2.8.0', d: '2026-11-25', i: [
     ['m', 'Wird eine Buchung zurückgenommen, storniert oder per Korrektur entfernt, verschwinden auch die Easter Eggs, die sie ausgelöst hat – und können später neu ausgelöst werden. Das Sammelalbum bleibt.'] ] },
   { v: '2.7.3', d: '2026-11-25', i: [

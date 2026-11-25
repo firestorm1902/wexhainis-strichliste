@@ -370,7 +370,7 @@ Admin → ⚙️ Einstellungen → Daten → roter Block → **Zurücksetzen / W
 | Profilbilder | alle Profilbilder |
 | Historie | das ganze Protokoll; danach steht nur noch ein Eintrag, wer wann was zurückgesetzt hat (braucht die Regeln ab v101) |
 
-Danach: Passwort eingeben → automatisches Backup (Download-Ordner) → letzte Bestätigung mit der Liste. **Immer erhalten bleiben** die Personen und Konten (sie gelten auch für Stundentracker und WexSuperAdmin; löschen nur in WexSuperAdmin) und die persönlichen Ansichten der Admins.
+Danach: Passwort eingeben → automatisches Backup (Download-Ordner) → letzte Bestätigung mit der Liste. Während gelöscht wird, zeigt ein Fortschrittsbalken den Stand (erst wird gezählt, dann gelöscht); am Ende steht, wie viele Einträge aus welchen Bereichen gelöscht wurden. Dasselbe beim Löschen eines Tages. **Immer erhalten bleiben** die Personen und Konten (sie gelten auch für Stundentracker und WexSuperAdmin; löschen nur in WexSuperAdmin) und die persönlichen Ansichten der Admins.
 
 ## Rollen
 
@@ -416,7 +416,7 @@ Die Rechte prüfen die Firebase-Regeln, nicht nur die App.
 ## Ablauf an einem Tag
 
 1. **Vorher (Admin):**
-   - **Neuer Tag** mit Datum und Ziel anlegen. Er wird automatisch der aktive Tag für alle Handys.
+   - **Neuer Tag** mit Datum und Ziel anlegen. Er wird **nicht** automatisch freigegeben: Erst mit **„Zum Scannen freigeben“** wird er der aktive Tag für alle Handys (ein bisher freigegebener Tag bleibt bis dahin aktiv).
    - Optional „Rest vom Vortag übernehmen“ ankreuzen.
    - **Einladen per Scan:** Flasche oder Kasten scannen und „+1 Kasten“ bzw. „+1 Flasche“ antippen.
 2. **Unterwegs (alle):** Getränk nehmen, Barcode scannen.
@@ -486,14 +486,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.8.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.8.2**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.8.0';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.8.0';`
+- in `index.html`: `const APP_VERSION = '2.8.2';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.8.2';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -526,7 +526,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.8.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.8.2“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
