@@ -141,7 +141,7 @@ Admin → **Personen**: „minderjährig (U18)“ markiert eine Person. Admin �
 Admin → **Lager**: Bestand pro Getränk in Flaschen (mit Gebinden, z. B. „69 Fl. (3× Kasten 20 + 9)“) und ein **Mindestbestand** pro Getränk.
 - **Buchen:** Wareneingang (mit „+ 1 Kasten“-Knöpfen), Entnahme oder Inventur (gezählten Ist-Bestand eintragen – die Differenz wird gebucht).
 - **Pro Tag:** „Aus dem Lager abbuchen“ bucht das Mitgenommene ab, „Übrig zurück ins Lager“ bucht den Rest zurück. Wird später noch nachgeladen oder „Übrig“ geändert, erscheint nur die Differenz zum Buchen – nichts wird doppelt gebucht.
-- **Einladen nur bis zum Bestand:** Für Getränke mit Lagerbestand lässt sich beim Einladen (Knöpfe, Scan, Abgleich) nicht mehr eintragen, als im Lager ist (Bestand + schon für diesen Tag Abgebuchtes). Die Zeile zeigt „Lager x“, „+1“ und „+Kasten“ werden grau, wenn alles drin ist; bei zu viel lädt die App nur den Rest ein und sagt es. Getränke ohne geführten Bestand (noch nie gebucht/inventiert) sind nicht begrenzt.
+- **Einladen nur bis zum Bestand:** Für Getränke mit Lagerbestand lässt sich beim Einladen (Knöpfe, Scan, Abgleich) nicht mehr eintragen, als im Lager ist (Bestand + schon für diesen Tag Abgebuchtes). Die Zeile zeigt „im Lager noch x“ (was noch dazukommen darf), „+1“ und „+Kasten“ werden grau, wenn alles drin ist; ist mehr eingetragen als im Lager (z. B. von früher), steht „⚠️ x mehr als im Lager“ in Rot; bei zu viel lädt die App nur den Rest ein und sagt es. Getränke ohne geführten Bestand (noch nie gebucht/inventiert) sind nicht begrenzt.
 - **Nachkaufen:** alles unter dem Mindestbestand, als Liste zum Teilen (WhatsApp) oder Kopieren.
 - **Bedarf für die nächsten Ausflüge:** die frühere Einkaufslisten-Berechnung aus dem bisherigen Verbrauch.
 - **Verlauf:** die letzten Lagerbewegungen mit Person und Uhrzeit. Alles steckt auch im Backup.
@@ -488,14 +488,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.9.2**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.9.3**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.9.2';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.9.2';`
+- in `index.html`: `const APP_VERSION = '2.9.3';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.9.3';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -528,7 +528,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.9.2“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.9.3“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

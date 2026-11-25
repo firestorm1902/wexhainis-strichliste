@@ -271,7 +271,7 @@ input.n{min-width:3em}
 .admmore{justify-content:center;margin:10px 0}
 .chklist{display:flex;flex-direction:column;border-top:1px solid var(--line)}
 .chkrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
-.chkrow.low{background:rgba(198,40,40,.08)}
+.chkrow.low{background:rgba(198,40,40,.08)}.lgover{color:var(--pen)}
 .chkname{display:flex;flex-direction:column;min-width:7rem;flex:1}.chkname small{color:var(--mu)}
 .chkbtns{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .chkbtns .b{min-width:46px;min-height:44px;padding:6px 10px;font-weight:700}
@@ -880,7 +880,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.9.2'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.9.3'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4344,11 +4344,11 @@ function chkBlock(day) {
   return '<div class="mode chkmode" style="display:flex;margin:4px 0 6px">' + [['load', '⬆️ Einladen'], ['count', '⬇️ Übrig zählen']].map(([v, l]) => '<button type="button" data-chkm="' + v + '" class="' + (chkMode === v ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     '<div class="chklist">' + prods.map(p => {
       const v = cur[p.id], n = v == null ? 0 : v, need = key === 'load' && p.must > 0 ? p.must : 0, low = need && n < need;
-      const mx = key === 'load' ? loadMax(day, p) : null, full = mx != null && n >= mx;
+      const mx = key === 'load' ? loadMax(day, p) : null, full = mx != null && n >= mx, over = mx != null && n > mx;
       const packs = (p.packs || []).filter(k => k.n > 1).sort((a, b) => b.n - a.n).slice(0, 2);
-      return '<div class="chkrow' + (low ? ' low' : '') + '"><div class="chkname"><b>' + esc(p.name) + '</b><small>' + (key === 'count' ? (v == null ? 'noch nicht gezählt' : 'übrig') : 'mitgenommen') + (need ? ' · mind. ' + need : '') + (mx != null ? ' · Lager ' + mx : '') + (key === 'count' && (day.load || {})[p.id] ? ' · mit ' + day.load[p.id] : '') + '</small></div>' +
+      return '<div class="chkrow' + (low || over ? ' low' : '') + '"><div class="chkname"><b>' + esc(p.name) + '</b><small>' + (key === 'count' ? (v == null ? 'noch nicht gezählt' : 'übrig') : 'mitgenommen') + (need ? ' · mind. ' + need : '') + (mx != null ? (over ? ' · <b class="lgover">⚠️ ' + (n - mx) + ' mehr als im Lager (' + mx + ')</b>' : ' · im Lager noch ' + (mx - n)) : '') + (key === 'count' && (day.load || {})[p.id] ? ' · mit ' + day.load[p.id] : '') + '</small></div>' +
         '<div class="chkbtns"><button type="button" class="b" data-chk="' + p.id + '" data-d="-1" aria-label="' + esc(p.name) + ' minus 1"' + (n ? '' : ' disabled') + '>−</button>' +
-        '<span class="chkn' + (low ? ' bad' : '') + '">' + (key === 'count' && v == null ? '–' : n) + '</span>' +
+        '<span class="chkn' + (low || over ? ' bad' : '') + '">' + (key === 'count' && v == null ? '–' : n) + '</span>' +
         '<button type="button" class="b" data-chk="' + p.id + '" data-d="1" aria-label="' + esc(p.name) + ' plus 1"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '>+1</button>' +
         packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="' + k.n + '" aria-label="' + esc(p.name) + ' plus ' + esc(k.l) + '"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '>+' + esc(k.l) + ' ' + k.n + '</button>').join('') + '</div></div>';
     }).join('') + '</div>';
@@ -7225,6 +7225,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.9.3', d: '2026-11-25', i: [
+    ['a', 'Einladen: statt „Lager x“ steht jetzt „im Lager noch x“. Ist mehr eingetragen als im Lager war (z. B. von vor der Lager-Grenze), wird die Zeile rot markiert.'] ] },
   { v: '2.9.2', d: '2026-11-25', i: [
     ['m', 'Neue Geräusche: Wasser (Sprudelflasche, Einschenken) und ein weiteres beim Bier.'] ] },
   { v: '2.9.1', d: '2026-11-25', i: [
