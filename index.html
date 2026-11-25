@@ -879,7 +879,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.8.2'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.8.3'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4287,6 +4287,16 @@ $('adminBody').addEventListener('click', e => {
 /* ---------- Ein-/Auschecken per Knopf (Scannen ist nur noch die Alternative) ----------
    Modus „Einladen“ ändert days.load, „Übrig zählen“ days.count. Pro Getränk: −1, +1 und ein Knopf pro Gebinde. */
 let chkMode = 'load';
+/* Einladen nur bis zum Lagerbestand – wenn für das Getränk ein Bestand geführt wird (products.stock gesetzt).
+   Verfügbar = Bestand + was für diesen Tag schon abgebucht ist (das steckt ja schon in „mitgenommen“). */
+const loadMax = (day, p) => p && typeof p.stock === 'number' ? Math.max(0, p.stock + (((day && day.stockOut) || {})[p.id] || 0)) : null;
+function loadCap(day, pid, cur, d) {
+  if (d <= 0) return d;
+  const m = loadMax(day, P(pid)); if (m == null) return d;
+  const ok = Math.max(0, Math.min(d, m - (cur || 0)));
+  if (ok < d) toast(ok ? pname(pid) + ': nur noch ' + ok + ' im Lager – ' + ok + ' eingeladen' : pname(pid) + ': Lager leer (' + m + ' insgesamt verfügbar)');
+  return ok;
+}
 function chkBlock(day) {
   if (!day) return '';
   const key = chkMode, cur = day[key] || {}, prods = S.products.slice().sort((a, b) => (b.must || 0) - (a.must || 0) || a.name.localeCompare(b.name, 'de'));
@@ -4294,12 +4304,13 @@ function chkBlock(day) {
   return '<div class="mode chkmode" style="display:flex;margin:4px 0 6px">' + [['load', '⬆️ Einladen'], ['count', '⬇️ Übrig zählen']].map(([v, l]) => '<button type="button" data-chkm="' + v + '" class="' + (chkMode === v ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     '<div class="chklist">' + prods.map(p => {
       const v = cur[p.id], n = v == null ? 0 : v, need = key === 'load' && p.must > 0 ? p.must : 0, low = need && n < need;
+      const mx = key === 'load' ? loadMax(day, p) : null, full = mx != null && n >= mx;
       const packs = (p.packs || []).filter(k => k.n > 1).sort((a, b) => b.n - a.n).slice(0, 2);
-      return '<div class="chkrow' + (low ? ' low' : '') + '"><div class="chkname"><b>' + esc(p.name) + '</b><small>' + (key === 'count' ? (v == null ? 'noch nicht gezählt' : 'übrig') : 'mitgenommen') + (need ? ' · mind. ' + need : '') + (key === 'count' && (day.load || {})[p.id] ? ' · mit ' + day.load[p.id] : '') + '</small></div>' +
+      return '<div class="chkrow' + (low ? ' low' : '') + '"><div class="chkname"><b>' + esc(p.name) + '</b><small>' + (key === 'count' ? (v == null ? 'noch nicht gezählt' : 'übrig') : 'mitgenommen') + (need ? ' · mind. ' + need : '') + (mx != null ? ' · Lager ' + mx : '') + (key === 'count' && (day.load || {})[p.id] ? ' · mit ' + day.load[p.id] : '') + '</small></div>' +
         '<div class="chkbtns"><button type="button" class="b" data-chk="' + p.id + '" data-d="-1" aria-label="' + esc(p.name) + ' minus 1"' + (n ? '' : ' disabled') + '>−</button>' +
         '<span class="chkn' + (low ? ' bad' : '') + '">' + (key === 'count' && v == null ? '–' : n) + '</span>' +
-        '<button type="button" class="b" data-chk="' + p.id + '" data-d="1" aria-label="' + esc(p.name) + ' plus 1">+1</button>' +
-        packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="' + k.n + '" aria-label="' + esc(p.name) + ' plus ' + esc(k.l) + '">+' + esc(k.l) + ' ' + k.n + '</button>').join('') + '</div></div>';
+        '<button type="button" class="b" data-chk="' + p.id + '" data-d="1" aria-label="' + esc(p.name) + ' plus 1"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '>+1</button>' +
+        packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="' + k.n + '" aria-label="' + esc(p.name) + ' plus ' + esc(k.l) + '"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '>+' + esc(k.l) + ' ' + k.n + '</button>').join('') + '</div></div>';
     }).join('') + '</div>';
 }
 $('adminBody').addEventListener('click', e => {
@@ -4308,6 +4319,7 @@ $('adminBody').addEventListener('click', e => {
   const day = selDayObj(); if (!day) return;
   const key = chkMode, pid = b.dataset.chk, cur = (day[key] || {})[pid];
   let d = +b.dataset.d; if ((cur || 0) + d < 0) d = -(cur || 0);
+  if (key === 'load') { d = loadCap(day, pid, cur, d); if (!d) return; }
   if (!d && cur != null) return;
   if (cur == null && key === 'count') setCount(day.id, pid, Math.max(0, d)); else incField(day.id, key, pid, d);
   day[key] = Object.assign({}, day[key], { [pid]: Math.max(0, (cur || 0) + d) }); // sofort anzeigen, Mehrfachtipps rechnen richtig
@@ -4365,6 +4377,7 @@ function sheetAdd(pid, qty, label) {
   const cur = (day[key] || {})[pid];
   let d = sh.minus ? -qty : qty;
   if ((cur || 0) + d < 0) d = -(cur || 0);
+  if (key === 'load' && d > 0) { d = loadCap(day, pid, cur, d); if (!d) return; }
   if (!d) { toast('Schon bei 0'); return; }
   incField(day.id, key, pid, d);
   // lokale Kopie sofort anpassen, damit Mehrfachtipps richtig rechnen
@@ -6296,7 +6309,7 @@ adminBody.addEventListener('change', e => {
   if (t.dataset.er) { const [rid, f] = t.dataset.er.split('|'); const r = allRules().find(x => x.id === rid); editRule(rid, f, t.type === 'checkbox' ? t.checked : t.value); logEv('egg', 'ändert Easter Egg „' + ((r && r.texts && r.texts[0] && r.texts[0].t) || rid) + '“ (' + f + ')'); return; }
   if (t.dataset.day && day) { const v = t.value.trim(); if (t.dataset.day === 'date' && !v) return; fire(F.updateDoc(dref('days', day.id), { [t.dataset.day]: v }), 'Tag speichern'); logEv('tag', dayLabel(day) + ': ' + (t.dataset.day === 'date' ? 'Datum' : 'Ziel') + ' → ' + v, day.id); return; }
   if (t.dataset.cnt && day) { const v = t.value.trim(), nv = v === '' || isNaN(parseInt(v)) ? null : parseInt(v); setCount(day.id, t.dataset.cnt, nv); logEv('einladen', 'Abgleich: ' + pname(t.dataset.cnt) + ' übrig → ' + (nv == null ? 'leer' : nv), day.id); return; }
-  if (t.dataset.load && day) { const nv = parseInt(t.value) || 0; setLoad(day.id, t.dataset.load, nv); logEv('einladen', 'Abgleich: ' + pname(t.dataset.load) + ' mitgenommen → ' + nv, day.id); return; }
+  if (t.dataset.load && day) { let nv = Math.max(0, parseInt(t.value) || 0); { const mx = loadMax(day, P(t.dataset.load)); if (mx != null && nv > mx) { toast(pname(t.dataset.load) + ': nur ' + mx + ' im Lager'); nv = mx; t.value = mx; } } setLoad(day.id, t.dataset.load, nv); logEv('einladen', 'Abgleich: ' + pname(t.dataset.load) + ' mitgenommen → ' + nv, day.id); return; }
   if (t.dataset.role) {
     const uid = t.dataset.role, role = t.value;
     fire(F.updateDoc(dref('users', uid), { role: role ? role : F.deleteField() }), 'Rolle ändern');
@@ -7172,6 +7185,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.8.3', d: '2026-11-25', i: [
+    ['a', 'Einladen geht nur noch bis zum Lagerbestand (per Knopf, per Scan und beim Abgleich). Die Zeile zeigt „Lager x“.'] ] },
   { v: '2.8.2', d: '2026-11-25', i: [
     ['a', 'Ein neuer Tag wird nur angelegt, nicht mehr automatisch zum Scannen freigegeben – das geht erst mit „Zum Scannen freigeben“. Ein gerade freigegebener Tag bleibt dabei freigegeben.'] ] },
   { v: '2.8.1', d: '2026-11-25', i: [
