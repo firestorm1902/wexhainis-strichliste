@@ -485,14 +485,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.6.1**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.7.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.6.1';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.6.1';`
+- in `index.html`: `const APP_VERSION = '2.7.0';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.7.0';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -513,12 +513,19 @@ Der kostenlose Firebase-Tarif erlaubt pro Tag 50.000 Lesevorgänge und 20.000 Sc
 - Den Stand „gebucht pro Getränk“ (für die Buchungsgrenze) hören nur Admin-Handys live mit. Mitglieder holen ihn nur, wenn es überhaupt eine Buchungsgrenze gibt – direkt vor dem Buchen eines begrenzten Getränks und sonst höchstens einmal pro Minute. Das spart bei jeder Buchung einen Lesevorgang auf jedem offenen Handy.
 - Admin → 📊 Auswertung → **Firebase-Verbrauch**: vorsichtige Schätzung für heute, mit Warnung ab 50 %. Gerechnet wird: Schreiben = Buchungen × 8; Lesen = Buchungen × 5 (beim Buchen) + Buchungen × 5 × Anzahl Admins (als wäre die App bei allen offen) + Personen mit Buchungen × 4 App-Starts × 50. Admin-Arbeit und Löschvorgänge sind nicht enthalten; „So ist gerechnet“ zeigt die Aufschlüsselung. Genaue Zahlen: Firebase-Konsole → Firestore → Nutzung. Wird es regelmäßig knapp: Blaze-Tarif mit Budgetgrenze.
 
+### TooDruck-Modus 🍻 (Admins und Super-Admin)
+Auf der Startseite **🍻 TooDruck-Modus** tippen → die App zeigt, was gesperrt wird, und fragt nach. Danach sind bis zum **nächsten Morgen 6:00 Uhr** für diese Person kritische Einstellungen gesperrt: im Admin-Bereich ausgegraut, mit Hinweis oben und einem Banner auf der Startseite. Buchen, Einladen und Zählen gehen weiter.
+- Gilt **pro Person** (auf allen ihren Geräten), nicht für alle Admins gleichzeitig.
+- Admins können ihn nicht vorzeitig beenden. Der Super-Admin kann mit **„Freischalten“** und **zweimaliger Passworteingabe** beenden.
+- Was gesperrt wird, legt der Super-Admin unter Admin → Einstellungen → „🍻 TooDruck-Modus“ fest: Personen, Zurücksetzen und Backup importieren, Tage, Getränke und Preise, Buchungen, Einstellungen (Super-Admin), Nachrichten an Mitglieder. Vorausgewählt sind Personen, Zurücksetzen/Backup, Tage, Getränke und Einstellungen.
+- Die Sperre ist ein Selbstschutz in der App (keine Firebase-Regel).
+
 ### Versionsverlauf
 Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, was für seine Rolle gilt: Mitglieder die Mitglieder-Neuerungen, der Vorstand zusätzlich Vorstand-Themen, Admins zusätzlich Admin-Themen, der Super-Admin alles (mit Kennzeichnung, für wen ein Punkt gilt). Gibt es seit dem letzten Öffnen eine neue Version, steht „neu“ daneben. Der Super-Admin blendet den Verlauf unter Admin → Einstellungen → „Versionsverlauf anzeigen“ für alle ein oder aus (er selbst sieht ihn weiter).
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.6.1“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.7.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

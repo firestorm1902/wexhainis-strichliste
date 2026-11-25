@@ -247,6 +247,8 @@ input.n{min-width:3em}
 .aledit{display:flex;gap:10px;align-items:flex-start;border:1.5px solid var(--line);border-radius:12px;padding:10px;margin:8px 0}.alprev{display:flex;flex-direction:column;align-items:center;gap:6px}
 .fbuse{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center;font-size:.88rem}.fbuse small{grid-column:2;color:var(--mu);margin-top:-2px}
 .fbbar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}.fbbar i{display:block;height:100%;border-radius:99px}
+.tdbar{max-width:640px;margin:0 auto 12px;padding:9px 14px;border-radius:12px;background:#3b2a05;color:#ffe9a8;border:1.5px solid var(--wy);font-size:.88rem;width:calc(100% - 32px)}.tdbar[hidden]{display:none}.tdbar .b{margin-left:6px}
+.tdnote{border-left-color:var(--wy)}#adminBody [data-tdlock]{opacity:.45;cursor:not-allowed}
 .bc-txt{font-size:1.08rem!important;white-space:pre-line}
 .flow{display:flex;align-items:stretch;gap:3px;margin:10px 0 4px;padding:2px 0}
 .flowstep{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;border:1.5px solid var(--line);border-radius:12px;background:var(--white);color:var(--ink);font:inherit;padding:7px 4px;cursor:pointer;text-align:center}
@@ -730,6 +732,7 @@ body.noauth main{display:none!important}
   </section>
   <div id="appLinksA" class="applinks" hidden></div>
 
+  <div id="tdBar" class="tdbar" hidden></div>
   <main id="v-scan" style="display:flex;flex-direction:column;gap:16px">
     <section id="extraSec" hidden style="border-top:0;padding-top:0">
       <div id="wrapBanner"></div>
@@ -757,7 +760,7 @@ body.noauth main{display:none!important}
         <button class="b grow" id="stopBtn" hidden data-tx="scanStop">Scannen beenden</button>
       </div>
       </div>
-      <div class="me who" id="dayBtns" style="margin-top:10px;justify-content:flex-end"><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm partybtn" id="partyBtn" hidden>🪩 Party starten</button><button class="b sm" id="partyFxBtn" hidden>🎛 Effekte</button></span></div>
+      <div class="me who" id="dayBtns" style="margin-top:10px;justify-content:flex-end"><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="tdBtn" hidden>🍻 TooDruck-Modus</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm partybtn" id="partyBtn" hidden>🪩 Party starten</button><button class="b sm" id="partyFxBtn" hidden>🎛 Effekte</button></span></div>
       <div class="note" id="youthNote" hidden style="margin-top:10px"><b>Jugendschutz:</b> Bier, Radler, Wein/Sekt und Schnaps sind für dich gesperrt.</div>
       <div class="note" id="drvNote" hidden style="margin-top:10px"><b>Du fährst heute.</b> Beim Scannen von Alkohol fragt die App nach. Gute Heimfahrt!</div>
     </section>
@@ -872,7 +875,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.6.1'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.7.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1063,6 +1066,7 @@ function startUserListeners() {
   stop('cfgPack'); unsub.cfgPack = F.onSnapshot(dref('config', 'packlist'), snap => { S.packlist = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('packlist', err));
   stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; S.secCfg = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('sections', err));
   stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const d = snap.exists() ? snap.data() : {}, o = d.order, hd = d.hidden; let ch = false;
+    { const td = d.td && d.td.until > Date.now() ? d.td : null; if (JSON.stringify(td) !== JSON.stringify(S.td || null)) { S.td = td; tdStore(); renderTd(); ch = true; } }
     if (Array.isArray(o) && JSON.stringify(o) !== JSON.stringify(admOrder)) { admOrder = o; admOrderMine = o; try { localStorage.setItem(ORD_KEY, JSON.stringify(o)); } catch (e) {} ch = true; }
     if (Array.isArray(hd) && JSON.stringify(hd) !== JSON.stringify(admHidden)) { admHidden = hd; try { localStorage.setItem(HID_KEY, JSON.stringify(hd)); } catch (e) {} ch = true; }
     if (ch) renderAdmin(); }, err => console.warn('prefs', err));
@@ -4691,6 +4695,8 @@ function renderAdmin() {
   keepState(el, h);
   if (RO) readOnly(el);
   adminNav(el, navX);
+  if (tdOn()) { const n = document.createElement('div'); n.className = 'note tdnote'; n.innerHTML = '🍻 <b>TooDruck-Modus</b> bis ' + tdUntilTxt(S.td.until) + ': Ausgegraute Bereiche sind gesperrt.' + (S.isSuper ? ' <button class="b sm" data-tdoff>Freischalten</button>' : ''); el.prepend(n); }
+  tdApplySoon();
   if (Math.abs(window.scrollY - y0) > 1) window.scrollTo({ top: y0, behavior: 'instant' });
 }
 /* ---------- Bedarfsprognose (Teil des Lagers) ---------- */
@@ -4975,7 +4981,8 @@ function settingsSection() {
   const c = S.contact || {}, b = bestCfg(), people = Object.keys(S.users).filter(k => !goneSL(S.users[k]) && !S.users[k].pending).map(k => ({ uid: k, name: S.users[k].name || '' })).sort((x, y) => x.name.localeCompare(y.name, 'de'));
   const opt = (L, cur) => L.map(x => '<option value="' + x[0] + '"' + (String(cur) === String(x[0]) ? ' selected' : '') + '>' + x[1] + '</option>').join('');
   let h = '<section><h2>Einstellungen (Super-Admin)</h2>';
-  h += '<label class="chk" style="margin-bottom:8px"><input type="checkbox" id="clOk"' + (S.features && S.features.changelog === false ? '' : ' checked') + '> Versionsverlauf anzeigen – alle tippen unten auf die Versionsnummer und sehen, was für ihre Rolle neu ist</label>';
+  h += tdCfgHTML();
+  h += '<label class="chk" style="margin-bottom:8px;margin-top:10px"><input type="checkbox" id="clOk"' + (S.features && S.features.changelog === false ? '' : ' checked') + '> Versionsverlauf anzeigen – alle tippen unten auf die Versionsnummer und sehen, was für ihre Rolle neu ist</label>';
   h += '<h3 class="sub3">Kontakt</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erscheint bei „Konto wartet auf Freischaltung“, „gesperrt“, „keine Rechte“ und in der Hilfe.</div>' +
     '<div class="grid2"><label class="f full">Name<input id="ctName" value="' + esc(c.name || S.me || '') + '"></label>' +
     '<div class="f" style="font-size:.82rem;color:var(--mu);align-self:end">Mitglieder schreiben dir über den Posteingang in der App.</div>' +
@@ -6942,6 +6949,101 @@ document.addEventListener('click', async e => {
   }
 });
 
+/* ---------- TooDruck-Modus: Admins sperren sich selbst kritische Einstellungen bis zum nächsten Morgen 6:00 ----------
+   Gilt pro Person (gespeichert in prefs/{uid}.td, also auf allen eigenen Geräten). Admins können ihn nicht vorzeitig beenden;
+   der Super-Admin nur mit zweimaliger Passworteingabe. Was gesperrt wird, legt der Super-Admin fest (config/features.tdLock). */
+const TD_CATS = [
+  { k: 'people', t: 'Personen', d: 'Rollen, Sperren, Freischalten, Namen, Jugendschutz, Gruppe, Konto entfernen, Passwort-Link, Profilbild löschen',
+    sel: '[data-role],[data-u],[data-minor],[data-grp],[data-act=approve],[data-act=reject],[data-act=block],[data-act=unblock],[data-act=removeUser],[data-act=restoreUser],[data-act=purgeUser],[data-act=resetPw],[data-act=delAv]' },
+  { k: 'reset', t: 'Zurücksetzen und Backup importieren', d: 'Werkszustand / Zurücksetzen (alles daran), Backup importieren', sel: '[data-act=resetToggle],[data-act=resetGo],[data-act=restore],[data-rs],[data-act=rsAll],[data-act=rsNone]' },
+  { k: 'days', t: 'Tage', d: 'Tag löschen, abschließen, wieder öffnen, Datum und Ort ändern', sel: '[data-act=delDay],[data-act=close],[data-act=reopen],[data-day]' },
+  { k: 'drinks', t: 'Getränke und Preise', d: 'Getränke anlegen, ändern (Name, Preis, Barcodes, Grenze …) und löschen', sel: '[data-p],[data-u18],[data-act=addProd],[data-act=delProd],[data-act=toggleNewProd]' },
+  { k: 'bookings', t: 'Buchungen', d: 'Buchungen stornieren und nachtragen, Fehlendes nachbuchen', sel: '[data-act=storno],[data-act=addBooking],[data-act=missFix],[data-act=undoAllLoad],[data-act=undoAllPer]' },
+  { k: 'settings', t: 'Einstellungen (Super-Admin)', d: 'Einstellungen, Easter Eggs, Gruppen, Fasnets-Titel, Partymodus, Links zu anderen Apps', secs: ['Einstellungen', 'Easter Eggs verwalten', 'Gruppen', 'Fasnets-Titel', 'Partymodus', 'Links zu anderen Apps'] },
+  { k: 'msgs', t: 'Nachrichten an Mitglieder', d: 'Nachrichten senden und zurückziehen', secs: ['Nachricht an alle'] }
+];
+const TD_DEFAULT = ['people', 'reset', 'days', 'drinks', 'settings'];
+const tdLocks = () => { const l = S.features && S.features.tdLock; return Array.isArray(l) ? l : TD_DEFAULT; };
+const tdOn = () => !!(S.td && S.td.until > Date.now() && (S.isAdmin || S.isSuper));
+function tdNext6() { const d = new Date(); const t = new Date(d); t.setHours(6, 0, 0, 0); if (t <= d) t.setDate(t.getDate() + 1); return t.getTime(); }
+const tdUntilTxt = u => { const d = new Date(u), today = new Date(); return (d.toDateString() === today.toDateString() ? 'heute' : 'morgen') + ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr'; };
+function tdStore() { try { if (S.td) localStorage.setItem('strichliste_td_' + S.user.uid, JSON.stringify(S.td)); else localStorage.removeItem('strichliste_td_' + S.user.uid); } catch (e) {} }
+function tdLoadLocal() { try { const v = S.user && JSON.parse(localStorage.getItem('strichliste_td_' + S.user.uid) || 'null'); if (v && v.until > Date.now() && !S.td) S.td = v; } catch (e) {} }
+function renderTd() {
+  if (!S.user) { $('tdBtn').hidden = true; $('tdBar').hidden = true; return; }
+  tdLoadLocal();
+  const on = tdOn(), staff = S.isAdmin || S.isSuper;
+  $('tdBtn').hidden = !staff || on;
+  const bar = $('tdBar'); bar.hidden = !on;
+  if (on) {
+    const L = TD_CATS.filter(c => tdLocks().includes(c.k)).map(c => c.t);
+    const html = '<b>🍻 TooDruck-Modus</b> bis ' + tdUntilTxt(S.td.until) + ' – gesperrt: ' + esc(L.join(', ') || 'nichts') + (S.isSuper ? ' <button class="b sm" data-tdoff>Freischalten</button>' : '');
+    if (bar.innerHTML !== html) bar.innerHTML = html;
+  }
+  tdApplySoon();
+  clearTimeout(renderTd.t); if (on) renderTd.t = setTimeout(() => { renderTd(); renderAdmin(); }, Math.min(S.td.until - Date.now() + 500, 36e5));
+}
+// gesperrte Bedienelemente im Admin-Bereich ausgrauen (nach jedem Neuzeichnen)
+let tdApplyT = null;
+function tdApplySoon() { clearTimeout(tdApplyT); tdApplyT = setTimeout(tdApply, 30); }
+function tdLockedEl(el) {
+  if (!tdOn() || !el || !el.closest) return null;
+  for (const c of TD_CATS) {
+    if (!tdLocks().includes(c.k)) continue;
+    if (c.sel && el.closest(c.sel)) return c;
+    if (c.secs) { const sec = el.closest('#adminBody section'); const h = sec && sec.querySelector('h2'); if (h && c.secs.includes(h.dataset.adm) && el.closest('input,select,textarea,button:not(.coll):not([data-admord]),[data-act],[data-al]') && !el.closest('h2')) return c; }
+  }
+  return null;
+}
+function tdApply() {
+  const body = $('adminBody'); if (!body) return;
+  body.querySelectorAll('[data-tdlock]').forEach(x => { x.disabled = false; x.removeAttribute('data-tdlock'); x.removeAttribute('title'); });
+  if (!tdOn()) return;
+  body.querySelectorAll('input,select,textarea,button').forEach(x => { if (x.closest('h2')) return; const c = tdLockedEl(x); if (c && !x.disabled) { x.disabled = true; x.dataset.tdlock = c.k; x.title = 'Gesperrt (TooDruck-Modus bis ' + tdUntilTxt(S.td.until) + ')'; } });
+}
+new MutationObserver(() => { if (tdOn()) tdApplySoon(); }).observe($('adminBody'), { childList: true, subtree: true });
+// Sicherheitsnetz: gesperrte Aktionen abfangen, falls etwas nicht ausgegraut wurde
+['click', 'change'].forEach(ev => $('adminBody').addEventListener(ev, e => {
+  const c = tdLockedEl(e.target); if (!c) return;
+  if (ev === 'click' && e.target.closest('input,select,textarea') && e.target.closest('input[type=checkbox],input[type=radio]') == null) return; // Fokus in Feldern ist harmlos
+  e.preventDefault(); e.stopImmediatePropagation(); toast('🍻 Gesperrt bis ' + tdUntilTxt(S.td.until) + ' (TooDruck-Modus)');
+}, true));
+$('tdBtn').addEventListener('click', async () => {
+  if (!S.user || !(S.isAdmin || S.isSuper)) return;
+  const until = tdNext6(), L = TD_CATS.filter(c => tdLocks().includes(c.k));
+  if (!await ask('Bis ' + tdUntilTxt(until) + ' sind für dich gesperrt:\n\n• ' + (L.map(c => c.t + ' (' + c.d + ')').join('\n• ') || 'nichts') +
+    (S.isSuper ? '\n\nDu kannst ihn mit zweimaliger Passworteingabe vorzeitig beenden.' : '\n\nVorher lässt er sich nicht ausschalten.'), { title: '🍻 TooDruck-Modus einschalten?', ok: 'Einschalten', danger: false, note: 'Gilt nur für dich, auf allen deinen Geräten. Buchen, Einladen und Zählen gehen weiter.' })) return;
+  S.td = { until, t: Date.now() }; tdStore();
+  fire(F.setDoc(dref('prefs', S.user.uid), { td: S.td }, { merge: true }), 'TooDruck-Modus');
+  logEv('system', 'schaltet den TooDruck-Modus ein (bis ' + new Date(until).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + ')');
+  toast('🍻 TooDruck-Modus an – Prost!'); renderTd(); renderAdmin();
+});
+document.addEventListener('click', async e => {
+  if (!e.target.closest('[data-tdoff]') || !S.isSuper || !tdOn()) return;
+  const p1 = await askText('Zum Freischalten dein Passwort eingeben (1/2).', '', { title: '🔓 TooDruck-Modus beenden', ok: 'Weiter', pw: true, ph: 'Passwort' }); if (!p1) return;
+  const p2 = await askText('Und zur Sicherheit noch einmal (2/2).', '', { title: '🔓 TooDruck-Modus beenden', ok: 'Freischalten', pw: true, ph: 'Passwort wiederholen' }); if (!p2) return;
+  if (p1 !== p2) { toast('Die beiden Eingaben stimmen nicht überein'); return; }
+  if (!navigator.onLine) { toast('Dafür wird Internet benötigt'); return; }
+  try { await F.reauthenticateWithCredential(auth.currentUser, F.EmailAuthProvider.credential(auth.currentUser.email, p1)); }
+  catch (err) { toast(err && err.code === 'auth/too-many-requests' ? 'Zu viele Versuche – bitte später nochmal' : 'Passwort falsch'); return; }
+  S.td = null; tdStore(); fire(F.setDoc(dref('prefs', S.user.uid), { td: F.deleteField() }, { merge: true }), 'TooDruck-Modus');
+  logEv('system', 'beendet den TooDruck-Modus vorzeitig'); toast('Freigeschaltet'); renderTd(); renderAdmin();
+});
+// Super-Admin: was gesperrt wird
+function tdCfgHTML() {
+  const L = tdLocks();
+  return '<h3 class="sub3">🍻 TooDruck-Modus</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Admins (und du) schalten ihn auf der Startseite ein. Bis zum nächsten Morgen 6:00 ist dann für sie gesperrt:</div>' +
+    TD_CATS.map(c => '<label class="chk rsopt"><input type="checkbox" data-tdcat="' + c.k + '"' + (L.includes(c.k) ? ' checked' : '') + '><span><b>' + esc(c.t) + '</b><br><small>' + esc(c.d) + '</small></span></label>').join('');
+}
+document.addEventListener('change', e => {
+  const c = e.target.closest && e.target.closest('[data-tdcat]'); if (!c || !S.isSuper) return;
+  if (tdOn() && tdLocks().includes('settings')) { e.preventDefault(); renderAdmin(); return; }
+  const L = [...document.querySelectorAll('[data-tdcat]')].filter(x => x.checked).map(x => x.dataset.tdcat);
+  const F_ = Object.assign({}, S.features || {}, { tdLock: L, t: Date.now() }); S.features = F_;
+  fire(F.setDoc(dref('config', 'features'), F_), 'TooDruck-Modus'); logEv('system', 'TooDruck-Modus sperrt: ' + (TD_CATS.filter(x => L.includes(x.k)).map(x => x.t).join(', ') || 'nichts'));
+  renderTd();
+});
+
 /* ---------- Firebase-Verbrauch (grobe Schätzung für Admins) ----------
    Kostenloser Tarif (Spark): 50.000 Lesen und 20.000 Schreiben pro Tag, Zähler beginnt um 9 Uhr deutscher Zeit (Mitternacht in Kalifornien).
    Geschätzt aus den Buchungen des freigegebenen Tages; App-Starts, Admin-Arbeit usw. kommen dazu. Genau: Firebase-Konsole → Firestore → Nutzung. */
@@ -6973,6 +7075,9 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.7.0', d: '2026-11-25', i: [
+    ['a', 'TooDruck-Modus 🍻: Auf der Startseite einschalten – bis zum nächsten Morgen 6:00 sind kritische Einstellungen für dich gesperrt.'],
+    ['s', 'TooDruck-Modus: festlegen, was gesperrt wird; vorzeitig beenden nur mit zweimaliger Passworteingabe.'] ] },
   { v: '2.6.1', d: '2026-11-25', i: [
     ['a', 'Firebase-Verbrauch: vorsichtigere Schätzung (Admin-Handys, App-Starts) mit Aufschlüsselung „So ist gerechnet“.'] ] },
   { v: '2.6.0', d: '2026-11-25', i: [
@@ -7064,7 +7169,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('cont
 function stickyCheck() { const t = document.querySelector('header.top'); if (!t) return; t.classList.remove('nostick'); t.classList.toggle('nostick', t.offsetHeight > innerHeight * 0.3); document.documentElement.style.setProperty('--toph', (t.classList.contains('nostick') ? 0 : t.offsetHeight) + 'px'); }
 addEventListener('resize', stickyCheck);
 function renderAll() {
-  setTimeout(stickyCheck, 0); applyTexts(); renderBell();
+  setTimeout(stickyCheck, 0); applyTexts(); renderBell(); renderTd();
   renderAcct(); renderVersion(); renderDs(); renderInstall(); renderReqBox(); if (typeof renderParty === 'function' && S.party) renderParty(); bcShow(); bcBadge();
   if (S.authReady && !S.user) loadPublicCfg();
   const noauth = configured && S.authReady && !S.user;
