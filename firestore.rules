@@ -100,7 +100,7 @@ service cloud.firestore {
     function undoOk(d) {
       let c = exists(undoCfgDoc()) ? get(undoCfgDoc()).data : {};
       return c.get('on', true) == true
-        && (!('at' in d) || !(d.at is timestamp) || request.time < d.at + duration.value(c.get('secs', 10) + 120, 's'));
+        && ('at' in d) && (d.at is timestamp) && request.time < d.at + duration.value(c.get('secs', 10) + 120, 's');
     }
     function boardEntryOk(a, b) { return step1(a, b, 'all') && step1(a, b, 'beer') && step1(a, b, 'na'); }
     // Bestenliste: nur der eigene Eintrag und die eigene Gruppe, jeweils ±1
@@ -196,6 +196,9 @@ service cloud.firestore {
       allow create, update: if slActive()
         && request.resource.data.keys().hasOnly(['id', 'day', 'title', 'sub', 'uid', 'name', 't', 'alc', 'rid'])
         && request.resource.data.uid == request.auth.uid
+        // echter Name aus dem eigenen Konto (kein fremder Name); die App zeigt nur Texte, die zu einem Easter Egg passen
+        && request.resource.data.name == profile().get('name', '')
+        && request.resource.data.rid is string
         && request.resource.data.title is string && request.resource.data.title.size() <= 80
         && request.resource.data.sub is string && request.resource.data.sub.size() <= 160;
     }
@@ -497,6 +500,8 @@ service cloud.firestore {
         && request.resource.data.t is number
         && request.resource.data.who is string
         && request.resource.data.who.size() <= 40
+        // Zeitstempel muss vom Server kommen (sonst ließe sich das Rückgängig-Zeitfenster umgehen)
+        && request.resource.data.at == request.time
         // Jugendschutz: Minderjährige dürfen keinen Alkohol buchen
         && (profile().get('minor', false) != true || !productIsAlc(request.resource.data.p))
       );

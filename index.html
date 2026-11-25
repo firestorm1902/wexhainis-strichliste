@@ -872,7 +872,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.6.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.6.1'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -6948,13 +6948,22 @@ document.addEventListener('click', async e => {
 const FB_LIM = { r: 50000, w: 20000 };
 function usageSection() {
   const L = S.activeScans || [], since = (() => { const d = new Date(); const n = new Date(d.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })); n.setHours(0, 0, 0, 0); return d.getTime() - (new Date(d.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })) - n); })();
-  const B = L.filter(x => (x.t || 0) >= since).length;
+  const T = L.filter(x => (x.t || 0) >= since), B = T.length, people = new Set(T.map(x => x.uid)).size;
   const admins = 1 + Object.keys(S.users || {}).filter(k => (S.users[k] || {}).role === 'admin').length;
-  const w = B * 8, r = B * (5 + 2 * admins);
+  // Lesen: 5 je Buchung beim Buchen + 5 je Buchung auf jedem Admin-Handy + App-Starts (Annahme: 4 Starts à 50 je Person, die heute gebucht hat)
+  const OPENS = 4, PER_OPEN = 50;
+  const rBook = B * 5, rAdm = B * 5 * admins, rOpen = people * OPENS * PER_OPEN;
+  const w = B * 8, r = rBook + rAdm + rOpen;
   const bar = (v, lim) => { const pc = Math.min(100, Math.round(v / lim * 100)); return '<div class="fbbar"><i style="width:' + pc + '%;background:' + (pc >= 80 ? 'var(--pen)' : pc >= 50 ? 'var(--wy)' : '#2e7d32') + '"></i></div><small>ca. ' + v.toLocaleString('de-DE') + ' von ' + lim.toLocaleString('de-DE') + ' (' + pc + ' %)</small>'; };
   const warn = w / FB_LIM.w >= .5 || r / FB_LIM.r >= .5;
-  return '<section><h2>Firebase-Verbrauch</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Grobe Schätzung für heute (seit 9 Uhr) aus ' + B + ' Buchungen auf dem freigegebenen Tag. Dazu kommen App-Starts (je ca. 40–60 Lesevorgänge) und Admin-Arbeit. Ist ein Tageslimit erreicht, geht bis 9 Uhr am nächsten Tag nichts mehr.</div>' +
-    '<div class="fbuse"><b>Schreiben</b>' + bar(w, FB_LIM.w) + '<b>Lesen (nur Buchungen)</b>' + bar(r, FB_LIM.r) + '</div>' +
+  return '<section><h2>Firebase-Verbrauch</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Vorsichtige Schätzung für heute (seit 9 Uhr) aus ' + B + ' Buchungen von ' + people + (people === 1 ? ' Person' : ' Personen') + ' auf dem freigegebenen Tag. Ist ein Tageslimit erreicht, geht bis 9 Uhr am nächsten Tag nichts mehr.</div>' +
+    '<div class="fbuse"><b>Schreiben</b>' + bar(w, FB_LIM.w) + '<b>Lesen</b>' + bar(r, FB_LIM.r) + '</div>' +
+    '<details class="pc" style="margin-top:8px"><summary><span><b>So ist gerechnet</b></span></summary><div style="font-size:.82rem;line-height:1.5">' +
+      'Schreiben: ' + B + ' Buchungen × 8 = ' + w.toLocaleString('de-DE') + '<br>' +
+      'Lesen beim Buchen: ' + B + ' × 5 = ' + rBook.toLocaleString('de-DE') + '<br>' +
+      'Lesen auf Admin-Handys: ' + B + ' × 5 × ' + admins + (admins === 1 ? ' Admin' : ' Admins') + ' = ' + rAdm.toLocaleString('de-DE') + ' <small>(gerechnet, als wäre die App bei allen offen)</small><br>' +
+      'App-Starts: ' + people + (people === 1 ? ' Person' : ' Personen') + ' mit Buchungen × ' + OPENS + ' Starts × ' + PER_OPEN + ' = ' + rOpen.toLocaleString('de-DE') + ' <small>(Annahme)</small><br>' +
+      'Nicht enthalten: Admin-Arbeit (Auswertungen, Excel, Nachtragen), Löschvorgänge.</div></details>' +
     (warn ? '<div class="note bad" style="margin-top:8px">Es wird knapp. In der Firebase-Konsole unter Firestore → Nutzung nachsehen; bei Bedarf den Blaze-Tarif mit Budgetgrenze einschalten.</div>' : '') +
     '<div class="row"><a class="b sm" href="https://console.firebase.google.com/project/wexhainis-getraenkestrichliste/firestore" target="_blank" rel="noopener">Firebase-Konsole öffnen ↗</a></div></section>';
 }
@@ -6964,6 +6973,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.6.1', d: '2026-11-25', i: [
+    ['a', 'Firebase-Verbrauch: vorsichtigere Schätzung (Admin-Handys, App-Starts) mit Aufschlüsselung „So ist gerechnet“.'] ] },
   { v: '2.6.0', d: '2026-11-25', i: [
     ['m', 'Weniger Datenverkehr: Die Buchungsgrenze wird nur noch geprüft, wenn es eine gibt – direkt vor dem Buchen.'],
     ['a', 'Neu unter Auswertung: „Firebase-Verbrauch“ – grobe Schätzung, wie viel vom kostenlosen Tageslimit schon verbraucht ist.'] ] },
