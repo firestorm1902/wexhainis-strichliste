@@ -234,6 +234,17 @@ input.n{min-width:3em}
 .bcchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.bcchips .chip{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:.85rem;padding:3px 9px 3px 4px;border:1.5px solid var(--line);border-radius:99px;background:var(--white);color:var(--ink);cursor:pointer}.bctext{white-space:pre-line;margin:4px 0;font-size:.92rem}
 .mode.xtabs button[data-badge]::after{content:attr(data-badge);background:var(--pen);color:#fff;border-radius:99px;padding:0 7px;font-size:.75rem;font-weight:700;opacity:1;line-height:1.5}
 .bcmine{border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:8px}.bcmine.new{border-color:var(--wy);box-shadow:0 0 0 1px var(--wy)}
+.applinks{max-width:640px;margin:0 auto 14px;width:100%}.applinks[hidden]{display:none}
+.alhead{font:700 .78rem/1.2 inherit;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin:4px 2px 8px}
+.algrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.alcard{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid var(--line);border-radius:16px;background:var(--white);color:var(--ink);text-decoration:none;box-shadow:0 2px 0 var(--line);transition:transform .12s,box-shadow .12s,border-color .12s}
+.alcard:hover,.alcard:focus-visible{border-color:var(--wy);box-shadow:0 4px 14px rgba(0,0,0,.12);transform:translateY(-1px)}.alcard:active{transform:translateY(1px)}
+.alimg{flex:none;border-radius:14px;object-fit:cover;background:#141414;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.alph{display:grid;place-items:center;font:700 1.5rem/1 "Oswald","Arial Narrow",sans-serif;color:var(--wy)}
+.altxt{display:flex;flex-direction:column;min-width:0;flex:1}.altxt b{font-size:1.02rem}.altxt small{color:var(--mu);font-size:.82rem;line-height:1.3}
+.algo{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--wy);color:#141414;font-weight:800}
+#appLinksA{margin-top:4px}.alpv{margin:4px 0 0}
+.aledit{display:flex;gap:10px;align-items:flex-start;border:1.5px solid var(--line);border-radius:12px;padding:10px;margin:8px 0}.alprev{display:flex;flex-direction:column;align-items:center;gap:6px}
 .bc-txt{font-size:1.08rem!important;white-space:pre-line}
 .flow{display:flex;align-items:stretch;gap:3px;margin:10px 0 4px;padding:2px 0}
 .flowstep{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;border:1.5px solid var(--line);border-radius:12px;background:var(--white);color:var(--ink);font:inherit;padding:7px 4px;cursor:pointer;text-align:center}
@@ -715,6 +726,7 @@ body.noauth main{display:none!important}
       <div class="full"><button class="b sm" id="aForgot" style="border:0;background:none;padding:4px 0;text-decoration:underline;color:var(--mu)">Passwort vergessen?</button></div>
     </div>
   </section>
+  <div id="appLinksA" class="applinks" hidden></div>
 
   <main id="v-scan" style="display:flex;flex-direction:column;gap:16px">
     <section id="extraSec" hidden style="border-top:0;padding-top:0">
@@ -759,6 +771,7 @@ body.noauth main{display:none!important}
       <div class="mode" id="histTabs" style="display:inline-flex;margin-bottom:8px"><button data-h="all" class="on">Für alle</button><button data-h="mine">Deine</button></div>
       <div id="hist"></div>
     </section>
+    <div id="appLinksM" class="applinks" hidden></div>
   </main>
 
   <main id="v-admin" hidden><div id="adminBody" style="display:flex;flex-direction:column;gap:18px"></div></main>
@@ -857,7 +870,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.4.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.5.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1044,6 +1057,7 @@ function startUserListeners() {
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
   stop('cfgTexts'); unsub.cfgTexts = F.onSnapshot(dref('config', 'texts'), snap => setTexts(snap.exists() ? (snap.data().t || {}) : {}, snap.exists() ? (snap.data().g || []) : []), err => console.warn('texts', err));
   bcListen();
+  stop('cfgApps'); unsub.cfgApps = F.onSnapshot(dref('config', 'applinks'), snap => { S.appLinks = snap.exists() ? snap.data() : null; if (!alDraft || !alDirty) alDraft = null; renderAppLinks(); if (S.isSuper) renderAdmin(); }, err => console.warn('applinks', err));
   stop('cfgPack'); unsub.cfgPack = F.onSnapshot(dref('config', 'packlist'), snap => { S.packlist = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('packlist', err));
   stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; S.secCfg = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('sections', err));
   stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const d = snap.exists() ? snap.data() : {}, o = d.order, hd = d.hidden; let ch = false;
@@ -1490,11 +1504,12 @@ async function loadPublicCfg() {
   if (!db || Date.now() - publicLoaded < 60000) return;
   publicLoaded = Date.now();
   try {
-    const [g, c, pv, tt] = await Promise.all(['groups', 'contact', 'privacy', 'texts'].map(id => F.getDoc(dref('config', id)).catch(() => null)));
+    const [g, c, pv, tt, al] = await Promise.all(['groups', 'contact', 'privacy', 'texts', 'applinks'].map(id => F.getDoc(dref('config', id)).catch(() => null)));
+    if (al && al.exists()) { S.appLinks = al.data(); renderAppLinks(); }
     if (tt && tt.exists()) setTexts(tt.data().t || {}, tt.data().g || []);
-    if (g.exists() && Array.isArray(g.data().list)) S.groups = g.data().list;
-    if (c.exists()) S.contact = c.data();
-    if (pv.exists()) S.privacy = pv.data();
+    if (g && g.exists() && Array.isArray(g.data().list)) S.groups = g.data().list;
+    if (c && c.exists()) S.contact = c.data();
+    if (pv && pv.exists()) S.privacy = pv.data();
     fillGrpSelect();
   } catch (e) { console.warn('public config', e); }
 }
@@ -2661,7 +2676,7 @@ const RESET_PARTS = [
   { k: 'prod', t: 'Getränke und Lager', d: 'alle Getränke mit Preisen und Barcodes, Lagerbewegungen, Packliste', cols: ['products', 'stockmv'], cfg: ['packlist'] },
   { k: 'msgs', t: 'Korrekturanträge, Posteingang, Nachrichten', d: 'alle Anträge, der Posteingang und alle Nachrichten an Mitglieder mit Lesebestätigungen', cols: ['reqs', 'msgs', 'bcmsg', 'bcread'], cfg: ['broadcast'] },
   { k: 'eggs', t: 'Eigene Easter Eggs und Fasnets-Titel', d: 'selbst angelegte Easter Eggs, Kategorien, Titel und Bestenlisten-Einstellungen (zurück auf Standard)', cfg: ['eggs', 'eggcats', 'titles', 'best'] },
-  { k: 'cfg', t: 'Einstellungen auf Standard', d: 'Texte, Abschnitte/Überschriften, Kontakt, Datenschutz, Farben, Rückgängig, Funktionen, Partymodus, Backup-Erinnerung', cfg: ['texts', 'sections', 'contact', 'privacy', 'theme', 'undo', 'features', 'party', 'backup'] },
+  { k: 'cfg', t: 'Einstellungen auf Standard', d: 'Texte, Abschnitte/Überschriften, Kontakt, Datenschutz, Farben, Rückgängig, Funktionen, Partymodus, Backup-Erinnerung, Links zu anderen Apps', cfg: ['texts', 'sections', 'contact', 'privacy', 'theme', 'undo', 'features', 'party', 'backup', 'applinks'] },
   { k: 'groups', t: 'Gruppen', d: 'alle Gruppen (die Personen bleiben, nur ohne Gruppe)', cfg: ['groups'] },
   { k: 'av', t: 'Profilbilder', d: 'alle Profilbilder', cols: ['avatars'] },
   { k: 'log', t: 'Historie', d: 'das ganze Protokoll aller Änderungen – danach steht nur noch ein Eintrag, dass zurückgesetzt wurde', cols: ['log'] }
@@ -4608,7 +4623,7 @@ function renderAdmin() {
       (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">„Aus Strichliste entfernen“ wirkt nur hier: Die Person kann nicht mehr buchen und verschwindet aus den Listen; der Stundentracker bleibt nutzbar. Konten löschen geht nur in WexSuperAdmin.</div>' : '') +
       '</section>';
   }
-  if (S.isSuper) h += bcSection() + settingsSection() + groupsEditor() + titlesEditor() + rulesEditor() + historySection();
+  if (S.isSuper) h += bcSection() + appLinksSection() + settingsSection() + groupsEditor() + titlesEditor() + rulesEditor() + historySection();
   else if (S.isAdmin && partyAllowed()) h += '<section><h2>Partymodus</h2>' + partyAdmin() + '</section>';
   if (S.days.length) {
     const first = S.days.reduce((m, d) => d.date < m ? d.date : m, S.days[0].date), lastD = S.days.reduce((m, d) => d.date > m ? d.date : m, S.days[0].date);
@@ -5679,7 +5694,7 @@ const TAB_OF = { 'Neue Anmeldungen': 'todo', 'Korrekturanträge': 'todo', 'Lösc
   'Getränke': 'drinks', 'Lager': 'drinks',
   'Zurückgenommene Buchungen': 'stats', 'Anwesenheit': 'stats', 'Zu wenig gebucht': 'stats', 'Alle Tage': 'stats', 'Excel-Auswertung': 'stats', 'Historie': 'stats',
   'Personen': 'people', 'Gruppen': 'people', 'Neu registriert': 'people', 'Datenschutz-Bestätigungen': 'people',
-  'Einstellungen': 'set', 'Nachricht an alle': 'set', 'Fasnets-Titel': 'set', 'Easter Eggs verwalten': 'set', 'Partymodus': 'set', 'Daten': 'set' };
+  'Einstellungen': 'set', 'Nachricht an alle': 'set', 'Links zu anderen Apps': 'set', 'Fasnets-Titel': 'set', 'Easter Eggs verwalten': 'set', 'Partymodus': 'set', 'Daten': 'set' };
 const tabOf = k => TAB_OF[k] || 'set';
 const ADM_MORE = ['Partymodus', 'Fasnets-Titel', 'Easter Eggs verwalten'];
 let admMore = false;
@@ -5827,7 +5842,7 @@ $('modalBody').addEventListener('click', e => {
 });
 /* Suche im Admin-Bereich: springt zum Bereich, Getränk, zur Person oder zum Tag */
 let admQ = '', admQFocus = false;
-const ADM_WORDS = { rundnachricht: 'Nachricht an alle', broadcast: 'Nachricht an alle', ankündigung: 'Nachricht an alle', backup: 'Daten', sichern: 'Daten', csv: 'Daten', import: 'Daten', excel: 'Excel-Auswertung', auswertung: 'Excel-Auswertung', packliste: 'Mitnehmen und zurückzählen', einladen: 'Mitnehmen und zurückzählen', zählen: 'Mitnehmen und zurückzählen', bus: 'Bus-Check-in', check: 'Bus-Check-in', anwesen: 'Anwesenheit', lager: 'Lager', inventur: 'Lager', nachkaufen: 'Lager', mindest: 'Getränke', barcode: 'Getränke', preis: 'Getränke', rückgängig: 'Einstellungen', nachtmodus: 'Einstellungen', texte: 'Einstellungen', party: 'Partymodus', titel: 'Fasnets-Titel', egg: 'Easter Eggs verwalten', gruppe: 'Gruppen', sperr: 'Personen', u18: 'Personen', jugend: 'Personen', antrag: 'Korrekturanträge', nachricht: 'Posteingang', rückfrage: 'Abgleich', fehlt: 'Zu wenig gebucht', nachtragen: 'Buchung nachtragen', historie: 'Historie', protokoll: 'Historie' };
+const ADM_WORDS = { links: 'Links zu anderen Apps', stundentracker: 'Links zu anderen Apps', 'apps': 'Links zu anderen Apps', rundnachricht: 'Nachricht an alle', broadcast: 'Nachricht an alle', ankündigung: 'Nachricht an alle', backup: 'Daten', sichern: 'Daten', csv: 'Daten', import: 'Daten', excel: 'Excel-Auswertung', auswertung: 'Excel-Auswertung', packliste: 'Mitnehmen und zurückzählen', einladen: 'Mitnehmen und zurückzählen', zählen: 'Mitnehmen und zurückzählen', bus: 'Bus-Check-in', check: 'Bus-Check-in', anwesen: 'Anwesenheit', lager: 'Lager', inventur: 'Lager', nachkaufen: 'Lager', mindest: 'Getränke', barcode: 'Getränke', preis: 'Getränke', rückgängig: 'Einstellungen', nachtmodus: 'Einstellungen', texte: 'Einstellungen', party: 'Partymodus', titel: 'Fasnets-Titel', egg: 'Easter Eggs verwalten', gruppe: 'Gruppen', sperr: 'Personen', u18: 'Personen', jugend: 'Personen', antrag: 'Korrekturanträge', nachricht: 'Posteingang', rückfrage: 'Abgleich', fehlt: 'Zu wenig gebucht', nachtragen: 'Buchung nachtragen', historie: 'Historie', protokoll: 'Historie' };
 function admFindFill() {
   const box = $('admQRes'); if (!box) return;
   const q = normName(admQ.trim()); if (q.length < 2) { box.innerHTML = ''; return; }
@@ -6787,11 +6802,109 @@ async function bcSend() {
   toast('Nachricht gesendet'); renderAdmin();
 }
 
+/* ---------- Links zu anderen Apps (Super-Admin legt fest; auf der Anmeldeseite und/oder der Startseite) ----------
+   config/applinks = { login: bool, home: bool, title, items: [{ name, desc, url, img }] }  – img: kleines Bild als data-URL oder https-Link.
+   Vor der Anmeldung lesbar (Regeln: config 'applinks' öffentlich), ändern nur der Super-Admin. */
+const AL_PRESETS = [{ name: 'WexStunden', desc: 'Arbeitsstunden für den Verein erfassen', url: 'https://firestorm1902.github.io/wexhainis-stundentracker/', img: 'https://firestorm1902.github.io/wexhainis-stundentracker/icon-192.png' }];
+let alDraft = null, alDirty = false;
+const alCfg = () => Object.assign({ login: true, home: true, title: 'Weitere Apps vom Verein', items: [] }, S.appLinks || {});
+const alOkUrl = u => /^https:\/\/[^\s"'<>]+$/i.test(String(u || ''));
+const alImgOk = u => /^data:image\/(jpeg|png|webp);base64,/.test(String(u || '')) || alOkUrl(u);
+function alIcon(it, size) {
+  const n = (it.name || '?').trim();
+  return alImgOk(it.img) ? '<img class="alimg" src="' + esc(it.img) + '" alt="" loading="lazy" style="width:' + size + 'px;height:' + size + 'px">'
+    : '<span class="alimg alph" style="width:' + size + 'px;height:' + size + 'px">' + esc(n.slice(0, 1).toUpperCase()) + '</span>';
+}
+function appLinksHTML(c) {
+  const L = (c.items || []).filter(x => x.name && alOkUrl(x.url)); if (!L.length) return '';
+  return '<div class="alhead">' + esc(c.title || 'Weitere Apps vom Verein') + '</div><div class="algrid">' + L.map(x =>
+    '<a class="alcard" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + alIcon(x, 52) + '<span class="altxt"><b>' + esc(x.name) + '</b>' + (x.desc ? '<small>' + esc(x.desc) + '</small>' : '') + '</span><span class="algo" aria-hidden="true">↗</span></a>').join('') + '</div>';
+}
+function renderAppLinks() {
+  const c = alCfg(), a = $('appLinksA'), m = $('appLinksM'); if (!a || !m) return;
+  const html = appLinksHTML(c);
+  const noauth = configured && S.authReady && !S.user;
+  a.hidden = !(noauth && c.login && html); if (!a.hidden && a.innerHTML !== html) a.innerHTML = html;
+  m.hidden = !(S.user && c.home && html); if (!m.hidden && m.innerHTML !== html) m.innerHTML = html;
+}
+async function alImage(file) { // quadratisch zuschneiden, 192 px, PNG (Transparenz) oder JPEG, möglichst klein
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Bild konnte nicht gelesen werden')); i.src = url; });
+    const w = img.naturalWidth, h = img.naturalHeight, side = Math.min(w, h), N = 192;
+    const cv = document.createElement('canvas'); cv.width = cv.height = N;
+    cv.getContext('2d').drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, N, N);
+    let data = cv.toDataURL('image/png');
+    if (data.length > 60000) { const c2 = document.createElement('canvas'); c2.width = c2.height = N; const x = c2.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, N, N); x.drawImage(cv, 0, 0); let q = .85; data = c2.toDataURL('image/jpeg', q); while (data.length > 60000 && q > .4) { q -= .1; data = c2.toDataURL('image/jpeg', q); } }
+    return data;
+  } finally { URL.revokeObjectURL(url); }
+}
+function appLinksSection() {
+  if (!alDraft) { alDraft = JSON.parse(JSON.stringify(alCfg())); alDirty = false; }
+  const d = alDraft;
+  let h = '<section><h2>Links zu anderen Apps</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Kacheln mit Bild, die zu anderen Apps führen (z. B. WexStunden). Antippen öffnet die App in einem neuen Fenster.</div>' +
+    '<label class="chk"><input type="checkbox" id="alLogin"' + (d.login ? ' checked' : '') + '> auf der Anmeldeseite zeigen (auch für noch nicht Angemeldete)</label>' +
+    '<label class="chk"><input type="checkbox" id="alHome"' + (d.home ? ' checked' : '') + '> nach dem Anmelden unten auf der Startseite zeigen</label>' +
+    '<label class="f" style="margin-top:6px">Überschrift<input id="alTitle" maxlength="40" value="' + esc(d.title || '') + '"></label>';
+  h += (d.items || []).map((x, i) => '<div class="aledit" data-ali="' + i + '"><div class="alprev">' + alIcon(x, 56) + '<div class="row" style="margin:0;flex-direction:column;gap:4px"><button class="b sm" data-al="img">🖼 Bild …</button>' + (x.img ? '<button class="b sm" data-al="noimg">Bild weg</button>' : '') + '</div></div>' +
+    '<div class="grid2" style="flex:1"><label class="f">Name<input data-alf="name" maxlength="30" value="' + esc(x.name || '') + '"></label><label class="f">Kurzbeschreibung<input data-alf="desc" maxlength="60" value="' + esc(x.desc || '') + '"></label>' +
+    '<label class="f full">Link (https://…)<input data-alf="url" inputmode="url" autocapitalize="off" value="' + esc(x.url || '') + '"' + (x.url && !alOkUrl(x.url) ? ' style="border-color:var(--pen)"' : '') + '></label>' +
+    '<div class="full row" style="margin-top:0"><button class="b sm" data-al="up"' + (i ? '' : ' disabled') + '>↑</button><button class="b sm" data-al="down"' + (i < d.items.length - 1 ? '' : ' disabled') + '>↓</button><button class="b sm dng" data-al="del">Entfernen</button></div></div></div>').join('');
+  const missing = AL_PRESETS.filter(p => !(d.items || []).some(x => x.url === p.url));
+  h += '<div class="row"><button class="b sm" data-al="add">+ App hinzufügen</button>' + missing.map((p, i) => '<button class="b sm" data-al="preset" data-alp="' + i + '">+ ' + esc(p.name) + '</button>').join('') + '</div>';
+  h += '<div id="alPv">' + alPvHTML(d) + '</div>';
+  h += '<div class="row"><button class="b pri" data-al="save"' + (alDirty ? '' : ' disabled') + '>Speichern</button>' + (alDirty ? '<button class="b" data-al="reset">Verwerfen</button>' : '') + '</div><input type="file" id="alFile" accept="image/*" hidden>';
+  return h + '</section>';
+}
+const alPvHTML = d => { const pv = appLinksHTML(d); return pv ? '<h3 class="sub3">Vorschau</h3><div class="applinks alpv">' + pv + '</div>' : ''; };
+const alLive = () => { alDirty = true; const sb = document.querySelector('[data-al=save]'); if (sb) sb.disabled = false; const pv = $('alPv'); if (pv) pv.innerHTML = alPvHTML(alDraft); };
+let alImgFor = -1;
+const alTouch = () => { alDirty = true; renderAdmin(); };
+document.addEventListener('input', e => {
+  const t = e.target; if (!alDraft) return;
+  if (t.id === 'alTitle') { alDraft.title = t.value; alLive(); return; }
+  const f = t.dataset && t.dataset.alf; if (!f) return;
+  const i = +t.closest('[data-ali]').dataset.ali; alDraft.items[i][f] = t.value.trim(); alLive(); // nur Vorschau neu – das Feld behält den Fokus
+});
+document.addEventListener('change', e => {
+  const t = e.target; if (!alDraft) return;
+  if (t.id === 'alLogin') { alDraft.login = t.checked; alTouch(); }
+  if (t.id === 'alHome') { alDraft.home = t.checked; alTouch(); }
+  if (t.id === 'alFile') {
+    const file = t.files && t.files[0]; t.value = ''; if (!file || alImgFor < 0) return;
+    alImage(file).then(img => { alDraft.items[alImgFor].img = img; alTouch(); }).catch(err => toast(err.message));
+  }
+});
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-al]'); if (!b || !S.isSuper || !alDraft) return;
+  const a = b.dataset.al, box = b.closest('[data-ali]'), i = box ? +box.dataset.ali : -1, L = alDraft.items = alDraft.items || [];
+  if (a === 'add') { L.push({ name: '', desc: '', url: 'https://', img: '' }); alTouch(); }
+  else if (a === 'preset') { L.push(Object.assign({}, AL_PRESETS.filter(p => !L.some(x => x.url === p.url))[+b.dataset.alp])); alTouch(); }
+  else if (a === 'del') { if (await ask('„' + (L[i].name || 'App') + '“ entfernen?', { ok: 'Entfernen', danger: true })) { L.splice(i, 1); alTouch(); } }
+  else if (a === 'up' && i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; alTouch(); }
+  else if (a === 'down' && i < L.length - 1) { [L[i + 1], L[i]] = [L[i], L[i + 1]]; alTouch(); }
+  else if (a === 'img') { alImgFor = i; $('alFile').click(); }
+  else if (a === 'noimg') { L[i].img = ''; alTouch(); }
+  else if (a === 'reset') { alDraft = null; alDirty = false; renderAdmin(); }
+  else if (a === 'save') {
+    const bad = L.find(x => !x.name || !alOkUrl(x.url));
+    if (bad) { toast('Bitte bei jeder App Name und einen Link mit https:// eintragen'); return; }
+    const v = { login: !!alDraft.login, home: !!alDraft.home, title: (alDraft.title || '').trim(), items: L.map(x => ({ name: x.name, desc: x.desc || '', url: x.url, img: alImgOk(x.img) ? x.img : '' })), t: Date.now() };
+    if (JSON.stringify(v).length > 900000) { toast('Zu groß – bitte kleinere Bilder verwenden'); return; }
+    S.appLinks = v; alDirty = false; alDraft = null;
+    fire(F.setDoc(dref('config', 'applinks'), v), 'Links speichern'); logEv('system', 'ändert die Links zu anderen Apps (' + v.items.map(x => x.name).join(', ') + ')');
+    toast('Gespeichert'); renderAppLinks(); renderAdmin();
+  }
+});
+
 /* ---------- Versionsverlauf (Tippen auf die Versionsnummer) ----------
    Rolle je Eintrag: m = alle Mitglieder, b = Vorstand, a = Admins, s = Super-Admin.
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.5.0', d: '2026-11-25', i: [
+    ['m', 'Links zu anderen Apps des Vereins (z. B. WexStunden) als Kacheln mit Bild auf der Anmeldeseite und unten auf der Startseite.'],
+    ['s', 'Links zu anderen Apps festlegen: Name, Beschreibung, Link, Bild, Reihenfolge und wo sie erscheinen.'] ] },
   { v: '2.4.0', d: '2026-11-25', i: [
     ['m', 'Nachrichten vom Vorstand lassen sich unter „Mein Konto“ nachlesen, solange sie gültig sind. Ungelesene zeigt eine Zahl am Reiter.'] ] },
   { v: '2.3.0', d: '2026-11-25', i: [
@@ -6876,7 +6989,7 @@ function renderAll() {
   const noauth = configured && S.authReady && !S.user;
   document.body.classList.toggle('noauth', noauth);
   $('authSec').hidden = !noauth;
-  renderNet(); renderScan(); renderAdmin();
+  renderAppLinks(); renderNet(); renderScan(); renderAdmin();
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && cam.on) { const wasSheet = cam.box === boxSheet; camStop(); setMainButtons(); if (wasSheet) boxSheet.ph.innerHTML = '<b>Kamera pausiert</b><span>„Fertig“ tippen und erneut öffnen.</span>'; }

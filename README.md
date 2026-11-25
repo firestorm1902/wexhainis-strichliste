@@ -485,14 +485,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.4.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.5.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.4.0';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.4.0';`
+- in `index.html`: `const APP_VERSION = '2.5.0';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.5.0';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -505,12 +505,15 @@ Admin → ⚙️ Einstellungen → **Nachricht an alle** (oder in der Suche „R
 - Mehrere Nachrichten können gleichzeitig laufen. Unter „Aktuelle Nachrichten“ steht pro Nachricht „gelesen x/y“, aufgeklappt wer wann gelesen hat und bei persönlichen Nachrichten, wer noch nicht. „Vorschau“ zeigt sie dir, „Zurückziehen“ nimmt sie zurück.
 - Braucht die Regeln ab v2.3.0 (`bcmsg`, `bcread`). Eine Nachricht aus v2.2.0 wird automatisch übernommen.
 
+### Links zu anderen Apps (Super-Admin)
+Admin → ⚙️ Einstellungen → **Links zu anderen Apps** (oder in der Suche „Links“). Mit **„+ WexStunden“** ist der Stundentracker mit Bild und Beschreibung sofort drin; **„+ App hinzufügen“** für weitere (z. B. die Vereinsseite). Pro App: Name, Kurzbeschreibung, Link (muss mit `https://` beginnen) und ein Bild (**🖼 Bild …** – wird quadratisch zugeschnitten und verkleinert; ohne Bild erscheint der Anfangsbuchstabe). Reihenfolge mit ↑/↓. Zwei Häkchen legen fest, wo die Kacheln erscheinen: **auf der Anmeldeseite** (auch für noch nicht Angemeldete) und/oder **unten auf der Startseite** nach dem Anmelden. Die Vorschau zeigt sie wie bei den Mitgliedern; erst **Speichern** macht sie sichtbar. Ein Tipp auf eine Kachel öffnet die App in einem neuen Fenster. Braucht die Regeln ab v2.5.0 (Anmeldeseite darf `config/applinks` lesen).
+
 ### Versionsverlauf
 Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, was für seine Rolle gilt: Mitglieder die Mitglieder-Neuerungen, der Vorstand zusätzlich Vorstand-Themen, Admins zusätzlich Admin-Themen, der Super-Admin alles (mit Kennzeichnung, für wen ein Punkt gilt). Gibt es seit dem letzten Öffnen eine neue Version, steht „neu“ daneben. Der Super-Admin blendet den Verlauf unter Admin → Einstellungen → „Versionsverlauf anzeigen“ für alle ein oder aus (er selbst sieht ihn weiter).
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.4.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.5.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

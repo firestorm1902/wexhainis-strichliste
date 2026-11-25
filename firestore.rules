@@ -241,9 +241,9 @@ service cloud.firestore {
     }
 
     // Easter-Egg-Regeln, Gruppen, Sichtbarkeit, Kontakt, Bestenliste: alle lesen, nur Super-Admins ändern
-    // Gruppen, Kontakt und Datenschutz sind schon vor der Anmeldung lesbar (Registrierung)
+    // Gruppen, Kontakt, Datenschutz und die Links zu anderen Apps sind schon vor der Anmeldung lesbar (Anmeldeseite)
     match /config/{id} {
-      allow read: if signedIn() || id in ['groups', 'contact', 'privacy', 'theme', 'texts'];
+      allow read: if signedIn() || id in ['groups', 'contact', 'privacy', 'theme', 'texts', 'applinks'];
       // Partymodus dürfen auch Getränke-Admins starten und beenden – aber nur, wenn der Super-Admin ihn erlaubt hat
       // Datum des letzten Backups dürfen alle Admins setzen
       allow write: if isSuper() || (id in ['backup', 'packlist'] && isAdmin()) || (id == 'party' && isAdmin()
