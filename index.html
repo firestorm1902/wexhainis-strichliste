@@ -870,7 +870,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.5.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.5.1'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -6805,10 +6805,13 @@ async function bcSend() {
 /* ---------- Links zu anderen Apps (Super-Admin legt fest; auf der Anmeldeseite und/oder der Startseite) ----------
    config/applinks = { login: bool, home: bool, title, items: [{ name, desc, url, img }] }  – img: kleines Bild als data-URL oder https-Link.
    Vor der Anmeldung lesbar (Regeln: config 'applinks' öffentlich), ändern nur der Super-Admin. */
-const AL_PRESETS = [{ name: 'WexStunden', desc: 'Arbeitsstunden für den Verein erfassen', url: 'https://firestorm1902.github.io/wexhainis-stundentracker/', img: 'https://firestorm1902.github.io/wexhainis-stundentracker/icon-192.png' }];
+const AL_PRESETS = [{ name: 'WexStrichliste', desc: 'Getränke per Scan buchen', url: 'https://firestorm1902.github.io/wexhainis-strichliste/', img: 'https://firestorm1902.github.io/wexhainis-strichliste/icons/icon-192.png' }, { name: 'WexStunden', desc: 'Arbeitsstunden für den Verein erfassen', url: 'https://firestorm1902.github.io/wexhainis-stundentracker/', img: 'https://firestorm1902.github.io/wexhainis-stundentracker/icon-192.png' }];
 let alDraft = null, alDirty = false;
 const alCfg = () => Object.assign({ login: true, home: true, title: 'Weitere Apps vom Verein', items: [] }, S.appLinks || {});
 const alOkUrl = u => /^https:\/\/[^\s"'<>]+$/i.test(String(u || ''));
+// Link auf diese App selbst wird nicht angezeigt (die Liste ist gemeinsam mit WexStunden)
+const alNorm = u => { try { const x = new URL(u, location.href); return x.host + x.pathname.replace(/index\.html$/, '').replace(/\/?$/, '/'); } catch (e) { return ''; } };
+const alIsSelf = u => alNorm(u) === alNorm(location.href);
 const alImgOk = u => /^data:image\/(jpeg|png|webp);base64,/.test(String(u || '')) || alOkUrl(u);
 function alIcon(it, size) {
   const n = (it.name || '?').trim();
@@ -6816,7 +6819,7 @@ function alIcon(it, size) {
     : '<span class="alimg alph" style="width:' + size + 'px;height:' + size + 'px">' + esc(n.slice(0, 1).toUpperCase()) + '</span>';
 }
 function appLinksHTML(c) {
-  const L = (c.items || []).filter(x => x.name && alOkUrl(x.url)); if (!L.length) return '';
+  const L = (c.items || []).filter(x => x.name && alOkUrl(x.url) && !alIsSelf(x.url)); if (!L.length) return '';
   return '<div class="alhead">' + esc(c.title || 'Weitere Apps vom Verein') + '</div><div class="algrid">' + L.map(x =>
     '<a class="alcard" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + alIcon(x, 52) + '<span class="altxt"><b>' + esc(x.name) + '</b>' + (x.desc ? '<small>' + esc(x.desc) + '</small>' : '') + '</span><span class="algo" aria-hidden="true">↗</span></a>').join('') + '</div>';
 }
@@ -6849,6 +6852,7 @@ function appLinksSection() {
   h += (d.items || []).map((x, i) => '<div class="aledit" data-ali="' + i + '"><div class="alprev">' + alIcon(x, 56) + '<div class="row" style="margin:0;flex-direction:column;gap:4px"><button class="b sm" data-al="img">🖼 Bild …</button>' + (x.img ? '<button class="b sm" data-al="noimg">Bild weg</button>' : '') + '</div></div>' +
     '<div class="grid2" style="flex:1"><label class="f">Name<input data-alf="name" maxlength="30" value="' + esc(x.name || '') + '"></label><label class="f">Kurzbeschreibung<input data-alf="desc" maxlength="60" value="' + esc(x.desc || '') + '"></label>' +
     '<label class="f full">Link (https://…)<input data-alf="url" inputmode="url" autocapitalize="off" value="' + esc(x.url || '') + '"' + (x.url && !alOkUrl(x.url) ? ' style="border-color:var(--pen)"' : '') + '></label>' +
+    (alIsSelf(x.url) ? '<div class="full" style="font-size:.78rem;color:var(--mu)">Das ist diese App – hier wird der Link ausgeblendet, in WexStunden aber angezeigt.</div>' : '') +
     '<div class="full row" style="margin-top:0"><button class="b sm" data-al="up"' + (i ? '' : ' disabled') + '>↑</button><button class="b sm" data-al="down"' + (i < d.items.length - 1 ? '' : ' disabled') + '>↓</button><button class="b sm dng" data-al="del">Entfernen</button></div></div></div>').join('');
   const missing = AL_PRESETS.filter(p => !(d.items || []).some(x => x.url === p.url));
   h += '<div class="row"><button class="b sm" data-al="add">+ App hinzufügen</button>' + missing.map((p, i) => '<button class="b sm" data-al="preset" data-alp="' + i + '">+ ' + esc(p.name) + '</button>').join('') + '</div>';
@@ -6902,6 +6906,8 @@ document.addEventListener('click', async e => {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.5.1', d: '2026-11-25', i: [
+    ['m', 'Bei den Links zu anderen Apps erscheint die Strichliste nicht mehr selbst.'] ] },
   { v: '2.5.0', d: '2026-11-25', i: [
     ['m', 'Links zu anderen Apps des Vereins (z. B. WexStunden) als Kacheln mit Bild auf der Anmeldeseite und unten auf der Startseite.'],
     ['s', 'Links zu anderen Apps festlegen: Name, Beschreibung, Link, Bild, Reihenfolge und wo sie erscheinen.'] ] },
