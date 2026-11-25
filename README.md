@@ -464,7 +464,7 @@ Hinweise:
 - **Was als Bier zählt**, legt die **Sorte** des Getränks fest (Admin → Getränke). Ohne Angabe rät die App aus dem Namen. Radler und Alkoholfreies zählen nicht als Bier.
 - Die **Gruppen-Easter-Eggs** brauchen Netz. Offline wird weiter mitgezählt, aber ohne Meldung.
 - Nach Stornos, Nachträgen oder einem Import unter **Admin → Daten → Zähler neu berechnen** tippen, damit die Zahlen wieder stimmen.
-- **Geräusche:** Easter Eggs mit Getränkebezug spielen ein passendes Geräusch statt der Melodie – zufällig aus mehreren pro Sorte (Bier: Kronkorken, Bügelflasche, Einschenken, Krüge; Radler; Alkoholfrei; Wein/Sekt: Korken, Sekt, Einschenken, Weingläser; Wasser: Schraubverschluss, Einschenken, Blubbern; Softdrink: Dose, Eiswürfel, Sprudeln, Strohhalm; Schnaps: Anstoßen, Glas auf den Tisch, Gluck-gluck; Sonstiges). Die Geräusche werden in der App erzeugt (keine Dateien). Easter Eggs ohne Getränkebezug (Uhrzeit, Datum, Abzeichen) behalten die Melodie. „An, ohne Ton“ bleibt still. Probehören: Admin → Easter Eggs verwalten → „🔊 Getränke-Geräusche anhören“.
+- **Geräusche:** Easter Eggs mit Getränkebezug spielen statt der Melodie ein echtes Geräusch passend zur Sorte, zufällig aus mehreren (Ordner `sounds/`, Dateien `<sorte>-<nr>.mp3`): Bier (Flasche öffnen, Kronkorken, Einschenken – auch für Radler und Alkoholfreies), Wein/Sekt (Korken, Anstoßen, Gläser), Softdrink (Eiswürfel, Dose). Für Wasser, Schnaps und Sonstiges kommt noch die Melodie. Weitere Geräusche: Datei nach `sounds/` legen, in `index.html` bei `SND_FILES` die Anzahl erhöhen und in `sw.js` (CORE) eintragen. „An, ohne Ton“ bleibt still. Probehören: Admin → Easter Eggs verwalten → „🔊 Getränke-Geräusche anhören“.
 - **Rückgängig, Storno, Korrektur:** Wird eine Buchung zurückgenommen, vom Admin storniert (auch „−“ bei Nachtragen) oder per genehmigtem Korrekturantrag entfernt, verschwinden die Easter Eggs, die genau diese Buchung ausgelöst hat – unter „Deine“ und bei Gruppen-Meldungen unter „Für alle“. Wird die Zahl später wieder erreicht, kommt das Easter Egg erneut. Das Sammelalbum bleibt. Gilt für Easter Eggs ab v2.8.0; für Gruppen-Meldungen beim eigenen Rückgängig braucht es die Regeln ab v2.8.0.
 - **Easter Eggs für alle: an/AUS** (Admin → Daten) schaltet alles für alle Handys ab: keine Popups, kein Verlauf, keine Sammelalbum-Einträge (gezählt wird weiter). Ist es aus, steht auf der Startseite statt des persönlichen Knopfs „Easter Eggs: für alle aus“ (nur beim Super-Admin, mit Direkt-Einschalten); Mitglieder sehen den Knopf dann nicht.
 - **Verlauf für alle:** In der Scan-Ansicht steht unter „Deine Getränke heute“ der Abschnitt „Easter Eggs heute“ mit zwei Reitern: *Für alle* (alle gemeinsamen Easter Eggs des Tages mit Uhrzeit und Auslöser) und *Deine* (die eigenen). Die eigenen sind in der Datenbank gespeichert und bleiben auch bei einem Handywechsel erhalten.
@@ -488,14 +488,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.9.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.9.1**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.9.0';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.9.0';`
+- in `index.html`: `const APP_VERSION = '2.9.1';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.9.1';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -528,7 +528,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.9.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.9.1“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

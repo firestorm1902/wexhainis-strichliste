@@ -880,7 +880,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.9.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.9.1'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2141,7 +2141,7 @@ function nextEgg() {
   el.dataset.anim = anim;
   eggFx(album ? 'sterne' : anim, rule);
   el.hidden = false; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
-  { const sc = album ? null : eggCat(e, rule); if (sc) drinkSound(sc); else jingle(anim); } if (navigator.vibrate) navigator.vibrate(anim === 'drehdurch' ? [60, 40, 60, 40, 60, 40, 200] : anim === 'blasen' ? [30, 50, 30, 50, 30, 50, 30] : [90, 60, 90, 60, 220]);
+  { const sc = album ? null : eggCat(e, rule); if (sc) drinkSound(sc, null, anim); else jingle(anim); } if (navigator.vibrate) navigator.vibrate(anim === 'drehdurch' ? [60, 40, 60, 40, 60, 40, 200] : anim === 'blasen' ? [30, 50, 30, 50, 30, 50, 30] : [90, 60, 90, 60, 220]);
   clearTimeout(eggTimer);
 }
 // passende Animation wählen: fest eingestellt oder automatisch nach Getränk und Art
@@ -2194,97 +2194,43 @@ const MELODY = {
   regen: [659.25, 587.33, 523.25, 659.25, 783.99], feuerwerk: [261.63, 392, 523.25, 783.99, 1046.5], schwarm: [440, 466.16, 440, 466.16, 523.25],
   ballons: [587.33, 739.99, 880, 1174.66], sterne: [1046.5, 1318.5, 1568, 2093], album: [783.99, 987.77, 1174.66, 1567.98, 1975.53]
 };
-/* ---------- Getränke-Geräusche für Easter Eggs (in der App erzeugt, keine Dateien) ----------
-   Pro Sorte mehrere Geräusche, zufällig, möglichst nicht zweimal dasselbe hintereinander.
-   Eigene Easter Eggs: Sorte des gebuchten Getränks. Von anderen: Sorte der Easter-Egg-Regel (sonst Melodie).
-   Easter Eggs ohne Getränkebezug (Uhrzeit, Datum, Abzeichen) behalten die Melodie. */
+/* ---------- Getränke-Geräusche für Easter Eggs (echte Aufnahmen, Ordner sounds/) ----------
+   SND_FILES: Anzahl Dateien pro Sorte (sounds/<sorte>-<n>.mp3). Sorten ohne eigene Dateien können eine andere mitbenutzen (SND_ALIAS).
+   Zufällig, möglichst nicht zweimal dasselbe hintereinander. Eigene Easter Eggs: Sorte des gebuchten Getränks; von anderen: Sorte der Regel.
+   Gibt es für eine Sorte nichts, Easter Eggs ohne Getränkebezug (Uhrzeit, Datum, Abzeichen) → bisherige Melodie.
+   Neue Geräusche: Datei nach sounds/ legen, Zahl hier anpassen, Datei in sw.js (CORE) eintragen. */
+const SND_FILES = { bier: 3, wein: 5, soft: 2 };
+const SND_ALIAS = { radler: 'bier', alkfrei: 'bier' };
+const SND_NAMES = { bier: ['Flasche öffnen', 'Kronkorken', 'Einschenken'], wein: ['Korken', 'Korken 2', 'Anstoßen', 'Gläser', 'Gläser 2'], soft: ['Eiswürfel', 'Dose öffnen'] };
+const sndCat = c => SND_FILES[c] ? c : SND_FILES[SND_ALIAS[c]] ? SND_ALIAS[c] : null;
 function eggCat(e, rule) {
-  if (e && e.cat && SND[e.cat]) return e.cat;
-  const rc = rule && rule.cat; if (!rule || !COUNT_KINDS.includes(rule.kind) && rule.kind !== 'after') return null;
-  return rc && SND[rc] ? rc : rc === 'na' ? 'wasser' : null;
+  if (e && e.cat && sndCat(e.cat)) return sndCat(e.cat);
+  if (!rule || (!COUNT_KINDS.includes(rule.kind) && rule.kind !== 'after')) return null;
+  return sndCat(rule.cat) || (rule.cat === 'na' ? sndCat('wasser') : null);
 }
-const SX = {
-  ctx() { const A = window.AudioContext || window.webkitAudioContext; if (!beep.c) beep.c = new A(); if (beep.c.state === 'suspended') beep.c.resume(); return beep.c; },
-  noiseBuf(c) { if (SX.nb && SX.nb.sampleRate === c.sampleRate) return SX.nb; const n = c.sampleRate * 2, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; return (SX.nb = b); },
-  out(c) { if (!SX.master || SX.master.context !== c) { SX.master = c.createGain(); SX.master.gain.value = .9; const comp = c.createDynamicsCompressor(); SX.master.connect(comp); comp.connect(c.destination); } return SX.master; },
-  // gefiltertes Rauschen mit Hüllkurve
-  nz(c, t, dur, o) {
-    o = o || {}; const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
-    src.buffer = SX.noiseBuf(c); src.loop = true; f.type = o.type || 'bandpass'; f.frequency.setValueAtTime(o.f || 1000, t); if (o.fEnd) f.frequency.exponentialRampToValueAtTime(o.fEnd, t + dur); f.Q.value = o.q || 1;
-    const a = o.a || .005, peak = o.g || .3; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a);
-    if (o.hold) g.gain.setValueAtTime(peak, t + a + o.hold); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-    src.connect(f); f.connect(g); g.connect(SX.out(c)); src.start(t, Math.random() * 1.5); src.stop(t + dur + .05); return g;
-  },
-  // Ton mit Tonhöhen-Gleiten
-  tn(c, t, f, dur, o) {
-    o = o || {}; const os = c.createOscillator(), g = c.createGain(); os.type = o.type || 'sine'; os.frequency.setValueAtTime(f, t); if (o.fEnd) os.frequency.exponentialRampToValueAtTime(o.fEnd, t + (o.glide || dur));
-    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(o.g || .3, t + (o.a || .004)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-    os.connect(g); g.connect(SX.out(c)); os.start(t); os.stop(t + dur + .02);
-  },
-  // Glas/Krug: mehrere unharmonische Teiltöne mit Nachklang
-  ring(c, t, freqs, dur, g) { freqs.forEach((f, i) => SX.tn(c, t, f * (1 + (Math.random() - .5) * .006), dur * (1 - i * .18), { g: (g || .18) / (1 + i * .7), a: .002 })); SX.nz(c, t, .03, { type: 'highpass', f: 3000, g: (g || .18) * .8 }); },
-  bubbles(c, t, dur, lo, hi, n, g) { for (let i = 0; i < n; i++) { const tt = t + Math.random() * dur, f = lo + Math.random() * (hi - lo); SX.tn(c, tt, f, .035 + Math.random() * .03, { fEnd: f * (1.6 + Math.random() * .6), g: (g || .12) * (.5 + Math.random() * .5) }); } },
-  fizz(c, t, dur, g) { SX.nz(c, t, dur, { type: 'highpass', f: 5500, g: g || .06, a: .03 }); for (let i = 0; i < dur * 40; i++) SX.nz(c, t + Math.random() * dur, .006, { type: 'highpass', f: 7000, g: (g || .06) * 2.2 }); },
-  pour(c, t, dur, bright) { SX.nz(c, t, dur, { type: 'bandpass', f: bright ? 1900 : 1200, fEnd: bright ? 2600 : 1700, q: 1.4, g: .16, a: .08, hold: dur * .5 }); SX.bubbles(c, t + .05, dur * .9, bright ? 500 : 280, bright ? 1100 : 700, Math.round(dur * 22), .1); },
-  pop(c, t, f0, f1, g) { SX.nz(c, t, .02, { type: 'highpass', f: 2500, g: (g || .4) * .9 }); SX.tn(c, t, f0, .09, { fEnd: f1, glide: .06, g: g || .4 }); }
-};
-const SND = {
-  bier: [
-    (c, t) => { SX.pop(c, t, 700, 220, .35); SX.nz(c, t + .02, .55, { type: 'highpass', f: 3800, g: .12, a: .01 }); },             // Kronkorken
-    (c, t) => { SX.tn(c, t, 320, .16, { fEnd: 85, glide: .1, g: .55 }); SX.nz(c, t, .05, { type: 'lowpass', f: 900, g: .25 }); SX.nz(c, t + .05, .35, { type: 'highpass', f: 3500, g: .05 }); }, // Bügelflasche
-    (c, t) => { SX.pour(c, t, 1.2, false); SX.fizz(c, t + .9, .9, .05); },                                                         // Einschenken mit Schaum
-    (c, t) => { SX.nz(c, t, .08, { type: 'lowpass', f: 400, g: .35 }); SX.ring(c, t, [420, 1130, 1870], .45, .2); }                 // Krüge anstoßen
-  ],
-  radler: [
-    (c, t) => { SX.pop(c, t, 760, 240, .32); SX.nz(c, t + .02, 1.1, { type: 'highpass', f: 4200, g: .14, a: .01 }); SX.fizz(c, t + .3, .9, .05); },
-    (c, t) => { SX.pour(c, t, 1.1, true); SX.fizz(c, t + .6, 1.0, .06); },
-    (c, t) => SX.ring(c, t, [1750, 4150, 6600], 1.0, .16)
-  ],
-  alkfrei: [
-    (c, t) => { SX.pop(c, t, 680, 230, .22); SX.nz(c, t + .02, .45, { type: 'highpass', f: 3800, g: .07, a: .01 }); },
-    (c, t) => SX.pour(c, t, 1.1, false),
-    (c, t) => { SX.pop(c, t, 520, 160, .3); SX.fizz(c, t + .05, 1.3, .05); }
-  ],
-  wein: [
-    (c, t) => { SX.nz(c, t, .25, { type: 'bandpass', f: 900, q: 6, g: .05, a: .2 }); SX.pop(c, t + .25, 480, 150, .45); },           // Korken
-    (c, t) => { SX.pop(c, t, 560, 140, .55); SX.nz(c, t + .02, .25, { type: 'highpass', f: 2500, g: .12 }); SX.fizz(c, t + .2, 1.5, .07); }, // Sekt
-    (c, t) => SX.pour(c, t, 1.4, false),                                                                                             // ruhig einschenken
-    (c, t) => { SX.ring(c, t, [2350, 5250, 8100], 1.8, .14); SX.ring(c, t + .02, [2410, 5330], 1.6, .08); }                         // Weingläser
-  ],
-  wasser: [
-    (c, t) => { SX.nz(c, t, .05, { type: 'bandpass', f: 2000, q: 3, g: .15 }); SX.nz(c, t + .03, .8, { type: 'highpass', f: 2600, g: .18, a: .12 }); }, // Pssscht
-    (c, t) => { SX.pour(c, t, 1.0, true); SX.bubbles(c, t + .8, .8, 600, 1400, 14, .08); },
-    (c, t) => SX.bubbles(c, t, 1.4, 300, 1000, 26, .13)
-  ],
-  soft: [
-    (c, t) => { SX.nz(c, t, .03, { type: 'bandpass', f: 3200, q: 5, g: .4 }); SX.tn(c, t, 2600, .05, { g: .12 }); SX.nz(c, t + .03, .7, { type: 'highpass', f: 3000, g: .2, a: .02 }); SX.fizz(c, t + .4, .6, .05); }, // Dose
-    (c, t) => { for (let i = 0; i < 6; i++) SX.ring(c, t + i * .09 + Math.random() * .05, [3200 + Math.random() * 1800, 7400 + Math.random() * 1500], .12, .1); }, // Eiswürfel
-    (c, t) => { SX.fizz(c, t, 1.5, .08); SX.bubbles(c, t, 1.4, 700, 1600, 18, .06); },
-    (c, t) => { const g = SX.nz(c, t, 1.0, { type: 'bandpass', f: 650, fEnd: 1500, q: 3, g: .22, a: .05, hold: .7 }); try { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = 22; lg.gain.value = .12; l.connect(lg); lg.connect(g.gain); l.start(t); l.stop(t + 1); } catch (e) {} } // Schlürfen
-  ],
-  schnaps: [
-    (c, t) => { SX.ring(c, t, [3300, 7200], .3, .17); SX.ring(c, t + .015, [3450, 7500], .28, .1); },
-    (c, t) => { SX.nz(c, t, .12, { type: 'lowpass', f: 300, g: .55 }); SX.tn(c, t, 170, .14, { fEnd: 90, g: .35 }); SX.nz(c, t, .02, { type: 'highpass', f: 2000, g: .2 }); }, // Glas auf den Tisch
-    (c, t) => { [0, .2, .42].forEach((d, i) => SX.tn(c, t + d, 210 + i * 25, .13, { fEnd: 380 + i * 30, g: .3, type: 'triangle' })); }     // Gluck-gluck
-  ],
-  sonst: [
-    (c, t) => SX.ring(c, t, [1750, 4150, 6600], 1.0, .16),
-    (c, t) => SX.pour(c, t, 1.1, false)
-  ]
-};
-const sndLast = {};
-function drinkSound(cat, idx) {
+const sndBuf = {}, sndLast = {};
+function sndLoad(url) {
+  const c = beep.c; if (!c) return Promise.reject(new Error('kein Ton'));
+  if (!sndBuf[url]) sndBuf[url] = fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+    .then(b => new Promise((res, rej) => c.decodeAudioData(b, res, rej))).catch(err => { delete sndBuf[url]; throw err; });
+  return sndBuf[url];
+}
+// spielt ein Geräusch der Sorte; klappt es nicht (offline ohne Datei o. ä.), kommt die Melodie
+function drinkSound(cat, idx, fallbackAnim) {
   if (idx == null && soundOff() && !(curEgg && curEgg.force)) return;
-  const L = SND[cat] || SND.sonst; let i = idx;
-  if (i == null) { do { i = Math.floor(Math.random() * L.length); } while (L.length > 1 && i === sndLast[cat]); sndLast[cat] = i; }
-  try { const c = SX.ctx(); L[i](c, c.currentTime + .05); } catch (e) { console.warn('Geräusch', e); }
+  const k = sndCat(cat); if (!k) { if (fallbackAnim) jingle(fallbackAnim); return; }
+  let i = idx;
+  if (i == null) { const n = SND_FILES[k]; do { i = Math.floor(Math.random() * n); } while (n > 1 && i === sndLast[k]); sndLast[k] = i; }
+  try {
+    const A = window.AudioContext || window.webkitAudioContext; if (!beep.c) beep.c = new A(); if (beep.c.state === 'suspended') beep.c.resume();
+    sndLoad('sounds/' + k + '-' + (i + 1) + '.mp3').then(buf => { const s = beep.c.createBufferSource(), g = beep.c.createGain(); g.gain.value = .9; s.buffer = buf; s.connect(g); g.connect(beep.c.destination); s.start(); })
+      .catch(err => { console.warn('Geräusch', err); if (fallbackAnim) jingle(fallbackAnim); });
+  } catch (e) { if (fallbackAnim) jingle(fallbackAnim); }
 }
 // Super-Admin: Geräusche probehören (unter „Easter Eggs verwalten“)
-const SND_NAMES = { bier: ['Kronkorken', 'Bügelflasche', 'Einschenken', 'Krüge'], radler: ['Kronkorken', 'Einschenken', 'Anstoßen'], alkfrei: ['Kronkorken', 'Einschenken', 'Sektkorken'],
-  wein: ['Korken', 'Sekt', 'Einschenken', 'Weingläser'], wasser: ['Schraubverschluss', 'Einschenken', 'Blubbern'], soft: ['Dose', 'Eiswürfel', 'Sprudeln', 'Strohhalm'], schnaps: ['Anstoßen', 'Glas auf Tisch', 'Gluck-gluck'], sonst: ['Gläser', 'Einschenken'] };
 function soundPreviewHTML() {
   return '<details class="pc" data-k="sndPrev"><summary><span><b>🔊 Getränke-Geräusche anhören</b><br><small>kommen bei Easter Eggs passend zur Sorte</small></span></summary>' +
-    CATS.map(([k, l]) => '<div class="sndrow"><b>' + esc(l) + '</b><span>' + (SND_NAMES[k] || []).map((n, i) => '<button type="button" class="b sm" data-snd="' + k + '|' + i + '">▶ ' + esc(n) + '</button>').join('') + '</span></div>').join('') + '</details>';
+    CATS.map(([k, l]) => { const s = sndCat(k); return '<div class="sndrow"><b>' + esc(l) + '</b><span>' + (s ? (SND_NAMES[s] || []).map((n, i) => '<button type="button" class="b sm" data-snd="' + s + '|' + i + '">▶ ' + esc(n) + '</button>').join('') + (s !== k ? '<small style="color:var(--mu);align-self:center">wie ' + esc((CATS.find(x => x[0] === s) || [s, s])[1]) + '</small>' : '') : '<small style="color:var(--mu)">noch keine Geräusche – es kommt die Melodie</small>') + '</span></div>'; }).join('') + '</details>';
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-snd]'); if (!b) return; const [k, i] = b.dataset.snd.split('|'); drinkSound(k, +i); });
 function jingle(anim) {
@@ -7279,6 +7225,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.9.1', d: '2026-11-25', i: [
+    ['m', 'Echte Geräusche statt erzeugter: Bier (auch Radler und Alkoholfreies), Wein/Sekt und Softdrinks. Bei den anderen Sorten kommt vorerst weiter die Melodie.'] ] },
   { v: '2.9.0', d: '2026-11-25', i: [
     ['m', 'Easter Eggs klingen jetzt nach dem Getränk: Kronkorken, Einschenken, Anstoßen, Korken, Dose, Eiswürfel … – mehrere Geräusche pro Sorte.'],
     ['s', 'Unter „Easter Eggs verwalten“ lassen sich alle Getränke-Geräusche probehören.'] ] },

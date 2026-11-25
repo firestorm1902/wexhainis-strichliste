@@ -1,6 +1,6 @@
 /* Service Worker: hält die App offline startbar.
    Firestore selbst puffert Buchungen eigenständig (IndexedDB). */
-const VERSION = 'strichliste-v2.9.0';
+const VERSION = 'strichliste-v2.9.1';
 const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 const CORE = [
   './',
@@ -19,6 +19,16 @@ const CORE = [
   './icons/sc-req.png',
   './icons/sc-msg.png',
   './icons/sc-admin.png',
+  './sounds/bier-1.mp3',
+  './sounds/bier-2.mp3',
+  './sounds/bier-3.mp3',
+  './sounds/wein-1.mp3',
+  './sounds/wein-2.mp3',
+  './sounds/wein-3.mp3',
+  './sounds/wein-4.mp3',
+  './sounds/wein-5.mp3',
+  './sounds/soft-1.mp3',
+  './sounds/soft-2.mp3',
   FB + 'firebase-app.js',
   FB + 'firebase-auth.js',
   FB + 'firebase-firestore.js'
