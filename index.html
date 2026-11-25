@@ -275,7 +275,9 @@ input.n{min-width:3em}
 .chkname{display:flex;flex-direction:column;min-width:7rem;flex:1}.chkname small{color:var(--mu)}
 .chkbtns{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .chkbtns .b{min-width:46px;min-height:44px;padding:6px 10px;font-weight:700}
-.chkbtns .b.pk{font-size:.82rem;font-weight:600}
+.chkbtns .b.pk{font-size:.95rem;font-weight:700;display:flex;flex-direction:column;align-items:center;line-height:1.05;padding:4px 8px}.chkbtns .b.pk small{font-size:.66rem;font-weight:500;opacity:.8}
+.chkin{width:4.2em;min-height:44px;padding:4px 2px;border-radius:12px;border:1.5px solid var(--line);background:var(--white);color:var(--ink);-moz-appearance:textfield}.chkin::-webkit-outer-spin-button,.chkin::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+@media (max-width:560px){.chkbtns{flex-basis:100%;justify-content:space-between;flex-wrap:nowrap}.chkbtns .b{flex:1 1 0;min-width:0;padding:4px 2px}.chkin{flex:1.3 1 0;width:auto;min-width:0}}
 .chkn{min-width:2.6em;text-align:center;font-size:1.25rem;font-weight:800}.chkn.bad{color:var(--pen)}
 .chkmode button{flex:1}
 .packl{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 8px}
@@ -880,7 +882,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.9.3'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.9.4'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4347,12 +4349,29 @@ function chkBlock(day) {
       const mx = key === 'load' ? loadMax(day, p) : null, full = mx != null && n >= mx, over = mx != null && n > mx;
       const packs = (p.packs || []).filter(k => k.n > 1).sort((a, b) => b.n - a.n).slice(0, 2);
       return '<div class="chkrow' + (low || over ? ' low' : '') + '"><div class="chkname"><b>' + esc(p.name) + '</b><small>' + (key === 'count' ? (v == null ? 'noch nicht gezählt' : 'übrig') : 'mitgenommen') + (need ? ' · mind. ' + need : '') + (mx != null ? (over ? ' · <b class="lgover">⚠️ ' + (n - mx) + ' mehr als im Lager (' + mx + ')</b>' : ' · im Lager noch ' + (mx - n)) : '') + (key === 'count' && (day.load || {})[p.id] ? ' · mit ' + day.load[p.id] : '') + '</small></div>' +
-        '<div class="chkbtns"><button type="button" class="b" data-chk="' + p.id + '" data-d="-1" aria-label="' + esc(p.name) + ' minus 1"' + (n ? '' : ' disabled') + '>−</button>' +
-        '<span class="chkn' + (low || over ? ' bad' : '') + '">' + (key === 'count' && v == null ? '–' : n) + '</span>' +
+        '<div class="chkbtns">' +
+        packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="-' + k.n + '" aria-label="' + esc(p.name) + ' minus ' + esc(k.l) + '"' + (n ? '' : ' disabled') + '><span>−' + k.n + '</span><small>' + esc(k.l) + '</small></button>').join('') +
+        '<button type="button" class="b" data-chk="' + p.id + '" data-d="-1" aria-label="' + esc(p.name) + ' minus 1"' + (n ? '' : ' disabled') + '>−1</button>' +
+        '<input class="chkn chkin' + (low || over ? ' bad' : '') + '" type="number" inputmode="numeric" min="0" step="1" data-chkset="' + p.id + '" value="' + (key === 'count' && v == null ? '' : n) + '" placeholder="–" aria-label="' + esc(p.name) + ' Anzahl eintippen" enterkeyhint="done">' +
         '<button type="button" class="b" data-chk="' + p.id + '" data-d="1" aria-label="' + esc(p.name) + ' plus 1"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '>+1</button>' +
-        packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="' + k.n + '" aria-label="' + esc(p.name) + ' plus ' + esc(k.l) + '"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '>+' + esc(k.l) + ' ' + k.n + '</button>').join('') + '</div></div>';
+        packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="' + k.n + '" aria-label="' + esc(p.name) + ' plus ' + esc(k.l) + '"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '><span>+' + k.n + '</span><small>' + esc(k.l) + '</small></button>').join('') + '</div></div>';
     }).join('') + '</div>';
 }
+// Zahl von Hand eintippen (Einladen und Übrig zählen)
+$('adminBody').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset && e.target.dataset.chkset) e.target.blur(); });
+$('adminBody').addEventListener('change', e => {
+  const t = e.target; if (!t.dataset || !t.dataset.chkset || !S.isAdmin) return;
+  const day = selDayObj(); if (!day) return;
+  const key = chkMode, pid = t.dataset.chkset, cur = (day[key] || {})[pid], raw = t.value.trim();
+  if (raw === '') { if (key === 'count' && cur != null) { setCount(day.id, pid, null); day.count = Object.assign({}, day.count); delete day.count[pid]; logEv('einladen', 'Rest gezählt: ' + pname(pid) + ' → leer', day.id); } renderAdmin(); return; }
+  let nv = Math.max(0, Math.floor(+raw) || 0);
+  if (key === 'load') { const mx = loadMax(day, P(pid)); if (mx != null && nv > mx && nv > (cur || 0)) { toast(pname(pid) + ': nur ' + mx + ' im Lager – ' + mx + ' eingetragen'); nv = Math.max(cur || 0, mx); } }
+  if (nv === (cur == null ? null : cur)) { renderAdmin(); return; }
+  if (key === 'count') setCount(day.id, pid, nv); else incField(day.id, key, pid, nv - (cur || 0));
+  day[key] = Object.assign({}, day[key], { [pid]: nv });
+  logEv('einladen', (key === 'count' ? 'Rest gezählt: ' : 'Einladen: ') + pname(pid) + ' → ' + nv + ' (eingetippt)', day.id);
+  renderAdmin();
+});
 $('adminBody').addEventListener('click', e => {
   const m = e.target.closest('[data-chkm]'); if (m) { chkMode = m.dataset.chkm; renderAdmin(); return; }
   const b = e.target.closest('[data-chk]'); if (!b || !S.isAdmin) return;
@@ -7225,6 +7244,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.9.4', d: '2026-11-25', i: [
+    ['a', 'Einladen und Übrig zählen: auch „−Kasten“, und die Zahl lässt sich direkt eintippen.'] ] },
   { v: '2.9.3', d: '2026-11-25', i: [
     ['a', 'Einladen: statt „Lager x“ steht jetzt „im Lager noch x“. Ist mehr eingetragen als im Lager war (z. B. von vor der Lager-Grenze), wird die Zeile rot markiert.'] ] },
   { v: '2.9.2', d: '2026-11-25', i: [

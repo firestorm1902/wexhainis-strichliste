@@ -129,7 +129,7 @@ Admin → 📅 Tag → **Bus-Check-in**: Busse anlegen (z. B. „Bus 1“, „Bu
 - Braucht die neuen Regeln (`buscode`, `busloc`, `busgeo`, `checkins`) – siehe `firestore.rules` im Stundentracker-Repo.
 
 ### Ein- und Auschecken per Knopf
-Admin → Tag → **Mitnehmen und zurückzählen**: Umschalter **⬆️ Einladen** / **⬇️ Übrig zählen**, darunter jedes Getränk mit **−**, **+1** und Knöpfen für die Gebinde (z. B. „+Kasten 20“). Die Zahl zeigt den aktuellen Stand; Getränke unter dem Mindestbestand sind rot. Scannen (📷 Einladen / Rest zählen per Scan) geht weiterhin, ist aber nur noch die Alternative.
+Admin → Tag → **Mitnehmen und zurückzählen**: Umschalter **⬆️ Einladen** / **⬇️ Übrig zählen**, darunter jedes Getränk mit **−Kasten**, **−1**, einem Zahlenfeld zum direkten **Eintippen**, **+1** und **+Kasten** (je Gebinde) (z. B. „+Kasten 20“). Die Zahl zeigt den aktuellen Stand; Getränke unter dem Mindestbestand sind rot. Scannen (📷 Einladen / Rest zählen per Scan) geht weiterhin, ist aber nur noch die Alternative.
 
 ### Mindestens mitnehmen
 Admin → **Getränke** → bei jedem Getränk **„Mindestens mitnehmen (Flaschen)“**. Admin → **Mitnehmen und zurückzählen** → **Packliste bearbeiten**: Dinge, die immer mit müssen (Flaschenöffner, Becher, Kasse …), pro Tag zum Abhaken. Fehlt etwas, steht es rot im Bereich „Mitnehmen“, und die App fragt nach – beim Schließen des Einlade-Scanners und beim Freigeben des Tags.
@@ -488,14 +488,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.9.3**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.9.4**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.9.3';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.9.3';`
+- in `index.html`: `const APP_VERSION = '2.9.4';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.9.4';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -528,7 +528,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.9.3“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.9.4“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
