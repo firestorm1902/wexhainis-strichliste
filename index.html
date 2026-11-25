@@ -875,7 +875,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.7.3'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.8.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1112,7 +1112,9 @@ function listenActiveDay() {
   stop('myBus'); S.myBus = null; stop('myChecks'); S.myChecksFor = null; S.myChecks = null;
   unsub.myBus = F.onSnapshot(dref('checkins', dayId + '_' + uid), snap => { S.myBus = snap.exists() ? snap.data() : null; renderBusBox(); }, err => console.warn('checkin', err));
   unsub.ueggs = F.onSnapshot(dref('ueggs', uid + '_' + dayId), snap => {
+    const prev = S.myEggs || [];
     S.myEggs = snap.exists() ? (snap.data().items || []).slice().sort((a, b) => a.t - b.t) : [];
+    if (snap.exists() && !snap.metadata.hasPendingWrites) { const now = new Set(S.myEggs.map(x => x.t + '|' + x.rid)); prev.filter(x => x.sid && !now.has(x.t + '|' + x.rid)).forEach(eggUnlock); }
     renderHist();
   }, err => console.warn('ueggs', err));
   stop('dused'); S.dused = {}; S.dusedLoaded = false; dusedStart.key = null; dusedStart();
@@ -2050,6 +2052,21 @@ function nextSchnaps(n) { for (let k = Math.max(11, n + 1); k < 1e7; k++) if (is
 const fill = (t, v) => String(t).replace(/\{n\}/g, v.n == null ? '' : v.n).replace(/\{name\}/g, v.name || 'Jemand').replace(/\{gruppe\}/g, v.gruppe || 'Gruppe');
 // „Epoche“: nach dem Zurücksetzen der Statistiken dürfen alle Easter Eggs neu auslösen
 const epoch = () => (S.metaState && S.metaState.epoch) || 0;
+const eggKey = key => 'strichliste_egg_' + epoch() + '_' + key;
+function eggUnlock(item) { (item.ks || []).forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); }
+/* Rückgängig / Storno / genehmigte Korrektur: Easter Eggs, die genau diese Buchungen ausgelöst haben, wieder entfernen
+   (eigener Verlauf und Gruppen-Meldung). Danach können sie erneut ausgelöst werden. Sammelalbum bleibt. */
+async function eggsRevoke(uid, dayId, scanIds) {
+  if (!uid || !dayId || !scanIds || !scanIds.length || !navigator.onLine) return;
+  const ids = new Set(scanIds), ref = dref('ueggs', uid + '_' + dayId);
+  try {
+    const snap = await F.getDoc(ref); if (!snap.exists()) return;
+    const items = snap.data().items || [], gone = items.filter(x => x.sid && ids.has(x.sid)); if (!gone.length) return;
+    await F.setDoc(ref, { uid, day: dayId, items: items.filter(x => !(x.sid && ids.has(x.sid))) });
+    gone.filter(x => x.live).forEach(x => F.deleteDoc(dref('live', x.live)).catch(() => {}));
+    if (S.user && uid === S.user.uid) gone.forEach(eggUnlock);
+  } catch (e) { console.warn('Easter Eggs entfernen', e); }
+}
 function eggOnce(key) {
   const k = 'strichliste_egg_' + epoch() + '_' + key;
   try { if (localStorage.getItem(k)) return false; localStorage.setItem(k, '1'); } catch (e) {}
@@ -2262,7 +2279,7 @@ async function eggsAfterBook(pid, scanId) {
     } else return;
     if (!eggOnce(key)) return;
     const tx = pickText(r, v || 0), vals = { n: v, name: S.me, gruppe: gname(myGroup()) };
-    out.push({ title: fill(tx.t, vals), sub: fill(tx.s, vals), uid, name: S.me, rid: r.id });
+    out.push({ title: fill(tx.t, vals), sub: fill(tx.s, vals), uid, name: S.me, rid: r.id, ks: [eggKey(key)] });
   });
 
   // eigene Gesamtzahl
@@ -2272,7 +2289,7 @@ async function eggsAfterBook(pid, scanId) {
   out.forEach(e => showEgg(e));
   if (out.length) {
     const t0 = Date.now();
-    fire(F.setDoc(dref('ueggs', uid + '_' + dayId), { uid, day: dayId, items: F.arrayUnion(...out.map((e, i) => ({ t: t0 + i, title: e.title, sub: e.sub, rid: e.rid }))) }, { merge: true }), 'Easter Egg merken');
+    fire(F.setDoc(dref('ueggs', uid + '_' + dayId), { uid, day: dayId, items: F.arrayUnion(...out.map((e, i) => ({ t: t0 + i, title: e.title, sub: e.sub, rid: e.rid, sid: scanId, ks: e.ks }))) }, { merge: true }), 'Easter Egg merken');
     albumAdd(out.map(e => e.rid));
   }
 
@@ -2314,8 +2331,11 @@ async function eggsAfterBook(pid, scanId) {
     const e = { title: fill(tx.t, vals), sub: fill(tx.s, vals), group: true, uid, name: S.me, rid: r.id };
     if (!(minor && ruleAlc(r))) showEgg(e);
     albumAdd([r.id]);
-    const doc = { id: epoch() + '_' + id, day: dayId, title: e.title, sub: e.sub, uid, name: S.me, t: Date.now(), alc: ruleAlc(r), rid: r.id };
-    fire(F.setDoc(dref('live', (epoch() + '_' + id).replace(/[^\w-]/g, '_')), doc), 'Easter Egg senden');
+    const lid = (epoch() + '_' + id + '_' + scanId).replace(/[^\w-]/g, '_');
+    const doc = { id: lid, day: dayId, title: e.title, sub: e.sub, uid, name: S.me, t: Date.now(), alc: ruleAlc(r), rid: r.id };
+    fire(F.setDoc(dref('live', lid), doc), 'Easter Egg senden');
+    // Merker: welche Buchung diese Meldung ausgelöst hat (für Rückgängig/Storno)
+    fire(F.setDoc(dref('ueggs', uid + '_' + dayId), { uid, day: dayId, items: F.arrayUnion({ t: Date.now(), title: e.title, sub: e.sub, rid: r.id, sid: scanId, g: 1, live: lid, ks: [eggKey('sent_' + uid + '_' + id), eggKey('seen_' + uid + '_' + id)] }) }, { merge: true }), 'Easter Egg merken');
   };
   rules.filter(r => r.who === 'group' && COUNT_KINDS.includes(r.kind)).forEach(r => {
     const rc = r.cat || 'all';
@@ -3442,7 +3462,7 @@ function renderHist() {
   const sec = $('histSec');
   if (!S.activeDay || !S.me || $('listSec').hidden || !eggsWanted()) { sec.hidden = true; return; }
   sec.hidden = false;
-  const g = (S.groupEggs || []).filter(x => !(isMinor() && x.alc)), m = S.myEggs || [];
+  const g = (S.groupEggs || []).filter(x => !(isMinor() && x.alc)), m = (S.myEggs || []).filter(x => !x.g);
   $('histTabs').querySelectorAll('button').forEach(b => {
     b.classList.toggle('on', b.dataset.h === histTab);
     b.textContent = (b.dataset.h === 'all' ? 'Für alle' : 'Deine') + ' (' + (b.dataset.h === 'all' ? g.length : m.length) + ')';
@@ -3582,6 +3602,7 @@ $('last').addEventListener('click', e => {
   if (u.dataset.up) usedInc(S.active, u.dataset.up, -1);
   if (u.dataset.up) delete bookAt[S.active + '|' + u.dataset.up];
   if (u.dataset.up) { eggsAfterUndo(u.dataset.up); logEv('buchung', 'nimmt eigene Buchung zurück: ' + pname(u.dataset.up), S.active); }
+  { const uid = S.user.uid, day = S.active, sid = u.dataset.undo; setTimeout(() => eggsRevoke(uid, day, [sid]), 2500); } // kurz warten, bis die Gruppen-Zählung der Buchung durch ist
   hideLast(); toast('Buchung zurückgenommen');
 });
 $('list').addEventListener('click', e => { const b = e.target.closest('[data-plus]'); if (b) book(b.dataset.plus, 'manuell'); });
@@ -5264,7 +5285,7 @@ $('adminBody').addEventListener('click', async e => {
     if (list.length < r.n && !await ask(r.name + ' hat an dem Tag nur ' + list.length + '× ' + pname(r.p) + '. ' + (list.length ? 'Diese stornieren?' : 'Antrag trotzdem als erledigt markieren?'))) return;
     const del = list.slice(0, r.n), bt = F.writeBatch(db);
     del.forEach(s => bt.delete(dref('scans', s.id)));
-    if (del.length) { fire(bt.commit(), 'Stornieren'); adjustCounters(r.uid, r.day, r.p, -del.length); }
+    if (del.length) { fire(bt.commit(), 'Stornieren'); adjustCounters(r.uid, r.day, r.p, -del.length); eggsRevoke(r.uid, r.day, del.map(x => x.id)); }
   }
   fin('ok'); logEv('buchung', 'genehmigt Antrag: ' + reqTxt(r) + ' für ' + r.name + ' (' + dayName(r.day) + ')', r.day); toast('Genehmigt: ' + reqTxt(r) + ' für ' + r.name);
 });
@@ -6429,7 +6450,7 @@ adminBody.addEventListener('click', async e => {
     const list = S.dayScans.filter(s => s.uid === nbSel && s.p === id).sort((x, y) => y.t - x.t);
     if (!list.length) return;
     const sc = list[0];
-    fire(F.deleteDoc(dref('scans', sc.id)), 'Stornieren'); adjustCounters(sc.uid, sc.day, sc.p, -1);
+    fire(F.deleteDoc(dref('scans', sc.id)), 'Stornieren'); adjustCounters(sc.uid, sc.day, sc.p, -1); eggsRevoke(sc.uid, sc.day, [sc.id]);
     toast('1× ' + pname(id) + ' für ' + uname(nbSel) + ' storniert');
     logEv('buchung', 'storniert 1× ' + pname(id) + ' von ' + uname(nbSel) + ' (' + fmtTime(sc.t) + ')', day.id);
   }
@@ -6475,7 +6496,7 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'storno') {
     const sc = S.dayScans.find(x => x.id === id);
     fire(F.deleteDoc(dref('scans', id)), 'Stornieren'); toast('Buchung storniert');
-    if (sc) { adjustCounters(sc.uid, sc.day, sc.p, -1); logEv('buchung', 'storniert ' + pname(sc.p) + ' von ' + nameOf(sc) + ' (' + fmtTime(sc.t) + ')', sc.day); }
+    if (sc) { adjustCounters(sc.uid, sc.day, sc.p, -1); eggsRevoke(sc.uid, sc.day, [sc.id]); logEv('buchung', 'storniert ' + pname(sc.p) + ' von ' + nameOf(sc) + ' (' + fmtTime(sc.t) + ')', sc.day); }
   }
   else if (a === 'delDay' && day && S.isSuper) {
     if (!await ask('„' + dayLabel(day) + '“ mit allen ' + S.dayScans.length + ' Buchungen löschen?')) return;
@@ -7104,6 +7125,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.8.0', d: '2026-11-25', i: [
+    ['m', 'Wird eine Buchung zurückgenommen, storniert oder per Korrektur entfernt, verschwinden auch die Easter Eggs, die sie ausgelöst hat – und können später neu ausgelöst werden. Das Sammelalbum bleibt.'] ] },
   { v: '2.7.3', d: '2026-11-25', i: [
     ['m', 'Sind die Easter Eggs für alle ausgeschaltet, sammelt die App auch keine mehr im Verlauf.'],
     ['s', 'Klarer: Schalter „Easter Eggs für alle“ unter Daten; auf der Startseite steht „Easter Eggs: für alle aus“ und lässt sich direkt wieder einschalten.'] ] },

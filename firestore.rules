@@ -192,7 +192,8 @@ service cloud.firestore {
     // Easter Eggs: Gruppen-Meldungen, die alle Handys anzeigen (eine pro Meilenstein)
     match /live/{id} {
       allow read: if signedIn();
-      allow delete: if isAdmin();
+      // löschen: Admins; der Auslöser selbst, wenn er die Buchung zurücknimmt
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
       allow create, update: if slActive()
         && request.resource.data.keys().hasOnly(['id', 'day', 'title', 'sub', 'uid', 'name', 't', 'alc', 'rid'])
         && request.resource.data.uid == request.auth.uid
