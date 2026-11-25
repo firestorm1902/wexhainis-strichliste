@@ -229,6 +229,10 @@ input.n{min-width:3em}
 .rsopt{align-items:flex-start}.rsopt small{color:var(--mu)}.rsopt input:disabled+span{opacity:.75}
 .clv{border-top:1px solid var(--line);padding:8px 0}.clh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.clh small{color:var(--mu)}
 .clv ul{margin:4px 0 0;padding-left:1.2em}.clv li{margin:2px 0;font-size:.9rem}.cltag{font-size:.68rem;border:1px solid var(--line);border-radius:6px;padding:0 4px;color:var(--mu);white-space:nowrap}
+.bcov{z-index:110}.bc-in{border-top-color:var(--pen)}.bc-head{font-size:.8rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mu);margin-bottom:6px}
+#bcText{font:inherit;width:100%;resize:vertical}
+.bcchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.bcchips .chip{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:.85rem;padding:3px 9px 3px 4px;border:1.5px solid var(--line);border-radius:99px;background:var(--white);color:var(--ink);cursor:pointer}.bctext{white-space:pre-line;margin:4px 0;font-size:.92rem}
+.bc-txt{font-size:1.08rem!important;white-space:pre-line}
 .flow{display:flex;align-items:stretch;gap:3px;margin:10px 0 4px;padding:2px 0}
 .flowstep{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;border:1.5px solid var(--line);border-radius:12px;background:var(--white);color:var(--ink);font:inherit;padding:7px 4px;cursor:pointer;text-align:center}
 .flowstep b{font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.flowstep small{font-size:.64rem;color:var(--mu);line-height:1.15}
@@ -851,7 +855,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.1.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.3.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1037,6 +1041,7 @@ function startUserListeners() {
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
   stop('cfgTexts'); unsub.cfgTexts = F.onSnapshot(dref('config', 'texts'), snap => setTexts(snap.exists() ? (snap.data().t || {}) : {}, snap.exists() ? (snap.data().g || []) : []), err => console.warn('texts', err));
+  bcListen();
   stop('cfgPack'); unsub.cfgPack = F.onSnapshot(dref('config', 'packlist'), snap => { S.packlist = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('packlist', err));
   stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; S.secCfg = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('sections', err));
   stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const d = snap.exists() ? snap.data() : {}, o = d.order, hd = d.hidden; let ch = false;
@@ -1153,6 +1158,7 @@ function autoApproveSelf() {
 async function refreshRole(u) {
   await checkAdmin();
   if (S.user !== u) return;
+  bcListen();
   if ((S.isAdmin || S.isBoard) && !unsub.days) startAdminListeners();
   if (S.isAdmin) listenActiveScans();
   if (S.isAdmin && !unsub.reqsAll) listenAdminReqs();
@@ -2651,7 +2657,7 @@ const RESET_PARTS = [
   { k: 'data', t: 'Buchungen und Tage', d: 'alle Tage, Buchungen, Fahrer-Markierungen, Rückgängig-Protokoll und Rückfragen', cols: ['scans', 'days', 'dused', 'drv', 'undos', 'asks', 'dsum'], needs: ['bus'] },
   { k: 'bus', t: 'Bus-Check-ins', d: 'alle Check-ins mit Standorten und Codes', cols: ['checkins', 'busgeo', 'busloc', 'buscode'] },
   { k: 'prod', t: 'Getränke und Lager', d: 'alle Getränke mit Preisen und Barcodes, Lagerbewegungen, Packliste', cols: ['products', 'stockmv'], cfg: ['packlist'] },
-  { k: 'msgs', t: 'Korrekturanträge und Posteingang', d: 'alle Anträge und Nachrichten', cols: ['reqs', 'msgs'] },
+  { k: 'msgs', t: 'Korrekturanträge, Posteingang, Nachrichten', d: 'alle Anträge, der Posteingang und alle Nachrichten an Mitglieder mit Lesebestätigungen', cols: ['reqs', 'msgs', 'bcmsg', 'bcread'], cfg: ['broadcast'] },
   { k: 'eggs', t: 'Eigene Easter Eggs und Fasnets-Titel', d: 'selbst angelegte Easter Eggs, Kategorien, Titel und Bestenlisten-Einstellungen (zurück auf Standard)', cfg: ['eggs', 'eggcats', 'titles', 'best'] },
   { k: 'cfg', t: 'Einstellungen auf Standard', d: 'Texte, Abschnitte/Überschriften, Kontakt, Datenschutz, Farben, Rückgängig, Funktionen, Partymodus, Backup-Erinnerung', cfg: ['texts', 'sections', 'contact', 'privacy', 'theme', 'undo', 'features', 'party', 'backup'] },
   { k: 'groups', t: 'Gruppen', d: 'alle Gruppen (die Personen bleiben, nur ohne Gruppe)', cfg: ['groups'] },
@@ -4596,7 +4602,7 @@ function renderAdmin() {
       (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">„Aus Strichliste entfernen“ wirkt nur hier: Die Person kann nicht mehr buchen und verschwindet aus den Listen; der Stundentracker bleibt nutzbar. Konten löschen geht nur in WexSuperAdmin.</div>' : '') +
       '</section>';
   }
-  if (S.isSuper) h += settingsSection() + groupsEditor() + titlesEditor() + rulesEditor() + historySection();
+  if (S.isSuper) h += bcSection() + settingsSection() + groupsEditor() + titlesEditor() + rulesEditor() + historySection();
   else if (S.isAdmin && partyAllowed()) h += '<section><h2>Partymodus</h2>' + partyAdmin() + '</section>';
   if (S.days.length) {
     const first = S.days.reduce((m, d) => d.date < m ? d.date : m, S.days[0].date), lastD = S.days.reduce((m, d) => d.date > m ? d.date : m, S.days[0].date);
@@ -5667,7 +5673,7 @@ const TAB_OF = { 'Neue Anmeldungen': 'todo', 'Korrekturanträge': 'todo', 'Lösc
   'Getränke': 'drinks', 'Lager': 'drinks',
   'Zurückgenommene Buchungen': 'stats', 'Anwesenheit': 'stats', 'Zu wenig gebucht': 'stats', 'Alle Tage': 'stats', 'Excel-Auswertung': 'stats', 'Historie': 'stats',
   'Personen': 'people', 'Gruppen': 'people', 'Neu registriert': 'people', 'Datenschutz-Bestätigungen': 'people',
-  'Einstellungen': 'set', 'Fasnets-Titel': 'set', 'Easter Eggs verwalten': 'set', 'Partymodus': 'set', 'Daten': 'set' };
+  'Einstellungen': 'set', 'Nachricht an alle': 'set', 'Fasnets-Titel': 'set', 'Easter Eggs verwalten': 'set', 'Partymodus': 'set', 'Daten': 'set' };
 const tabOf = k => TAB_OF[k] || 'set';
 const ADM_MORE = ['Partymodus', 'Fasnets-Titel', 'Easter Eggs verwalten'];
 let admMore = false;
@@ -5815,7 +5821,7 @@ $('modalBody').addEventListener('click', e => {
 });
 /* Suche im Admin-Bereich: springt zum Bereich, Getränk, zur Person oder zum Tag */
 let admQ = '', admQFocus = false;
-const ADM_WORDS = { backup: 'Daten', sichern: 'Daten', csv: 'Daten', import: 'Daten', excel: 'Excel-Auswertung', auswertung: 'Excel-Auswertung', packliste: 'Mitnehmen und zurückzählen', einladen: 'Mitnehmen und zurückzählen', zählen: 'Mitnehmen und zurückzählen', bus: 'Bus-Check-in', check: 'Bus-Check-in', anwesen: 'Anwesenheit', lager: 'Lager', inventur: 'Lager', nachkaufen: 'Lager', mindest: 'Getränke', barcode: 'Getränke', preis: 'Getränke', rückgängig: 'Einstellungen', nachtmodus: 'Einstellungen', texte: 'Einstellungen', party: 'Partymodus', titel: 'Fasnets-Titel', egg: 'Easter Eggs verwalten', gruppe: 'Gruppen', sperr: 'Personen', u18: 'Personen', jugend: 'Personen', antrag: 'Korrekturanträge', nachricht: 'Posteingang', rückfrage: 'Abgleich', fehlt: 'Zu wenig gebucht', nachtragen: 'Buchung nachtragen', historie: 'Historie', protokoll: 'Historie' };
+const ADM_WORDS = { rundnachricht: 'Nachricht an alle', broadcast: 'Nachricht an alle', ankündigung: 'Nachricht an alle', backup: 'Daten', sichern: 'Daten', csv: 'Daten', import: 'Daten', excel: 'Excel-Auswertung', auswertung: 'Excel-Auswertung', packliste: 'Mitnehmen und zurückzählen', einladen: 'Mitnehmen und zurückzählen', zählen: 'Mitnehmen und zurückzählen', bus: 'Bus-Check-in', check: 'Bus-Check-in', anwesen: 'Anwesenheit', lager: 'Lager', inventur: 'Lager', nachkaufen: 'Lager', mindest: 'Getränke', barcode: 'Getränke', preis: 'Getränke', rückgängig: 'Einstellungen', nachtmodus: 'Einstellungen', texte: 'Einstellungen', party: 'Partymodus', titel: 'Fasnets-Titel', egg: 'Easter Eggs verwalten', gruppe: 'Gruppen', sperr: 'Personen', u18: 'Personen', jugend: 'Personen', antrag: 'Korrekturanträge', nachricht: 'Posteingang', rückfrage: 'Abgleich', fehlt: 'Zu wenig gebucht', nachtragen: 'Buchung nachtragen', historie: 'Historie', protokoll: 'Historie' };
 function admFindFill() {
   const box = $('admQRes'); if (!box) return;
   const q = normName(admQ.trim()); if (q.length < 2) { box.innerHTML = ''; return; }
@@ -6487,6 +6493,9 @@ adminBody.addEventListener('click', async e => {
     const own = allRules().filter(r => !DEFAULT_RULES.some(x => x.id === r.id));
     saveRules(JSON.parse(JSON.stringify(DEFAULT_RULES)).concat(own), []); logEv('egg', 'holt die Standard-Easter-Eggs zurück (' + own.length + ' eigene bleiben)');
   }
+  else if (a === 'bcSend' && S.isSuper) bcSend();
+  else if (a === 'bcPreview' && id) bcShow(id);
+  else if (a === 'bcStop' && S.isSuper && id) { const b = S.bcMsgs[id]; if (b && await ask('Nachricht an ' + bcToTxt(b) + ' zurückziehen? Wer sie noch nicht gelesen hat, bekommt sie dann nicht mehr.', { ok: 'Zurückziehen', danger: true })) { fire(F.deleteDoc(dref('bcmsg', id)), 'Nachricht zurückziehen'); (S.bcRead || []).filter(x => x.bc === id).forEach(x => F.deleteDoc(dref('bcread', id + '_' + x.uid)).catch(() => {})); logEv('system', 'zieht die Nachricht an ' + bcToTxt(b) + ' zurück'); delete S.bcMsgs[id]; renderAdmin(); } }
   else if (a === 'resetToggle') { showReset = !showReset; resetSel = null; renderAdmin(); }
   else if (a === 'rsAll' || a === 'rsNone') { resetSel = {}; RESET_PARTS.forEach(x => { resetSel[x.k] = a === 'rsAll'; }); $('rsBox').innerHTML = resetFormHTML(); }
   else if (a === 'resetGo') {
@@ -6513,7 +6522,7 @@ adminBody.addEventListener('click', async e => {
    Sichert alle Daten, die sich nicht aus anderen neu berechnen lassen. Zähler und Bestenliste
    werden nach dem Import aus den Buchungen neu berechnet. Logins (Firebase Authentication) lassen sich nicht sichern. */
 const BACKUP_V = 4;
-const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['undos', 'Rückgängig-Protokoll'], ['asks', 'Rückfragen'], ['checkins', 'Bus-Check-ins'], ['stockmv', 'Lagerbewegungen'], ['avatars', 'Profilbilder']];
+const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['undos', 'Rückgängig-Protokoll'], ['asks', 'Rückfragen'], ['checkins', 'Bus-Check-ins'], ['stockmv', 'Lagerbewegungen'], ['bcmsg', 'Nachrichten an Mitglieder'], ['avatars', 'Profilbilder']];
 const bkCfg = () => Object.assign({ every: 30, t: 0 }, S.backupCfg || {});
 const bkAvPref = () => { try { return localStorage.getItem('strichliste_bkav') !== '0'; } catch (e) { return true; } };
 // Zeitstempel aus Firestore als { __ts: ms } speichern und beim Import zurückverwandeln
@@ -6637,11 +6646,131 @@ function renderVersion() {
   $('dsLink').onclick = () => openModal(privacyHTML());
   if ($('verBtn')) $('verBtn').onclick = openChangelog;
 }
+/* ---------- Nachrichten vom Super-Admin: an alle, an Admins und Vorstand oder an einzelne Mitglieder ----------
+   bcmsg/{id} = { title, text, to: 'all' | 'staff' | 'list', uids: [...] (nur bei 'list'), until (ms, 0 = bis zum Zurückziehen), t, by, byName }.
+   Die Regeln lassen jeden nur Nachrichten lesen, die für ihn sind. Erscheint einmal groß im Vordergrund, bis „Gelesen“.
+   Lesebestätigungen: bcread/{id_uid} – nur der Super-Admin sieht sie. Alte Einzelnachricht config/broadcast (v2.2.0) wird übernommen. */
+const BC_DUR = [[1, '1 Tag'], [3, '3 Tage'], [7, '7 Tage'], [30, '30 Tage'], [0, 'bis ich sie zurückziehe']];
+const bcActive = b => !!(b && b.id && b.text && (!b.until || Date.now() < b.until));
+const bcSeenList = () => { try { return JSON.parse(localStorage.getItem('strichliste_bcseen') || '[]'); } catch (e) { return []; } };
+const bcToTxt = b => b.to === 'staff' ? 'Admins und Vorstand' : b.to === 'list' ? (b.uids || []).map(u => uname(u)).join(', ') : 'alle Mitglieder';
+S.bcMsgs = {};
+function bcListen() {
+  const uid = S.user && S.user.uid, key = uid ? uid + (S.isSuper ? 's' : S.isAdmin || S.isBoard ? 'a' : 'm') : '';
+  if (bcListen.key === key) return; bcListen.key = key;
+  ['bcAll', 'bcStaff', 'bcMine', 'bcSuper', 'bcRead', 'cfgBc'].forEach(stop); S.bcMsgs = {}; S.bcRead = [];
+  if (!uid) return;
+  const put = tag => snap => { Object.keys(S.bcMsgs).forEach(k => { if (S.bcMsgs[k]._q === tag) delete S.bcMsgs[k]; }); snap.docs.forEach(d => { S.bcMsgs[d.id] = Object.assign({ id: d.id, _q: tag }, d.data()); }); bcShow(); if (S.isSuper) renderAdmin(); };
+  const err = n => e => console.warn(n, e);
+  if (S.isSuper) {
+    unsub.bcSuper = F.onSnapshot(col('bcmsg'), put('s'), err('bcmsg'));
+    unsub.bcRead = F.onSnapshot(col('bcread'), snap => { S.bcRead = snap.docs.map(d => d.data()); renderAdmin(); }, err('bcread'));
+  } else {
+    unsub.bcAll = F.onSnapshot(F.query(col('bcmsg'), F.where('to', '==', 'all')), put('a'), err('bcmsg'));
+    if (S.isAdmin || S.isBoard) unsub.bcStaff = F.onSnapshot(F.query(col('bcmsg'), F.where('to', '==', 'staff')), put('st'), err('bcmsg'));
+    unsub.bcMine = F.onSnapshot(F.query(col('bcmsg'), F.where('uids', 'array-contains', uid)), put('me'), err('bcmsg'));
+  }
+  // Übergang: Nachricht aus v2.2.0 (config/broadcast) anzeigen; der Super-Admin übernimmt sie in die neue Liste
+  unsub.cfgBc = F.onSnapshot(dref('config', 'broadcast'), snap => {
+    const b = snap.exists() ? snap.data() : null;
+    if (b && S.isSuper && b.id) { const v = Object.assign({}, b); v.uids = []; fire(F.setDoc(dref('bcmsg', b.id), v), 'Nachricht übernehmen'); fire(F.deleteDoc(dref('config', 'broadcast')), 'Nachricht übernehmen'); return; }
+    if (b && b.id && (b.to !== 'staff' || S.isAdmin || S.isBoard)) S.bcMsgs[b.id] = Object.assign({ _q: 'old', uids: [] }, b); else Object.keys(S.bcMsgs).forEach(k => { if (S.bcMsgs[k]._q === 'old') delete S.bcMsgs[k]; });
+    bcShow();
+  }, err('broadcast'));
+}
+const bcList = () => Object.values(S.bcMsgs || {}).filter(bcActive).sort((a, b) => a.t - b.t);
+// für mich bestimmt? (der Super-Admin liest alle, sieht aber nur die, die auch an ihn gehen)
+const bcForMe = b => bcActive(b) && S.user && b.by !== S.user.uid && (b.to === 'all' || (b.to === 'staff' && (S.isAdmin || S.isBoard)) || (b.to === 'list' && (b.uids || []).includes(S.user.uid)));
+function bcShow(force) {
+  const ov = $('bcOv');
+  const b = force ? (S.bcMsgs || {})[force] : bcList().find(x => bcForMe(x) && !bcSeenList().includes(x.id));
+  if (!b) { if (ov && !ov.dataset.force) ov.remove(); return; }
+  if (ov && ov.dataset.id === b.id) return;
+  if (ov) ov.remove();
+  const el = document.createElement('div'); el.id = 'bcOv'; el.className = 'dlg bcov'; el.dataset.id = b.id; if (force) el.dataset.force = '1'; el.setAttribute('role', 'alertdialog'); el.setAttribute('aria-modal', 'true');
+  el.innerHTML = '<div class="dlg-in bc-in"><div class="bc-head">📢 ' + (b.to === 'list' ? 'Persönliche Nachricht vom Vorstand' : 'Nachricht vom Vorstand') + '</div>' + (b.title ? '<h3>' + esc(b.title) + '</h3>' : '') + '<p class="bc-txt">' + esc(b.text) + '</p>' +
+    '<small>' + esc(b.byName || 'Super-Admin') + ' · ' + new Date(b.t).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) + ' Uhr</small>' +
+    '<div class="dlg-btns"><button class="b pri" data-bcok>' + (force ? 'Schließen' : 'Gelesen ✓') + '</button></div></div>';
+  document.body.appendChild(el); if (!force) buzz && buzz(60);
+  el.querySelector('[data-bcok]').focus({ preventScroll: true });
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('[data-bcok]')) return;
+  const ov = $('bcOv'); if (!ov) return;
+  const id = ov.dataset.id, force = ov.dataset.force, b = (S.bcMsgs || {})[id]; ov.remove();
+  if (force || !b) { bcShow(); return; }
+  const L = bcSeenList(); if (!L.includes(id)) { L.push(id); try { localStorage.setItem('strichliste_bcseen', JSON.stringify(L.slice(-60))); } catch (err) {} }
+  F.setDoc(dref('bcread', id + '_' + S.user.uid), { bc: id, uid: S.user.uid, name: S.me || '', t: Date.now() }).catch(() => {}); // Lesebestätigung
+  setTimeout(bcShow, 300); // nächste ungelesene Nachricht
+});
+let bcDraft = { title: '', text: '', to: 'all', dur: 3, uids: [] };
+function bcAudience(b) {
+  if (b.to === 'list') return (b.uids || []).length;
+  return Object.keys(S.users || {}).filter(k => { const u = S.users[k]; return !goneSL(u) && !u.pending && !u.slBlock && !u.blocked && k !== b.by && (b.to !== 'staff' || u.role === 'admin' || u.role === 'vorstand'); }).length;
+}
+function bcSection() {
+  const L = bcList(), R = S.bcRead || [];
+  let h = '<section><h2>Nachricht an alle</h2>';
+  if (L.length) h += '<h3 class="sub3" style="margin-top:0">Aktuelle Nachrichten (' + L.length + ')</h3>' + L.slice().reverse().map(b => {
+    const r = R.filter(x => x.bc === b.id).sort((x, y) => x.t - y.t), aud = bcAudience(b);
+    const unread = b.to === 'list' ? (b.uids || []).filter(u => !r.some(x => x.uid === u)) : [];
+    return '<details class="pc bcitem"><summary><span><b>' + esc(b.title || b.text.slice(0, 40) + (b.text.length > 40 ? '…' : '')) + '</b><br><small>an ' + esc(bcToTxt(b)) + ' · ' + new Date(b.t).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + '</small></span><small>gelesen ' + r.length + '/' + aud + '</small></summary>' +
+      '<div class="bctext">' + esc(b.text) + '</div><small style="color:var(--mu)">' + (b.until ? 'sichtbar bis ' + new Date(b.until).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : 'bis zum Zurückziehen') + '</small>' +
+      (r.length ? r.map(x => '<div class="rw"><span>' + fmtTime(x.t) + '</span><span>' + esc(x.name || uname(x.uid)) + '</span><small>' + esc(fmtDate(isoOf(new Date(x.t)))) + '</small></div>').join('') : '<div class="empty" style="padding:4px 0">Noch niemand gelesen.</div>') +
+      (unread.length ? '<div style="font-size:.82rem;color:var(--mu)">Noch nicht gelesen: ' + unread.map(u => esc(uname(u))).join(', ') + '</div>' : '') +
+      '<div class="row"><button class="b sm" data-act="bcPreview" data-id="' + esc(b.id) + '">Vorschau</button><button class="b sm dng" data-act="bcStop" data-id="' + esc(b.id) + '">Zurückziehen</button></div></details>';
+  }).join('') + '<h3 class="sub3" style="margin-top:12px">Neue Nachricht</h3>';
+  else h += '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erscheint bei den Empfängern groß im Vordergrund, sobald sie die Strichliste öffnen – bis sie „Gelesen“ tippen. Du siehst, wer gelesen hat.</div>';
+  const to = bcDraft.to;
+  h += '<div class="grid2"><label class="f full">An<select id="bcTo"><option value="all"' + (to === 'all' ? ' selected' : '') + '>alle Mitglieder</option><option value="staff"' + (to === 'staff' ? ' selected' : '') + '>nur Admins und Vorstand</option><option value="list"' + (to === 'list' ? ' selected' : '') + '>einzelne Mitglieder …</option></select></label>' +
+    (to === 'list' ? '<div class="full"><div class="bcchips">' + (bcDraft.uids.length ? bcDraft.uids.map(u => '<button type="button" class="chip" data-bcrm="' + esc(u) + '" aria-label="' + esc(uname(u)) + ' entfernen">' + avatarHTML(u, uname(u), 20) + esc(uname(u)) + ' ✕</button>').join('') : '<small style="color:var(--mu)">Noch niemand gewählt.</small>') + '</div>' +
+      '<div class="buspick"><input id="bmFind" placeholder="🔎 Name suchen und antippen …" autocomplete="off" enterkeyhint="search"><div id="bmRes" class="pickres"></div></div></div>' : '') +
+    '<label class="f full">Überschrift (optional)<input id="bcTitle" maxlength="60" value="' + esc(bcDraft.title) + '" placeholder="z. B. Abfahrt morgen"></label>' +
+    '<label class="f full">Nachricht<textarea id="bcText" maxlength="500" rows="4" placeholder="z. B. Der Bus fährt morgen schon um 7:30 Uhr am Marktplatz.">' + esc(bcDraft.text) + '</textarea></label>' +
+    '<label class="f full">Sichtbar<select id="bcDur">' + BC_DUR.map(([d, l]) => '<option value="' + d + '"' + (d === bcDraft.dur ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label>' +
+    '<div class="full row" style="margin-top:0"><button class="b pri" data-act="bcSend">📢 Senden</button></div></div>';
+  return h + '</section>';
+}
+// Personensuche für einzelne Empfänger (freigeschaltete, nicht gesperrte Mitglieder)
+function bmFill() {
+  const box = $('bmRes'), inp = $('bmFind'); if (!box || !inp) return;
+  const q = normName(inp.value.trim()); if (!q) { box.innerHTML = ''; return; }
+  const L = Object.keys(S.users || {}).filter(k => { const u = S.users[k]; return !goneSL(u) && !u.pending && k !== S.user.uid && !bcDraft.uids.includes(k); }).map(k => ({ uid: k, name: uname(k) }))
+    .filter(x => normName(x.name).split(/\s+/).some(w => w.startsWith(q)) || (q.length >= 3 && normName(x.name).includes(q))).sort((a, b) => a.name.localeCompare(b.name, 'de')).slice(0, 8);
+  box.innerHTML = L.length ? L.map(x => '<button type="button" class="pickrow" data-bmadd="' + esc(x.uid) + '">' + avatarHTML(x.uid, x.name, 26) + '<span>' + esc(x.name) + (S.users[x.uid].slBlock || S.users[x.uid].blocked ? ' <small>(gesperrt)</small>' : '') + '</span><b>+ hinzufügen</b></button>').join('') : '<div class="empty" style="padding:6px 0">Niemand gefunden.</div>';
+}
+document.addEventListener('input', e => { const t = e.target; if (t.id === 'bcTitle') bcDraft.title = t.value; if (t.id === 'bcText') bcDraft.text = t.value; if (t.id === 'bmFind') bmFill(); });
+document.addEventListener('change', e => { const t = e.target; if (t.id === 'bcTo') { bcDraft.to = t.value; renderAdmin(); } if (t.id === 'bcDur') bcDraft.dur = +t.value; });
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-bmadd]'); if (a) { if (!bcDraft.uids.includes(a.dataset.bmadd)) bcDraft.uids.push(a.dataset.bmadd); renderAdmin(); setTimeout(() => { const f = $('bmFind'); if (f) f.focus({ preventScroll: true }); }, 0); return; }
+  const r = e.target.closest('[data-bcrm]'); if (r) { bcDraft.uids = bcDraft.uids.filter(u => u !== r.dataset.bcrm); renderAdmin(); }
+});
+async function bcSend() {
+  // was im Formular steht, zählt (nicht ein evtl. veralteter Zwischenstand)
+  if ($('bcTo')) bcDraft.to = $('bcTo').value; if ($('bcText')) bcDraft.text = $('bcText').value; if ($('bcTitle')) bcDraft.title = $('bcTitle').value; if ($('bcDur')) bcDraft.dur = +$('bcDur').value;
+  const text = bcDraft.text.trim(), title = bcDraft.title.trim(), to = bcDraft.to, uids = to === 'list' ? bcDraft.uids.slice() : [];
+  if (!text) { toast('Bitte eine Nachricht eingeben'); return; }
+  if (to === 'list' && !uids.length) { toast('Bitte mindestens ein Mitglied wählen'); return; }
+  const toTxt = bcToTxt({ to, uids });
+  if (!await ask('An ' + toTxt + ' senden?\n\n' + (title ? title + '\n' : '') + text, { title: '📢 Nachricht senden', ok: 'Senden', danger: false, note: 'Erscheint groß im Vordergrund, bis „Gelesen“ getippt wird.' })) return;
+  const now = Date.now(), id = 'bc' + now.toString(36), v = { title, text, to, uids, until: bcDraft.dur ? now + bcDraft.dur * 864e5 : 0, t: now, by: S.user.uid, byName: S.me || '' };
+  S.bcMsgs[id] = Object.assign({ id, _q: 's' }, v);
+  fire(F.setDoc(dref('bcmsg', id), v), 'Nachricht senden'); logEv('system', 'sendet eine Nachricht an ' + toTxt + ': ' + (title ? title + ' – ' : '') + text.slice(0, 180));
+  bcDraft = { title: '', text: '', to: 'all', dur: 3, uids: [] }; ['bcTitle', 'bcText'].forEach(i => { if ($(i)) $(i).value = ''; }); if ($('bcTo')) $('bcTo').value = 'all'; if ($('bcDur')) $('bcDur').value = '3';
+  toast('Nachricht gesendet'); renderAdmin();
+}
+
 /* ---------- Versionsverlauf (Tippen auf die Versionsnummer) ----------
    Rolle je Eintrag: m = alle Mitglieder, b = Vorstand, a = Admins, s = Super-Admin.
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.3.0', d: '2026-11-25', i: [
+    ['m', 'Persönliche Nachrichten vom Vorstand erscheinen genauso im Vordergrund; mehrere ungelesene kommen nacheinander.'],
+    ['s', 'Nachrichten auch gezielt an einzelne Mitglieder senden (Personensuche); mehrere Nachrichten gleichzeitig, je mit Lesebestätigung und „Noch nicht gelesen“.'] ] },
+  { v: '2.2.0', d: '2026-11-24', i: [
+    ['m', 'Nachrichten vom Vorstand erscheinen groß im Vordergrund – einmal „Gelesen“ tippen.'],
+    ['s', 'Nachricht an alle (oder nur Admins und Vorstand) senden, mit Lesebestätigung, Ablaufdatum und Zurückziehen.'] ] },
   { v: '2.1.0', d: '2026-11-24', i: [
     ['s', 'Das automatische Backup vor dem Löschen oder Zurücksetzen enthält immer die Profilbilder.'],
     ['s', 'Backup importieren: auswählen, welche Bereiche importiert werden, und ob vorhandene Einträge überschrieben oder nur fehlende ergänzt werden. Personen sind standardmäßig abgewählt.'] ] },
@@ -6713,7 +6842,7 @@ function stickyCheck() { const t = document.querySelector('header.top'); if (!t)
 addEventListener('resize', stickyCheck);
 function renderAll() {
   setTimeout(stickyCheck, 0); applyTexts(); renderBell();
-  renderAcct(); renderVersion(); renderDs(); renderInstall(); renderReqBox(); if (typeof renderParty === 'function' && S.party) renderParty();
+  renderAcct(); renderVersion(); renderDs(); renderInstall(); renderReqBox(); if (typeof renderParty === 'function' && S.party) renderParty(); bcShow();
   if (S.authReady && !S.user) loadPublicCfg();
   const noauth = configured && S.authReady && !S.user;
   document.body.classList.toggle('noauth', noauth);

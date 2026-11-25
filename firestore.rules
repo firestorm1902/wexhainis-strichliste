@@ -363,6 +363,21 @@ service cloud.firestore {
     }
     // Tageszusammenfassungen für die tägliche Zählerprüfung: nur der Super-Admin
     match /dsum/{id} { allow read, write: if isSuper(); }
+    // Strichliste – Nachrichten vom Super-Admin (an alle, an Admins und Vorstand oder an einzelne Mitglieder).
+    // Jeder liest nur, was für ihn bestimmt ist; schreiben und löschen nur der Super-Admin.
+    match /bcmsg/{id} {
+      allow read: if isSuper() || (signedIn() && (resource.data.to == 'all'
+        || (resource.data.to == 'staff' && isReader())
+        || request.auth.uid in resource.data.get('uids', [])));
+      allow write: if isSuper();
+    }
+    // Strichliste – Lesebestätigung für Nachrichten (bcmsg): jeder nur seine eigene, nur der Super-Admin liest und löscht
+    match /bcread/{id} {
+      allow read, delete: if isSuper();
+      allow create, update: if signedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['bc', 'uid', 'name', 't'])
+        && request.resource.data.bc is string && id == request.resource.data.bc + '_' + request.auth.uid;
+    }
 
     // Protokoll aller Änderungen: jeder schreibt eigene Einträge, nur Super-Admins lesen, niemand ändert sie.
     // Löschen darf nur der Super-Admin (Strichliste: „Zurücksetzen / Werkszustand“ mit Passwort und Backup vorher).
