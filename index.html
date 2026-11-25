@@ -875,7 +875,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.7.2'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.7.3'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1825,8 +1825,14 @@ $('logoutBtn').addEventListener('click', async () => { if (await ask('Wirklich a
 const eggsOff = () => !!(S.meDoc && S.meDoc.eggoff);
 const soundOff = () => { try { return localStorage.getItem('strichliste_mute') === '1'; } catch (e) { return false; } };
 const eggsWanted = () => canSee('eggs') && !eggsOff();
-$('eggPrefBtn').addEventListener('click', () => {
+$('eggPrefBtn').addEventListener('click', async () => {
   if (!S.user) return;
+  if (!eggsOn()) { // für alle abgeschaltet: nur der Super-Admin kann sie wieder einschalten
+    if (S.isSuper && await ask('Easter Eggs sind gerade für alle ausgeschaltet – deshalb kommen keine Popups. Für alle wieder einschalten?', { title: '🥚 Easter Eggs', ok: 'Für alle einschalten', danger: false })) {
+      fire(F.setDoc(dref('meta', 'state'), { eggs: true }, { merge: true }), 'Einstellung'); toast('Easter Eggs für alle an'); logEv('egg', 'schaltet Easter Eggs für alle an');
+    }
+    return;
+  }
   const on = !eggsOff(), mute = soundOff();
   openModal('<h2>Easter Eggs</h2><p>Kleine Überraschungen beim Buchen, z. B. beim ersten Getränk des Tages, mit Popup, Animation und Ton. Du entscheidest, ob du sie sehen willst.</p>' +
     '<div class="mode eggpref" style="display:flex;margin:10px 0"><button data-ep="on" class="' + (on && !mute ? 'on' : '') + '">An</button><button data-ep="mute" class="' + (on && mute ? 'on' : '') + '">An, ohne Ton</button><button data-ep="off" class="' + (!on ? 'on' : '') + '">Aus</button></div>' +
@@ -2236,7 +2242,7 @@ async function eggsAfterBook(pid, scanId) {
   const ddmm = String(now.getDate()).padStart(2, '0') + '.' + String(now.getMonth() + 1).padStart(2, '0');
   const out = [];
   const minor = isMinor();
-  rules.filter(r => r.who !== 'group' && r.who !== 'team' && !(minor && ruleAlc(r))).forEach(r => {
+  if (eggsOn()) rules.filter(r => r.who !== 'group' && r.who !== 'team' && !(minor && ruleAlc(r))).forEach(r => {
     let v = null, key = null;
     if (COUNT_KINDS.includes(r.kind)) {
       const rc = r.cat || 'all';
@@ -3623,7 +3629,7 @@ function renderScan() {
   $('youthNote').hidden = true; // Jugendliche sollen nicht sehen, dass sie markiert sind
   $('drvNote').hidden = !S.driver;
   { const pb = $('partyBtn'), po = partyOn(); pb.hidden = !(S.isAdmin && partyAllowed()); pb.textContent = po ? '🪩 Party beenden' : '🪩 Party starten'; pb.classList.toggle('on', po); $('partyFxBtn').hidden = !(S.isAdmin && partyAllowed() && po); }
-  { const b = $('eggPrefBtn'), on = !eggsOff(); b.hidden = !canSee('eggs'); b.textContent = 'Easter Eggs: ' + (on ? 'an' : 'aus') + (on && soundOff() ? ' (leise)' : ''); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+  { const b = $('eggPrefBtn'), on = !eggsOff(), all = eggsOn(); b.hidden = !canSee('eggs') || (!all && !S.isSuper); b.textContent = !all ? 'Easter Eggs: für alle aus' : 'Easter Eggs: ' + (on ? 'an' : 'aus') + (on && soundOff() ? ' (leise)' : ''); b.classList.toggle('dng', !all); b.setAttribute('aria-pressed', all && on ? 'true' : 'false'); }
   $('drvBtn').textContent = S.driver ? tx('drvOn') : tx('drv'); $('drvBtn').dataset.tx = S.driver ? 'drvOn' : 'drv'; $('drvBtn').classList.toggle('pri', !!S.driver); $('drvBtn').setAttribute('aria-pressed', S.driver ? 'true' : 'false'); $('drvBtn').hidden = isMinor() || !show;
   if (!show) {
     if (cam.box === boxMain) camStop();
@@ -4683,7 +4689,7 @@ function renderAdmin() {
   }
   if (!RO) h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
     ('Notification' in window && Notification.permission !== 'granted' ? '<button class="b sm" data-act="notifyPerm">Warnungen aufs Handy erlauben</button>' : '') +
-    (S.isSuper ? '<button class="b sm" data-act="eggsToggle">Easter Eggs: ' + (eggsOn() ? 'an' : 'aus') + '</button><button class="b sm" data-act="recount">Zähler neu berechnen</button>' : '') +
+    (S.isSuper ? '<button class="b sm' + (eggsOn() ? '' : ' dng') + '" data-act="eggsToggle">Easter Eggs für alle: ' + (eggsOn() ? 'an' : 'AUS') + '</button><button class="b sm" data-act="recount">Zähler neu berechnen</button>' : '') +
     (S.isSuper && S.dsumDenied ? '<div class="note bad" style="flex-basis:100%">Die Firebase-Regeln sind veraltet: Die tägliche Zählerprüfung ist ausgesetzt. Bitte <b>firestore.rules</b> neu in die Firebase-Konsole einfügen und veröffentlichen.</div>' : '') +
     '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button></div>' +
     backupBox() +
@@ -6390,7 +6396,7 @@ adminBody.addEventListener('click', async e => {
     try { const r = await Notification.requestPermission(); toast(r === 'granted' ? 'Warnungen werden auch angezeigt, wenn die App im Hintergrund ist' : 'Nicht erlaubt – Warnungen erscheinen nur in der App'); } catch (e) { toast('Dieses Handy unterstützt das nicht'); }
     renderAdmin();
   }
-  else if (a === 'eggsToggle' && S.isSuper) { const on = !eggsOn(); fire(F.setDoc(dref('meta', 'state'), { eggs: on }, { merge: true }), 'Einstellung'); toast(on ? 'Easter Eggs an' : 'Easter Eggs aus'); logEv('egg', 'schaltet Easter Eggs ' + (on ? 'an' : 'aus')); }
+  else if (a === 'eggsToggle' && S.isSuper) { const on = !eggsOn(); fire(F.setDoc(dref('meta', 'state'), { eggs: on }, { merge: true }), 'Einstellung'); toast(on ? 'Easter Eggs für alle an' : 'Easter Eggs für alle aus'); logEv('egg', 'schaltet Easter Eggs für alle ' + (on ? 'an' : 'aus')); }
   else if (a === 'recount' && S.isSuper) {
     if (!await ask('Zähler für Easter Eggs (Gruppe und Personen) aus allen Buchungen neu berechnen? Nötig nach Stornos, Nachträgen oder einem Import.')) return;
     try { b.disabled = true; const n = await recomputeCounters(true); toast('Zähler neu berechnet: ' + n + ' Buchungen'); logEv('system', 'berechnet die Zähler neu (' + n + ' Buchungen)'); } catch (err) { toast('Neu berechnen fehlgeschlagen – Internet nötig'); }
@@ -7098,6 +7104,9 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.7.3', d: '2026-11-25', i: [
+    ['m', 'Sind die Easter Eggs für alle ausgeschaltet, sammelt die App auch keine mehr im Verlauf.'],
+    ['s', 'Klarer: Schalter „Easter Eggs für alle“ unter Daten; auf der Startseite steht „Easter Eggs: für alle aus“ und lässt sich direkt wieder einschalten.'] ] },
   { v: '2.7.2', d: '2026-11-25', i: [
     ['a', 'Firebase-Verbrauch: Knopf „Aktualisieren“ mit Uhrzeit des Stands.'] ] },
   { v: '2.7.1', d: '2026-11-25', i: [
