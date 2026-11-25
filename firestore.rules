@@ -291,6 +291,9 @@ service cloud.firestore {
     // Persönliche Einstellungen (z. B. Reihenfolge der Admin-Bereiche): nur man selbst
     match /prefs/{uid} {
       allow read, write: if signedIn() && request.auth.uid == uid;
+      // Super-Admin: sieht, wer im TooDruck-Modus ist, und darf ihn bei anderen beenden (nur das Feld td)
+      allow read: if isSuper();
+      allow update: if isSuper() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['td']);
     }
     // Strichliste – Bus-Check-in. Zwei Wege, beide prüft der Server:
     //  1. Standort: Pro Bus teilt ein Bus-Leiter (days.bus.buses.{Bus}.leader) seinen Standort (busloc). Ein Mitglied
