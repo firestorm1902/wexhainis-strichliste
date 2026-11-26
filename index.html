@@ -271,6 +271,16 @@ input.n{min-width:3em}
 .flownext.hot .b{flex:0 0 auto}
 .flownext.done{color:#2e7d32;font-weight:700}
 .flownext.warnl{color:var(--amb);font-size:.8rem}
+.rt-legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.82rem;margin-bottom:8px}
+.rt-now{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;font-size:.86rem;display:flex;flex-direction:column;gap:3px}
+.rt-now small{color:var(--mu);margin-top:4px}
+.rttab{width:100%;border-collapse:collapse;font-size:.84rem}
+.rttab th{font-size:.74rem;text-align:center;padding:6px 3px}.rttab th:first-child{text-align:left}
+.rttab td{padding:7px 3px;border-top:1px solid var(--line);vertical-align:top}
+.rttab td:not(:first-child){text-align:center;width:3.4em;font-size:1rem}
+.rttab td small{display:block;color:var(--mu);font-size:.74rem;margin-top:2px}
+.rttab td.rt-no{color:var(--mu)}
+.rttab td.rt-w{background:rgba(46,125,50,.10)}.rttab td.rt-r{background:rgba(11,110,105,.07)}.rttab td.rt-opt{background:rgba(245,192,0,.12)}
 button.notego{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button.notego .go{flex:0 0 auto;font-weight:700;font-size:.85rem;white-space:nowrap;border:1.5px solid currentColor;border-radius:999px;padding:3px 10px;opacity:.9}
 button.notego:active{opacity:.7}
@@ -966,7 +976,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.12.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.13.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4842,7 +4852,7 @@ function renderAdmin() {
     const dr = Object.keys(S.users).filter(k => S.users[k].delreq && !goneSL(S.users[k]));
     if (dr.length) h += '<section><h2>Löschanträge (' + dr.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Diese Personen möchten ihr Konto löschen lassen. Gelöscht werden Konten nur in <b>WexSuperAdmin</b> – vorher hier offene Beträge abrechnen.</div>' +
       dr.map(k => '<div class="rw"><span style="display:flex;align-items:center">' + avatarHTML(k, S.users[k].name, 30) + '</span><span>' + esc(S.users[k].name || '') + '<br><small>beantragt am ' + new Date(S.users[k].delreq).toLocaleDateString('de-DE') + '</small></span><small>in WexSuperAdmin löschen</small></div>').join('') + '</section>';
-    h += newRegsSection() + dsSection();
+    h += newRegsSection() + dsSection() + rightsSection();
   }
   const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !goneSL(S.users[k]) && k !== S.user.uid);
   if (S.isSuper) h += inboxSection();
@@ -5253,6 +5263,94 @@ function readOnly(el) {
 }
 // Super-Admin: wer hat den Datenschutzhinweis bestätigt?
 let dsFilter = 'open';
+/* ---------- Rechte-Übersicht (nur Super-Admin) ----------
+   Was Mitglieder, Vorstand, Getränke-Admins und Super-Admin sehen und ändern dürfen – nach den Firestore-Regeln und der App.
+   Dazu die aktuellen Einstellungen (ausgeblendete Bereiche, Freigaben, Partymodus). Stand: v2.13.0. */
+const RIGHTS = [
+  ['Buchen', [
+    ['Getränke buchen (scannen, −/+)', 'own', 'own', 'own', 'own', 'Vorstand bucht wie ein Mitglied'],
+    ['Eigene Buchung rückgängig (im Zeitfenster)', 'own', 'own', 'w', 'w', 'Zeitfenster stellt der Super-Admin ein'],
+    ['Buchungen aller sehen (Abgleich, Nach Person, Buchungen des Tages)', 'own', 'r', 'r', 'r', 'Mitglieder: nur eigene unter „Mein Konto“'],
+    ['Buchungen anderer stornieren und nachtragen, Fehlendes nachbuchen', '-', '-', 'w', 'w', ''],
+    ['Korrekturantrag stellen', 'own', 'own', 'own', 'own', ''],
+    ['Korrekturanträge sehen und entscheiden', 'own', '-', 'w', 'w', 'Mitglieder sehen ihre eigenen Anträge'],
+    ['Zurückgenommene Buchungen (Rückgängig-Protokoll) sehen', '-', 'r', 'r', 'r', ''],
+    ['Rückfragen an Mitglieder stellen und Antworten nachbuchen', 'own', '-', 'w', 'w', 'Mitglieder beantworten Rückfragen an sich']]],
+  ['Tage und Bus', [
+    ['Tage ansehen', 'r', 'r', 'r', 'r', ''],
+    ['Tag anlegen, freigeben, Scannen beenden, abschließen, Datum/Ort ändern', '-', '-', 'w', 'w', ''],
+    ['Tag löschen', '-', '-', '-', 'w', ''],
+    ['Einladen und Übrig zählen (Mit/Übrig), Packliste, Mindestmengen', '-', 'r', 'w', 'w', 'Vorstand sieht den Abgleich'],
+    ['Bus-Check-in einrichten (Busse, Leiter, Code/QR)', '-', '-', 'w', 'w', ''],
+    ['Im Bus einchecken', 'own', 'own', 'own', 'own', 'Bus-Leiter tragen zusätzlich Personen in ihren Bus ein'],
+    ['Check-ins aller sehen (Anwesenheit)', 'r', 'r', 'r', 'r', 'ohne Standort'],
+    ['Check-ins anderer eintragen und entfernen', '-', '-', 'w', 'w', 'und der Bus-Leiter für seinen Bus'],
+    ['Fahrer-Markierungen sehen', 'own', 'r', 'r', 'r', '']]],
+  ['Getränke und Lager', [
+    ['Getränke, Preise, Grenzen ansehen', 'r', 'r', 'r', 'r', ''],
+    ['Getränke anlegen, ändern, löschen; Preise, Barcodes, Grenzen, U18', '-', '-', 'w', 'w', ''],
+    ['Lagerbestand und Lagerverlauf sehen', '-', 'r', 'r', 'r', ''],
+    ['Lager buchen (Eingang, Entnahme, Inventur, Tag ab-/zurückbuchen), Mindestbestand', '-', '-', 'w', 'w', ''],
+    ['Lagerbewegungen nachträglich ändern oder löschen', '-', '-', '-', 'w', '']]],
+  ['Personen', [
+    ['Personenliste mit Name, E-Mail, Gruppe, Rolle sehen', 'own', 'r', 'r', 'r', 'Mitglieder sehen nur sich selbst'],
+    ['Neue Anmeldungen freischalten oder ablehnen', '-', '-', 'w', 'w', ''],
+    ['Name korrigieren, Gruppe, „minderjährig (U18)“', '-', '-', 'w', 'w', ''],
+    ['Rollen vergeben (Getränke-Admin, Vorstand)', '-', '-', '-', 'w', ''],
+    ['Für die Strichliste sperren, entfernen, wiederherstellen; Passwort-Mail', '-', '-', '-', 'w', 'Sperre für alle Apps nur in WexSuperAdmin'],
+    ['Profilbild anderer entfernen', 'own', '-', 'w', 'w', 'Mitglieder: eigenes Bild setzen und löschen'],
+    ['Online-Status und „zuletzt aktiv“ sehen', '-', '-', 'r', 'r', ''],
+    ['Neu registriert, Löschanträge, Datenschutz-Bestätigungen (und erinnern)', '-', '-', '-', 'w', ''],
+    ['Datenauskunft (ZIP mit allen Daten einer Person)', '-', '-', '-', 'w', ''],
+    ['TooDruck-Modus anderer sehen und beenden', '-', '-', '-', 'w', 'mit zweimaliger Passworteingabe']]],
+  ['Auswertung', [
+    ['Excel-Auswertung, Anwesenheit (Excel)', 'own', 'r', 'r', 'r', 'Mitglieder: eigenes Konto als Excel'],
+    ['„Zu wenig gebucht“ und „Alle Tage“', '-', 'opt', 'r', 'r', 'Vorstand nur, wenn unten freigegeben'],
+    ['Bestenliste, Sammelalbum, Rückblick', 'r', 'r', 'r', 'r', 'je nach Einstellung'],
+    ['Firebase-Verbrauch', '-', '-', 'r', 'r', ''],
+    ['Historie (Protokoll aller Änderungen)', '-', '-', '-', 'r', 'niemand kann Einträge ändern']]],
+  ['Nachrichten', [
+    ['Nachrichten an Mitglieder senden und zurückziehen', '-', '-', '-', 'w', ''],
+    ['Nachrichten empfangen und nachlesen', 'own', 'own', 'own', 'own', '„an Admins und Vorstand“ nur für diese'],
+    ['Lesebestätigungen sehen', '-', '-', '-', 'r', ''],
+    ['Kontakt & Feedback senden', 'own', 'own', 'own', 'own', ''],
+    ['Posteingang lesen und beantworten', '-', '-', '-', 'w', '']]],
+  ['Einstellungen und System', [
+    ['Einstellungen, Easter-Egg-Regeln, Gruppen, Fasnets-Titel, Texte, Datenschutztext, Links zu Apps', '-', '-', '-', 'w', ''],
+    ['Easter Eggs für alle an/aus, Zähler neu berechnen', '-', '-', '-', 'w', ''],
+    ['Partymodus starten und beenden', '-', '-', 'opt', 'w', 'Admins nur, wenn erlaubt'],
+    ['Backup speichern', '-', '-', 'w', 'w', 'vollständig nur beim Super-Admin'],
+    ['Backup importieren, Zurücksetzen / Werkszustand', '-', '-', '-', 'w', ''],
+    ['Bereiche für sich anordnen und ausblenden', '-', 'own', 'own', 'own', ''],
+    ['Standard-Reihenfolge, Überschriften, Bereiche für Admins/Vorstand ausblenden', '-', '-', '-', 'w', ''],
+    ['TooDruck-Modus für sich einschalten', '-', '-', 'own', 'own', 'Admin-Bereich dann nur zum Ansehen'],
+    ['Ansicht (Einfach, Barrierefrei), Nacht-/Hellmodus', 'own', 'own', 'own', 'own', 'pro Handy']]]
+];
+const RIGHT_SYM = { w: ['✏️', 'darf ändern'], r: ['👁', 'nur ansehen'], own: ['👤', 'nur eigenes'], opt: ['🔓', 'nur wenn freigegeben'], '-': ['—', 'nein'] };
+function rightsSection() {
+  if (!S.isSuper) return '';
+  const cell = v => '<td class="rt-' + (v === '-' ? 'no' : v) + '" title="' + RIGHT_SYM[v][1] + '">' + RIGHT_SYM[v][0] + '</td>';
+  const names = role => Object.keys(S.users).filter(k => (S.users[k].role || '') === role && !goneSL(S.users[k])).map(k => S.users[k].name || '?').sort((a, b) => a.localeCompare(b, 'de'));
+  const adm = names('admin'), bd = names('vorstand'), titleOf = k => secTitle(k) || k;
+  const hidA = secAllHidden(), hidB = secBoardHidden(), extraB = (S.secCfg && Array.isArray(S.secCfg.boardExtra)) ? S.secCfg.boardExtra : [];
+  let h = '<section><h2>Rechte-Übersicht</h2><div style="font-size:.84rem;color:var(--mu);margin-bottom:8px">Wer was sehen und ändern darf – nach den Firebase-Regeln (gelten auf dem Server, nicht umgehbar) und der App. Vorstand = alles nur lesend.</div>' +
+    '<div class="rt-legend">' + Object.keys(RIGHT_SYM).map(k => '<span>' + RIGHT_SYM[k][0] + ' ' + RIGHT_SYM[k][1] + '</span>').join('') + '</div>' +
+    '<div class="rt-now"><b>Aktuell</b>' +
+    '<div>🍺 Getränke-Admins (' + adm.length + '): ' + (adm.length ? esc(adm.join(', ')) : '–') + '</div>' +
+    '<div>📋 Vorstand (' + bd.length + '): ' + (bd.length ? esc(bd.join(', ')) : '–') + '</div>' +
+    '<div>🔓 Vorstand sieht zusätzlich: ' + (extraB.length ? esc(extraB.map(titleOf).join(', ')) : 'nichts (Zu wenig gebucht, Alle Tage gesperrt)') + '</div>' +
+    '<div>🙈 Für Admins ausgeblendet: ' + (hidA.length ? esc(hidA.map(titleOf).join(', ')) : 'nichts') + '</div>' +
+    '<div>🙈 Für den Vorstand ausgeblendet: ' + (hidB.length ? esc(hidB.map(titleOf).join(', ')) : 'nichts') + '</div>' +
+    '<div>🪩 Partymodus für Admins: ' + (partyAllowed() ? 'erlaubt' : 'nicht erlaubt') + '</div>' +
+    '<div>🥚 Easter Eggs: ' + (eggsOn() ? 'an' : 'für alle aus') + ' · ↩️ Rückgängig: ' + (undoCfg().on ? undoCfg().secs + ' Sekunden' : 'aus') + '</div>' +
+    '<small>Ändern: Bereiche über „⇅ Anordnen“ (oben), Freigaben und Partymodus unter Einstellungen.</small></div>';
+  RIGHTS.forEach(([grp, rows]) => {
+    h += '<details class="pc" data-k="rt-' + esc(grp) + '"><summary><b>' + esc(grp) + '</b><small>' + rows.length + ' Punkte</small></summary><div class="tw"><table class="rttab"><thead><tr><th>Was</th><th title="Mitglied">Mitgl.</th><th>Vorst.</th><th title="Getränke-Admin">Admin</th><th title="Super-Admin">Super</th></tr></thead><tbody>' +
+      rows.map(r => '<tr><td>' + esc(r[0]) + (r[5] ? '<small>' + esc(r[5]) + '</small>' : '') + '</td>' + cell(r[1]) + cell(r[2]) + cell(r[3]) + cell(r[4]) + '</tr>').join('') + '</tbody></table></div></details>';
+  });
+  h += '<div style="font-size:.8rem;color:var(--mu);margin-top:8px">Gesperrte Personen (Strichliste oder alle Apps) und noch nicht freigeschaltete dürfen nichts buchen. Im TooDruck-Modus ist der Admin-Bereich für die Person nur zum Ansehen (Sperre in der App). Stundentracker-Rechte (Stunden-Admin) stehen in der Stundentracker-App.</div></section>';
+  return h;
+}
 function dsSection() {
   const L = Object.keys(S.users).map(uid => Object.assign({ uid }, S.users[uid])).filter(u => !goneSL(u) && !u.pending).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
   if (!L.length) return '';
@@ -6107,7 +6205,7 @@ const TAB_OF = { 'Neue Anmeldungen': 'todo', 'Korrekturanträge': 'todo', 'Lösc
   'Tag': 'day', 'Bus-Check-in': 'day', 'Zu viel gescannt': 'day', 'Mitnehmen und zurückzählen': 'day', 'Abgleich': 'day', 'Nach Person': 'day', 'Buchung nachtragen': 'day', 'Buchungen dieses Tages': 'day', 'Anstehende Easter Eggs': 'day',
   'Getränke': 'drinks', 'Lager': 'drinks',
   'Zurückgenommene Buchungen': 'stats', 'Firebase-Verbrauch': 'stats', 'Anwesenheit': 'stats', 'Zu wenig gebucht': 'stats', 'Alle Tage': 'stats', 'Excel-Auswertung': 'stats', 'Historie': 'stats',
-  'Personen': 'people', 'TooDruck-Modus aktiv': 'people', 'Gruppen': 'people', 'Neu registriert': 'people', 'Datenschutz-Bestätigungen': 'people',
+  'Personen': 'people', 'Rechte-Übersicht': 'people', 'TooDruck-Modus aktiv': 'people', 'Gruppen': 'people', 'Neu registriert': 'people', 'Datenschutz-Bestätigungen': 'people',
   'Einstellungen': 'set', 'Nachricht an alle': 'set', 'Links zu anderen Apps': 'set', 'Fasnets-Titel': 'set', 'Easter Eggs verwalten': 'set', 'Partymodus': 'set', 'Daten': 'set' };
 const tabOf = k => TAB_OF[k] || 'set';
 const ADM_MORE = ['Partymodus', 'Fasnets-Titel', 'Easter Eggs verwalten'];
@@ -6121,7 +6219,7 @@ const KEEP_EMPTY = ['Getränke', 'Personen', 'Gruppen', 'Buchungen dieses Tages'
 let admTab = null; try { admTab = localStorage.getItem('strichliste_admtab'); } catch (e) {}
 function setAdmTab(t) { admTab = t; try { localStorage.setItem('strichliste_admtab', t); } catch (e) {} }
 let admTabAuto = true; // beim ersten Öffnen: Aufgaben, wenn etwas offen ist
-const ADM_DEFAULT_CLOSED = ['Einkaufsliste', 'Löschanträge', 'Getränke', 'Personen', 'Alle Tage', 'Buchungen dieses Tages', 'Nach Person', 'Excel-Auswertung', 'Daten', 'Historie', 'Easter Eggs verwalten', 'Gruppen'];
+const ADM_DEFAULT_CLOSED = ['Rechte-Übersicht', 'Einkaufsliste', 'Löschanträge', 'Getränke', 'Personen', 'Alle Tage', 'Buchungen dieses Tages', 'Nach Person', 'Excel-Auswertung', 'Daten', 'Historie', 'Easter Eggs verwalten', 'Gruppen'];
 let admState = {}; try { admState = JSON.parse(localStorage.getItem(ADM_KEY) || '{}'); } catch (e) {}
 const admKey = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
 const admOpen = k => k in admState ? admState[k] : !ADM_DEFAULT_CLOSED.includes(k);
@@ -7606,6 +7704,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.13.0', d: '2026-11-27', i: [
+    ['s', 'Personen: neue „Rechte-Übersicht“ – was Mitglieder, Vorstand, Getränke-Admins und Super-Admin sehen und ändern dürfen, nach Bereichen, dazu die aktuellen Admins, Vorstände, Freigaben und ausgeblendeten Bereiche.'] ] },
   { v: '2.12.0', d: '2026-11-27', i: [
     ['s', 'Personen: neuer Knopf „📄 Datenauskunft (ZIP)“ – alle gespeicherten Daten einer Person auf einen Klick: Excel mit einem Blatt pro Bereich, alle Rohdaten als JSON und das Profilbild. Auch bei entfernten Konten.'] ] },
   { v: '2.11.2', d: '2026-11-27', i: [
