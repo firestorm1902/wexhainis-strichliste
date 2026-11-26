@@ -966,7 +966,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.11.2'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.12.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4992,11 +4992,12 @@ function renderAdmin() {
             (u.email ? '<button class="b sm" data-act="resetPw" data-id="' + u.uid + '">Passwort-Mail senden</button>' : '') +
             '<button class="b sm dng" data-act="removeUser" data-id="' + u.uid + '">Aus Strichliste entfernen</button></div>';
         }
+        if (S.isSuper) inner += '<div class="full row" style="margin-top:0"><button class="b sm" data-act="dsExport" data-id="' + u.uid + '">📄 Datenauskunft (ZIP)</button><small style="color:var(--mu);align-self:center">alle gespeicherten Daten dieser Person</small></div>';
         if (AV[u.uid] && AV[u.uid].img) inner += '<div class="full row" style="margin-top:0;align-items:center">' + avatarHTML(u.uid, u.name, 64) + '<button class="b sm dng" data-act="delAv" data-id="' + u.uid + '">Profilbild entfernen</button></div>';
         return '<details class="pc" data-k="u' + u.uid + '"><summary><span style="display:flex;align-items:center">' + avatarHTML(u.uid, u.name, 32) + '<span class="unm"><b>' + esc(u.name || '(ohne Namen)') + '</b>' + (SEEN ? (sn => '<small class="seen' + (seenIsOn(sn) ? ' on">online' : '">' + (sn ? seenFmt(sn.open) : 'noch nicht erfasst')) + '</small>')(seenOf(u.uid)) : '') + '</span></span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' + badges + '</span></summary><div class="grid2">' + inner + '</div></details>';
       }).join('') +
       (S.isSuper && gone.length ? '<details class="pc" data-k="gone"><summary><b>Entfernte Konten (' + gone.length + ')</b><small>wiederherstellen</small></summary>' +
-        gone.map(u => '<div class="rw"><span></span><span>' + esc(u.name) + '<br><small>' + esc(u.email) + '</small></span>' + (u.deleted ? '<small>in WexSuperAdmin gelöscht</small>' : '<button class="b sm" data-act="restoreUser" data-id="' + u.uid + '">Wiederherstellen</button>') + '</div>').join('') + '</details>' : '') +
+        gone.map(u => '<div class="rw"><span></span><span>' + esc(u.name) + '<br><small>' + esc(u.email) + '</small></span>' + (u.deleted ? '<small>in WexSuperAdmin gelöscht</small>' : '<button class="b sm" data-act="restoreUser" data-id="' + u.uid + '">Wiederherstellen</button>') + '<button class="b sm" data-act="dsExport" data-id="' + u.uid + '" aria-label="Datenauskunft">📄</button>' + '</div>').join('') + '</details>' : '') +
       (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">„Aus Strichliste entfernen“ wirkt nur hier: Die Person kann nicht mehr buchen und verschwindet aus den Listen; der Stundentracker bleibt nutzbar. Konten löschen geht nur in WexSuperAdmin.</div>' : '') +
       '</section>';
   }
@@ -6575,6 +6576,68 @@ async function buildReport(from, to) {
   ]);
 }
 
+/* ---------- Datenauskunft (DSGVO Art. 15/20) – nur Super-Admin ----------
+   Sammelt alles, was zu einer Person gespeichert ist, und lädt eine ZIP-Datei herunter:
+   Datenauskunft.xlsx (lesbar, ein Blatt pro Bereich), daten.json (alle Rohdaten, maschinenlesbar) und – falls vorhanden – profilbild.jpg.
+   Die Historie wird dafür einmal ganz gelesen (Einträge der Person und Einträge, die ihren Namen nennen). */
+async function dsExport(uid) {
+  if (!S.isSuper || !uid) return;
+  if (!navigator.onLine) { toast('Dafür wird Internet benötigt'); return; }
+  const u = Object.assign({ uid, name: '' }, S.users[uid] || {}), name = u.name || '(ohne Namen)';
+  if (!await ask('Datenauskunft für „' + name + '“ erstellen? Die ZIP-Datei enthält alle gespeicherten Daten dieser Person (Excel, Rohdaten, Profilbild). Bitte nur an die Person selbst weitergeben.', { title: '📄 Datenauskunft', ok: 'Erstellen' })) return;
+  prog.open('Datenauskunft: ' + name);
+  const steps = 17; let n = 0; const tick = l => prog.set(l, ++n, steps), fail = [];
+  const q = async (c, f) => { try { const r = (await F.getDocs(F.query(col(c), F.where(f || 'uid', '==', uid)))).docs.map(d => Object.assign({ _id: d.id }, d.data())); tick('Lese ' + c + ' …'); return r; } catch (e) { fail.push(c); tick(c + ' nicht lesbar'); return []; } };
+  const g = async c => { try { const d = await F.getDoc(dref(c, uid)); tick('Lese ' + c + ' …'); return d.exists() ? d.data() : null; } catch (e) { fail.push(c); tick(c + ' nicht lesbar'); return null; } };
+  try {
+    const [scans, reqs, msgs, checkins, drv, ueggs, undos, asks, bcread] = await Promise.all(['scans', 'reqs', 'msgs', 'checkins', 'drv', 'ueggs', 'undos', 'asks', 'bcread'].map(c => q(c)));
+    const [user, album, avatar, seen, prefs, ustats] = await Promise.all(['users', 'album', 'avatars', 'slseen', 'prefs', 'ustats'].map(c => g(c)));
+    let bc = [], logs = [];
+    try { const role = (user || u).role; bc = (await F.getDocs(col('bcmsg'))).docs.map(d => Object.assign({ _id: d.id }, d.data())).filter(b => b.to === 'all' || (b.to === 'staff' && ['admin', 'vorstand'].includes(role)) || (b.uids || []).includes(uid)); } catch (e) { fail.push('bcmsg'); }
+    tick('Lese Nachrichten …');
+    try { const nm = name.toLowerCase(); logs = (await F.getDocs(col('log'))).docs.map(d => Object.assign({ _id: d.id }, d.data())).filter(l => l.uid === uid || (u.name && String(l.text || '').toLowerCase().includes(nm))).sort((a, b) => a.t - b.t); } catch (e) { fail.push('log'); }
+    tick('Lese Historie …');
+    // ---- Excel ----
+    const H = t => ({ v: t, s: 1 }), dt = t => t ? new Date(typeof t === 'object' && t.toMillis ? t.toMillis() : t).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+    const dayOf = id => { const d = S.days.find(x => x.id === id); return d ? fmtDate(d.date) + (d.place ? ' – ' + d.place : '') : id || ''; };
+    const yn = v => v ? 'ja' : 'nein', ms = x => x && x.toMillis ? x.toMillis() : x;
+    const U = user || u, sum = scans.reduce((a, x) => a + ((P(x.p) || {}).price || 0), 0);
+    const ov = [[{ v: 'Datenauskunft – Wexhainis Getränke-Strichliste', s: 3 }], [], ['Erstellt am', dt(Date.now())], ['Erstellt von', (S.me || '') + ' (Super-Admin)'], [],
+      [H('Stammdaten'), H('')], ['Name', U.name || ''], ['E-Mail', U.email || ''], ['Benutzer-ID', uid], ['Registriert seit', dt(U.t)], ['Narrenfigur / Gruppe', U.grp ? (gname(U.grp) || U.grp) : 'keine'],
+      ['Rolle in der Strichliste', U.role === 'admin' ? 'Getränke-Admin' : U.role === 'vorstand' ? 'Vorstand' : uid === S.user.uid ? 'Super-Admin' : 'Mitglied'], ['Als minderjährig markiert', yn(U.minor)],
+      ['Freischaltung', U.pending ? 'wartet' : 'freigeschaltet'], ['Gesperrt (alle Apps)', yn(U.blocked)], ['Gesperrt (Strichliste)', yn(U.slBlock)], ['Aus der Strichliste entfernt', yn(U.slGone)],
+      ['Datenschutzhinweis bestätigt', U.dsgvo ? dt(U.dsgvo) : 'nein'], ['Löschung beantragt', U.delreq ? dt(U.delreq) : 'nein'], ['Easter Eggs für sich ausgeschaltet', yn(U.eggoff)],
+      ['Stundentracker freigegeben', yn(U.std)], [],
+      [H('Nutzung'), H('')], ['App zuletzt geöffnet', seen ? dt(ms(seen.open)) : 'nicht erfasst'], ['Letzte Anmeldung', seen && seen.login ? dt(seen.login) : 'nicht erfasst'], ['App-Version zuletzt', seen ? seen.v || '' : ''],
+      ['Profilbild', avatar && avatar.img ? 'ja – liegt als profilbild.jpg bei' : 'keins'], [],
+      [H('Umfang'), H('Anzahl')], ['Buchungen', scans.length], ['Wert der Buchungen (aktuelle Preise)', { v: Math.round(sum * 100) / 100, s: 2 }], ['Korrekturanträge', reqs.length], ['Nachrichten an den Verein', msgs.length],
+      ['Nachrichten vom Verein', bc.length], ['Rückfragen', asks.length], ['Bus-Check-ins', checkins.length], ['Fahrer-Markierungen', drv.length], ['Rückgängig gemacht', undos.length],
+      ['Easter-Egg-Verläufe (Tage)', ueggs.length], ['Historie-Einträge', logs.length], [],
+      ['Hinweis', 'Alle Rohdaten stehen vollständig in daten.json (maschinenlesbar). Kosten mit den aktuellen Preisen.']].concat(fail.length ? [['⚠️ Nicht lesbar (bitte prüfen)', fail.join(', ')]] : []);
+    const sheets = [{ name: 'Übersicht', rows: ov, widths: [38, 48] },
+      { name: 'Buchungen', rows: [[H('Tag'), H('Datum/Uhrzeit'), H('Getränk'), H('Preis'), H('Art'), H('Eingetragen als')]].concat(scans.sort((a, b) => a.t - b.t).map(x => [dayOf(x.day), dt(x.t), pname(x.p), { v: (P(x.p) || {}).price || 0, s: 2 }, x.src === 'nachgetragen' ? 'nachgetragen' : x.src === 'manuell' ? 'ohne Scan' : 'Scan', x.who || ''])), widths: [30, 20, 22, 10, 14, 22], freeze: 1, filter: 1 },
+      { name: 'Korrekturanträge', rows: [[H('Gestellt'), H('Art'), H('Tag'), H('Getränk'), H('Anzahl'), H('Bemerkung'), H('Status'), H('Entschieden von'), H('Begründung')]].concat(reqs.map(r => [dt(r.t), r.type === 'del' ? 'Stornieren' : 'Nachbuchen', dayOf(r.day), pname(r.p), r.n, r.note || '', r.status === 'ok' ? 'genehmigt' : r.status === 'no' ? 'abgelehnt' : 'offen', r.byName || '', r.reason || ''])), widths: [18, 12, 28, 18, 8, 30, 12, 18, 30], freeze: 1 },
+      { name: 'Nachrichten an Verein', rows: [[H('Gesendet'), H('Art'), H('Text'), H('Antwort'), H('Antwort von'), H('Antwort am')]].concat(msgs.map(m => [dt(m.t), m.kind || '', m.text || '', m.reply || '', m.replyBy || '', dt(m.replyAt)])), widths: [18, 12, 50, 40, 18, 18], freeze: 1 },
+      { name: 'Nachrichten vom Verein', rows: [[H('Gesendet'), H('An'), H('Titel'), H('Text'), H('Von'), H('Gelesen am')]].concat(bc.map(b => { const r = bcread.find(x => x.bc === b._id); return [dt(b.t), b.to === 'all' ? 'alle' : b.to === 'staff' ? 'Admins/Vorstand' : 'persönlich', b.title || '', b.text || '', (b.byName || '') + (b.byRole ? ' (' + b.byRole + ')' : ''), r ? dt(r.t) : 'nicht gelesen']; })), widths: [18, 14, 24, 50, 24, 18], freeze: 1 },
+      { name: 'Rückfragen', rows: [[H('Gestellt'), H('Tag'), H('Von'), H('Frage'), H('Antwort'), H('Status')]].concat(asks.map(a => [dt(a.t), dayOf(a.day), a.byName || '', a.text || '', a.answer || '', a.status || ''])), widths: [18, 28, 18, 50, 40, 12], freeze: 1 },
+      { name: 'Bus-Check-ins', rows: [[H('Tag'), H('Zeit'), H('Bus'), H('Wie'), H('Eingetragen von')]].concat(checkins.map(c => { const d = S.days.find(x => x.id === c.day); return [dayOf(c.day), dt(c.t), d && c.bus ? busName(d, c.bus) : c.bus || '', c.how || '', c.byName || '']; })), widths: [30, 18, 14, 12, 20], freeze: 1 },
+      { name: 'Fahrer', rows: [[H('Tag'), H('Markiert am')]].concat(drv.map(x => [dayOf(x.day), dt(x.t)])), widths: [30, 20] },
+      { name: 'Rückgängig', rows: [[H('Tag'), H('Getränk'), H('Zeit')]].concat(undos.map(x => [dayOf(x.day), pname(x.p), dt(x.t)])), widths: [30, 22, 20] },
+      { name: 'Easter Eggs', rows: [[H('Tag'), H('Zeit'), H('Titel'), H('Text')]].concat([].concat(...ueggs.map(e => (e.items || []).map(i => [dayOf(e.day), dt(i.t), i.title || '', i.sub || ''])))), widths: [30, 18, 26, 40] },
+      { name: 'Historie', rows: [[H('Zeit'), H('Von'), H('Bereich'), H('Eintrag')]].concat(logs.map(l => [dt(l.t), l.who || '', l.type || '', l.text || ''])), widths: [18, 20, 12, 70], freeze: 1, filter: 1 }];
+    const xlsx = new Uint8Array(await XL.build(sheets).arrayBuffer());
+    const raw = { erstellt: new Date().toISOString(), erstelltVon: S.me || '', person: Object.assign({ uid }, user || {}), zuletztAktiv: seen, einstellungen: prefs, sammelalbum: album, zaehler: ustats,
+      buchungen: scans, korrekturantraege: reqs, nachrichtenAnVerein: msgs, nachrichtenVomVerein: bc, gelesen: bcread, rueckfragen: asks, busCheckins: checkins, fahrer: drv, rueckgaengig: undos, eastereggs: ueggs, historie: logs,
+      profilbild: avatar && avatar.img ? 'profilbild.jpg' : null };
+    const files = [{ name: 'Datenauskunft.xlsx', data: xlsx }, { name: 'daten.json', data: JSON.stringify(raw, (k, v) => v && typeof v === 'object' && typeof v.toMillis === 'function' ? new Date(v.toMillis()).toISOString() : v, 2) }];
+    if (avatar && avatar.img && /^data:image\/\w+;base64,/.test(avatar.img)) { const b = atob(avatar.img.split(',')[1]), a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); files.push({ name: 'profilbild.jpg', data: a }); }
+    files.push({ name: 'LIESMICH.txt', data: 'Datenauskunft für ' + name + '\r\nErstellt am ' + new Date().toLocaleString('de-DE') + ' von ' + (S.me || '') + ' (Super-Admin), Wexhainis Getränke-Strichliste.\r\n\r\nDatenauskunft.xlsx – alle gespeicherten Daten, ein Blatt pro Bereich\r\ndaten.json – dieselben Daten vollständig und maschinenlesbar\r\n' + (avatar && avatar.img ? 'profilbild.jpg – das hinterlegte Profilbild\r\n' : '') + '\r\nAnmeldedaten (E-Mail, Passwort) liegen bei Firebase Authentication; das Passwort ist dort verschlüsselt gespeichert und für niemanden lesbar.\r\n' });
+    const zip = new Blob([XL.zip(files)], { type: 'application/zip' });
+    downloadBlob('Datenauskunft_' + name.replace(/[^\wäöüÄÖÜß-]+/g, '_') + '_' + todayISO() + '.zip', zip);
+    logEv('person', 'erstellt eine Datenauskunft für ' + name);
+    prog.done('Datenauskunft gespeichert (Download-Ordner): ' + scans.length + ' Buchungen, ' + logs.length + ' Historie-Einträge' + (avatar && avatar.img ? ', Profilbild' : '') + '.');
+  } catch (e) { console.error(e); prog.done('Fehler: ' + (e && e.message || e), false); }
+}
 function downloadBlob(name, blob) {
   const a = document.createElement('a'), url = URL.createObjectURL(blob);
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
@@ -6862,6 +6925,7 @@ adminBody.addEventListener('click', async e => {
     logEv('person', (a === 'block' ? 'sperrt ' : 'entsperrt ') + u.name + ' für die Strichliste');
     toast(a === 'block' ? u.name + ' für die Strichliste gesperrt' : u.name + ' entsperrt');
   }
+  else if (a === 'dsExport' && S.isSuper) dsExport(id);
   else if (a === 'resetPw') {
     const u = S.users[id]; if (!u || !u.email) return;
     if (!await ask('E-Mail zum Zurücksetzen des Passworts an ' + u.email + ' senden?')) return;
@@ -7405,7 +7469,7 @@ const TD_ALL = { k: 'all', t: 'Admin-Bereich', d: 'Alles, was im Admin-Bereich e
 const TD_FREE = ['[data-admtab]', '[data-admgo]', '[data-admall]', '[data-admord]', '[data-admmini]', '[data-admmore]', '[data-admq]', '#admQ', '#admQRes *',
   '[data-flowsec]', '[data-sel=day]', '[data-usage]', '[data-seen]', '[data-tdoff]', '[data-tdother]', '[data-chkm]', '[data-ibf]', '[data-lgt]', '#lgP', '[data-shop]', '#shTrips', '#shBase', '#shBuf',
   '#xlFrom', '#xlTo', '[data-bhist]', '[data-bhgo]', '[data-snd]', '[data-askgo]',
-  ...['anwLoad', 'anwPer', 'anwXl', 'backup', 'busShow', 'csvAll', 'csvDay', 'csvPers', 'missCheck', 'overview', 'pickDay', 'undoAllPer', 'xlAll', 'xlDay', 'xlGo', 'xlMonth', 'notifyPerm', 'bcPreview'].map(a => '[data-act=' + a + ']')].join(',');
+  ...['anwLoad', 'anwPer', 'anwXl', 'backup', 'busShow', 'csvAll', 'csvDay', 'csvPers', 'missCheck', 'overview', 'pickDay', 'undoAllPer', 'xlAll', 'xlDay', 'xlGo', 'xlMonth', 'notifyPerm', 'bcPreview', 'dsExport'].map(a => '[data-act=' + a + ']')].join(',');
 const TD_WRITE = 'input,select,textarea,button,[data-act],[data-al],[data-lg],[data-chk],[data-chkset],[data-rq],[data-askrm],[data-x],[data-p],[data-er],[data-gr],[data-feat],[data-featu],[data-set]';
 const tdLocks = () => { const l = S.features && S.features.tdLock; return Array.isArray(l) ? l : TD_DEFAULT; };
 const tdOn = () => !!(S.td && S.td.until > Date.now() && (S.isAdmin || S.isSuper));
@@ -7542,6 +7606,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.12.0', d: '2026-11-27', i: [
+    ['s', 'Personen: neuer Knopf „📄 Datenauskunft (ZIP)“ – alle gespeicherten Daten einer Person auf einen Klick: Excel mit einem Blatt pro Bereich, alle Rohdaten als JSON und das Profilbild. Auch bei entfernten Konten.'] ] },
   { v: '2.11.2', d: '2026-11-27', i: [
     ['m', 'Nachrichten zeigen jetzt, von wem sie kommen – mit Name und Rolle, z. B. „Nachricht von Jonas Maurer (Super-Admin)“ statt „vom Vorstand“.'] ] },
   { v: '2.11.1', d: '2026-11-26', i: [

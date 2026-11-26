@@ -266,6 +266,7 @@ Außerdem zeigt **Neu registriert** die letzten 25 Registrierungen mit Status (w
 
 ## Datenschutz
 
+- **Datenauskunft (Super-Admin):** Admin → 👥 Personen → Person aufklappen → **„📄 Datenauskunft (ZIP)“** (bei entfernten Konten das 📄). Die App sammelt alles, was zu der Person gespeichert ist, und lädt eine ZIP-Datei herunter: **Datenauskunft.xlsx** (Übersicht mit Stammdaten und Nutzung, dazu je ein Blatt für Buchungen, Korrekturanträge, Nachrichten an und vom Verein, Rückfragen, Bus-Check-ins, Fahrer, Rückgängig, Easter Eggs und Historie), **daten.json** (alle Rohdaten, maschinenlesbar) und **profilbild.jpg** (falls vorhanden). Für die Historie wird sie einmal ganz gelesen (Einträge der Person und Einträge, die ihren Namen nennen). Das Erstellen steht in der Historie. Die Datei nur an die Person selbst weitergeben.
 - Bei der **Registrierung** muss man den Datenschutzhinweis bestätigen und kann gleich seine **Gruppe** wählen.
 - Der Hinweis steht unten auf jeder Seite („Datenschutz“) und in der Hilfe: wer verantwortlich ist, was gespeichert wird, wofür, wer was sieht (mit den aktuellen Einstellungen), wo die Daten liegen, wie lange und welche Rechte man hat.
 - Bestehende Konten sehen einmal den Hinweis „Bitte lies kurz …“ mit „Gelesen und einverstanden“.
@@ -500,14 +501,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.11.2**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.12.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.11.2';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.11.2';`
+- in `index.html`: `const APP_VERSION = '2.12.0';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.12.0';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -540,7 +541,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.11.2“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.12.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
