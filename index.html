@@ -264,6 +264,22 @@ input.n{min-width:3em}
 .flowstep.next{border-color:var(--wy);box-shadow:0 0 0 2px var(--wy)}.flowstep.next .fn{background:var(--wy);color:#141414}
 .flowarr{display:none}
 .flownext{font-size:.82rem;color:var(--mu);margin-bottom:6px}
+.flownext.hot{display:flex;align-items:center;gap:10px;justify-content:space-between;background:rgba(245,192,0,.14);border:1.5px solid var(--wy);border-radius:12px;padding:8px 10px;color:var(--ink);font-size:.9rem}
+.flownext.hot small{display:block;color:var(--mu);font-size:.78rem;margin-top:2px}
+.flownext.hot .b{flex:0 0 auto}
+.flownext.done{color:#2e7d32;font-weight:700}
+.flownext.warnl{color:var(--amb);font-size:.8rem}
+.flowstep.warn{border-color:var(--amb)}.flowstep.warn .fn{background:var(--amb);color:#fff}
+.b.hl{background:var(--wy);border-color:var(--wy);color:#141414;font-weight:700;animation:hlPulse 1.8s ease-in-out infinite}
+.b.go{background:#2e7d32;border-color:#2e7d32;color:#fff;font-weight:700;animation:goPulse 1.8s ease-in-out infinite}
+@keyframes hlPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,192,0,.6)}50%{box-shadow:0 0 0 7px rgba(245,192,0,0)}}
+@keyframes goPulse{0%,100%{box-shadow:0 0 0 0 rgba(46,125,50,.6)}50%{box-shadow:0 0 0 7px rgba(46,125,50,0)}}
+@media (prefers-reduced-motion:reduce){.b.hl,.b.go{animation:none}}
+.finbox{margin-top:12px;border:2px solid var(--wy);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.finbox.ok{border-color:#2e7d32}
+.finbox .fint{font-size:1rem}
+.finrow{font-size:.88rem}.finrow small{display:block;color:var(--mu);font-size:.8rem;margin-top:2px}
+.finrow.ok{color:#2e7d32;font-weight:600}.finrow.warn{color:var(--amb);font-weight:600}.finrow.hot{font-weight:600}
 .danger{border:2px solid var(--pen);border-radius:12px;padding:10px 12px;margin-top:12px}.danger>b{color:var(--pen)}
 .admfind{position:relative}.admfind input{width:100%;padding:7px 10px;font-size:.9rem}
 .admqres{position:absolute;left:0;right:0;top:100%;z-index:40;background:var(--bg);border-radius:0 0 12px 12px;box-shadow:0 10px 24px rgba(0,0,0,.3);max-height:50vh;overflow:auto}
@@ -898,7 +914,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.9.8'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.9.9'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1782,7 +1798,7 @@ function admGoto(sec, dayId) {
   const find = () => {
     let h = document.querySelector('#adminBody h2[data-adm="' + sec + '"]');
     if (!h) { const t = secTitle(sec); if (t) h = [...document.querySelectorAll('#adminBody > section > h2')].find(x => x.textContent.replace(/\s*\(\d+\)\s*$/, '').trim() === t) || null; } // Überschrift umbenannt
-    if (h) { h.parentElement.classList.remove('closed'); const t = document.querySelector('header.top'), off = t && !t.classList.contains('nostick') ? t.offsetHeight + 10 : 10; window.scrollTo({ top: h.parentElement.getBoundingClientRect().top + scrollY - off, behavior: 'instant' }); return; }
+    if (h) { h.parentElement.classList.remove('closed'); const t = document.querySelector('header.top'), nv = document.querySelector('#adminBody .admnav'), off = (t && !t.classList.contains('nostick') ? t.offsetHeight : 0) + (nv ? nv.offsetHeight : 0) + 10; window.scrollTo({ top: h.parentElement.getBoundingClientRect().top + scrollY - off, behavior: 'instant' }); return; }
     if (++tries < 12) { setTimeout(find, 150); return; } // Daten des Tages laden noch
     toast(secAllHidden().includes(sec) || secBoardHidden().includes(sec) ? 'Bereich „' + name + '“ ist für dich vom Super-Admin ausgeblendet' : 'Bereich „' + name + '“ gerade nicht vorhanden');
   };
@@ -4322,21 +4338,30 @@ async function buildBusReport() {
   return XL.build([{ name: 'Übersicht', rows: ov, widths: [32, 22] }].concat(anwSheets(anw, H, D), [{ name: 'Alle Check-ins', rows: bc, widths: [12, 22, 12, 24, 9, 26, 12], freeze: 1, filter: 1 }]));
 }
 /* ---------- Der Tag als Ablauf: ① Einladen → ② Freigeben → ③ Läuft → ④ Zurückzählen → ⑤ Abgleich & Abschließen ---------- */
-function dayFlow(day) {
+function dayFlowSteps(day) {
   const sc = S.dayScansFor === day.id ? S.dayScans : [], load = day.load || {}, cnt = day.count || {};
   const loaded = Object.keys(load).filter(k => load[k] > 0), counted = loaded.filter(k => cnt[k] != null);
   const mm = mustMissing(day), act = day.id === S.active && !day.closed;
   const st = [
-    { k: 'Mitnehmen und zurückzählen', ic: '⬆️', t: 'Einladen', done: loaded.length > 0 && !mm.drinks.length && !mm.items.length, info: loaded.length ? loaded.reduce((a, k) => a + load[k], 0) + ' Fl.' + (mm.drinks.length || mm.items.length ? ' · fehlt noch' : '') : 'noch nichts', mode: 'load' },
-    { k: 'Tag', ic: '🔓', t: 'Freigeben', done: act || day.closed || sc.length > 0, info: act ? 'freigegeben' : day.closed ? 'war frei' : 'noch nicht' },
-    { k: 'Buchungen dieses Tages', ic: '🍺', t: 'Läuft', done: day.closed || counted.length > 0, info: sc.length + ' gebucht' },
-    { k: 'Mitnehmen und zurückzählen', ic: '⬇️', t: 'Zählen', done: loaded.length > 0 && counted.length === loaded.length, info: loaded.length ? counted.length + '/' + loaded.length + ' gezählt' : '–', mode: 'count' },
-    { k: 'Abgleich', ic: '🏁', t: 'Abschluss', done: !!day.closed, info: day.closed ? 'fertig' : 'offen' }
+    { k: 'Mitnehmen und zurückzählen', ic: '⬆️', t: 'Einladen', done: loaded.length > 0 && !mm.drinks.length && !mm.items.length, info: loaded.length ? loaded.reduce((a, k) => a + load[k], 0) + ' Fl.' + (mm.drinks.length || mm.items.length ? ' · fehlt noch' : '') : 'noch nichts', mode: 'load', hint: 'Getränke einladen – mit −/+ oder per Scan' },
+    { k: 'Tag', ic: '🔓', t: 'Freigeben', done: act || day.closed || sc.length > 0, info: act ? 'freigegeben' : day.closed ? 'war frei' : 'noch nicht', hint: 'Tag zum Scannen freigeben, damit gebucht werden kann' },
+    { k: 'Buchungen dieses Tages', ic: '🍺', t: 'Läuft', done: day.closed || counted.length > 0, info: sc.length + ' gebucht', hint: 'Mitglieder buchen – nach der Rückkehr den Rest zählen' },
+    { k: 'Abgleich', ic: '⬇️', t: 'Zählen', done: loaded.length > 0 && counted.length === loaded.length, info: loaded.length ? counted.length + '/' + loaded.length + ' gezählt' : '–', mode: 'count', hint: '„Übrig“ im Abgleich eintragen (oder per Scan zählen)' },
+    { k: 'Abgleich', ic: '🏁', t: 'Abschluss', done: !!day.closed, info: day.closed ? 'fertig' : 'offen', hint: 'Lager buchen und Tag abschließen' }
   ];
-  const next = st.findIndex(x => !x.done);
-  return '<div class="flow" role="list">' + st.map((x, i) => '<button type="button" role="listitem" class="flowstep' + (x.done ? ' done' : '') + (i === next ? ' next' : '') + '" data-flow="' + i + '" data-flowsec="' + esc(x.k) + '"' + (x.mode ? ' data-flowmode="' + x.mode + '"' : '') + '>' +
-    '<span class="fn">' + (x.done ? '✓' : i + 1) + '</span><span class="fi" aria-hidden="true">' + x.ic + '</span><b>' + x.t + '</b><small>' + esc(x.info) + '</small></button>').join('<i class="flowarr">›</i>') + '</div>' +
-    (next >= 0 ? '<div class="flownext">Als Nächstes: <b>' + st[next].t + '</b></div>' : '<div class="flownext">Alles erledigt 👍</div>');
+  let last = -1; st.forEach((x, i) => { if (x.done) last = i; });
+  let next = st.findIndex((x, i) => i > last && !x.done);
+  if (last < 0) next = 0;
+  st.forEach((x, i) => { x.warn = !x.done && i < last; });
+  return { st, next };
+}
+function dayFlow(day) {
+  const { st, next } = dayFlowSteps(day), warn = st.filter(x => x.warn);
+  return '<div class="flow" role="list">' + st.map((x, i) => '<button type="button" role="listitem" class="flowstep' + (x.done ? ' done' : '') + (x.warn ? ' warn' : '') + (i === next ? ' next' : '') + '" data-flow="' + i + '" data-flowsec="' + esc(x.k) + '"' + (x.mode ? ' data-flowmode="' + x.mode + '"' : '') + '>' +
+    '<span class="fn">' + (x.done ? '✓' : x.warn ? '!' : i + 1) + '</span><span class="fi" aria-hidden="true">' + x.ic + '</span><b>' + x.t + '</b><small>' + esc(x.info) + '</small></button>').join('<i class="flowarr">›</i>') + '</div>' +
+    (next >= 0 ? '<div class="flownext hot"><span>Als Nächstes: <b>' + st[next].t + '</b><small>' + esc(st[next].hint) + '</small></span>' + (!S.isAdmin ? '' : '<button type="button" class="b sm hl" data-flowsec="' + esc(st[next].k) + '"' + (st[next].mode ? ' data-flowmode="' + st[next].mode + '"' : '') + '>Los →</button>') + '</div>'
+      : '<div class="flownext done">Alles erledigt 👍</div>') +
+    (warn.length ? '<div class="flownext warnl">Noch offen: ' + warn.map(x => '<b>' + x.t + '</b> (' + esc(x.info) + ')').join(', ') + '</div>' : '');
 }
 $('adminBody').addEventListener('click', e => {
   const f = e.target.closest('[data-flowsec]'); if (!f) return;
@@ -4725,11 +4750,12 @@ function renderAdmin() {
       '<div class="full row" style="margin-top:0"><button class="b pri grow" data-act="createDay">Tag anlegen und freigeben</button>' + (S.days.length ? '<button class="b" data-act="toggleNewDay">Abbrechen</button>' : '') + '</div></div>';
   }
   if (day) {
+    const fNext = dayFlowSteps(day).next;
     h += '<div class="grid2" style="margin-top:10px"><label class="f">Datum<input type="date" data-day="date" value="' + esc(day.date) + '"></label><label class="f">Ziel / Ort<input data-day="place" value="' + esc(day.place) + '"></label></div>' +
       '<div class="row">' + (day.id === S.active && !day.closed
         ? '<span class="tag act" style="align-self:center">Zum Scannen freigegeben</span><button class="b" data-act="deactivate">Scannen beenden</button>'
-        : '<button class="b pri" data-act="activate">' + (day.closed ? 'Wieder öffnen und zum Scannen freigeben' : 'Zum Scannen freigeben') + '</button>') +
-      (day.closed ? (day.id === S.active ? '' : '<button class="b" data-act="reopen">Wieder öffnen</button>') : '<button class="b" data-act="close">Tag abschließen</button>') + '</div>' +
+        : '<button class="b pri' + (fNext === 1 ? ' hl' : '') + '" data-act="activate">' + (day.closed ? 'Wieder öffnen und zum Scannen freigeben' : 'Zum Scannen freigeben') + '</button>') +
+      (day.closed ? (day.id === S.active ? '' : '<button class="b" data-act="reopen">Wieder öffnen</button>') : '<button class="b' + (fNext === 4 ? ' go' : '') + '" data-act="close">🏁 Tag abschließen</button>') + '</div>' +
       '<div style="font-size:.8rem;color:var(--mu);margin-top:6px">' + (day.id === S.active && !day.closed ? 'Mitglieder buchen beim Scannen auf diesen Tag.' : S.active && S.active !== day.id ? 'Freigegeben ist gerade ein anderer Tag. Beim Freigeben wird dieser beendet.' : 'Gerade ist kein Tag zum Scannen freigegeben – Mitglieder können nicht buchen.') + '</div>';
   }
   h += '</section>';
@@ -4749,7 +4775,7 @@ function renderAdmin() {
         '<td class="' + (r.diff == null ? '' : r.diff === 0 ? 'good' : r.diff < 0 ? 'bad' : 'warn') + '">' + (r.diff == null ? '–' : r.diff === 0 ? 'passt' : r.diff < 0 ? 'fehlt ' + (-r.diff) : r.diff + ' zu viel') + '</td></tr>').join('') +
       '</tbody><tfoot><tr><td>Summe</td><td>' + rows.reduce((a, r) => a + r.l, 0) + '</td><td>' + rows.reduce((a, r) => a + r.u, 0) + '</td><td>' + rows.reduce((a, r) => a + r.s, 0) + '</td><td>' + rows.reduce((a, r) => a + (r.c || 0), 0) + '</td><td></td></tr></tfoot></table></div>' +
       undoBlock(rows) +
-      '<div class="row"><button class="b sm" data-act="zeroOpen">Leere Felder bei „Übrig“ = 0</button><button class="b sm" data-act="csvDay">Tag als CSV</button><button class="b sm" data-act="csvPers">Nach Person als CSV</button></div>'
+      '<div class="row"><button class="b sm" data-act="zeroOpen">Leere Felder bei „Übrig“ = 0</button><button class="b sm" data-act="csvDay">Tag als CSV</button><button class="b sm" data-act="csvPers">Nach Person als CSV</button></div>' + dayFinishBox(day, rows)
       : '<div class="empty">Noch keine Getränke für diesen Tag.</div>') + '</section>';
 
     // nach Person
@@ -4967,6 +4993,42 @@ function lagerSection() {
     '<div class="row"><button class="b sm" data-lg="log"' + (lgBusy ? ' disabled' : '') + '>' + (lgLog ? 'Neu laden' : 'Verlauf laden') + '</button></div></details>';
   return h + '</section>';
 }
+/* Lager pro Tag: was noch abzubuchen (mitgenommen) bzw. zurückzubuchen (übrig) ist – nur Getränke mit geführtem Bestand */
+function lagerDayPending(day) {
+  const own = x => { const p = P(x.pid); return p && (typeof p.stock === 'number' || ((day.stockOut || {})[x.pid]) || ((day.stockBack || {})[x.pid])); };
+  return { out: lgDelta(day, 'stockOut', day.load).filter(own), back: lgDelta(day, 'stockBack', day.count).filter(own) };
+}
+function lagerDayText(pd) {
+  const f = L => L.map(x => x.n + '× ' + pname(x.pid)).join(', '), t = [];
+  if (pd.out.length) t.push('Aus dem Lager abbuchen (mitgenommen): ' + f(pd.out));
+  if (pd.back.length) t.push('Zurück ins Lager (übrig): ' + f(pd.back));
+  return t;
+}
+function lagerDayBook(day, pd) {
+  const upd = {};
+  pd.out.forEach(x => { lagerMove(x.pid, -x.n, 'tag-out', { day: day.id }); upd['stockOut.' + x.pid] = F.increment(x.n); });
+  pd.back.forEach(x => { lagerMove(x.pid, x.n, 'tag-back', { day: day.id }); upd['stockBack.' + x.pid] = F.increment(x.n); });
+  if (!Object.keys(upd).length) return false;
+  fire(F.updateDoc(dref('days', day.id), upd), 'Tag');
+  logEv('getraenk', 'bucht das Lager für ' + dayLabel(day) + ': ' + lagerDayText(pd).join(' · '), day.id);
+  return true;
+}
+async function lagerDayAsk(day, pd, opt) {
+  const t = lagerDayText(pd); if (!t.length) return false;
+  if (!await ask(t.join('\n\n'), Object.assign({ title: 'Lager buchen (' + dayLabel(day) + ')', ok: 'Ja, buchen' }, opt || {}))) return false;
+  lagerDayBook(day, pd); toast('Lager gebucht'); return true;
+}
+function dayFinishBox(day, rows) {
+  if (!S.isAdmin) return '';
+  const pd = lagerDayPending(day), lt = lagerDayText(pd), open = rows.filter(r => r.c == null).length;
+  const booked = Object.keys(day.stockOut || {}).length || Object.keys(day.stockBack || {}).length;
+  let h = '<div class="finbox' + (day.closed && !lt.length ? ' ok' : '') + '"><b class="fint">🏁 Tagesabschluss</b>';
+  h += open ? '<div class="finrow warn">⬇️ Bei ' + open + ' Getränk' + (open > 1 ? 'en' : '') + ' fehlt noch „Übrig“ – oben eintragen oder „Leere Felder = 0“.</div>' : '<div class="finrow ok">✓ Alles gezählt</div>';
+  if (lt.length) h += '<div class="finrow hot">📦 Lager noch nicht gebucht:' + lt.map(x => '<small>' + esc(x) + '</small>').join('') + '</div><button class="b hl" data-act="lagerDay">📦 Lager jetzt buchen</button>';
+  else if (booked) h += '<div class="finrow ok">✓ Lager gebucht</div>';
+  h += day.closed ? '<div class="finrow ok">✓ Tag abgeschlossen</div>' : '<button class="b' + (!open && !lt.length ? ' go' : '') + '" data-act="close">🏁 Tag abschließen</button>';
+  return h + '</div>';
+}
 function lagerMove(pid, n, type, extra) {
   const p = P(pid); if (!p || !n) return;
   fire(F.updateDoc(dref('products', pid), { stock: F.increment(n) }), 'Lager');
@@ -5002,14 +5064,8 @@ $('adminBody').addEventListener('click', async e => {
   }
   const day = selDayObj(); if (!day) return;
   if (a === 'dayOut' || a === 'dayBack') {
-    const out = a === 'dayOut', key = out ? 'stockOut' : 'stockBack', L = lgDelta(day, key, out ? day.load : day.count);
-    if (!L.length) return;
-    if (!await ask((out ? 'Aus dem Lager abbuchen' : 'Zurück ins Lager') + ' (' + dayLabel(day) + '):\n' + L.map(x => x.n + '× ' + pname(x.pid)).join('\n'), { ok: out ? 'Abbuchen' : 'Zurückbuchen' })) return;
-    const upd = {};
-    L.forEach(x => { lagerMove(x.pid, out ? -x.n : x.n, out ? 'tag-out' : 'tag-back', { day: day.id }); upd[key + '.' + x.pid] = F.increment(x.n); });
-    fire(F.updateDoc(dref('days', day.id), upd), 'Tag');
-    logEv('getraenk', (out ? 'bucht für ' : 'bucht Übrig zurück vom ') + dayLabel(day) + ': ' + L.map(x => x.n + '× ' + pname(x.pid)).join(', '), day.id);
-    toast(out ? 'Abgebucht' : 'Zurückgebucht');
+    const out = a === 'dayOut', pd = lagerDayPending(day);
+    await lagerDayAsk(day, out ? { out: pd.out, back: [] } : { out: [], back: pd.back }, { ok: out ? 'Abbuchen' : 'Zurückbuchen' });
   }
 });
 function shopText() {
@@ -6584,7 +6640,9 @@ adminBody.addEventListener('click', async e => {
     if (!(await mustCheck(day, 'Der Tag wird zum Scannen freigegeben, aber es fehlt noch:'))) return;
     if (day.closed) { if (!await ask('„' + dayLabel(day) + '“ ist abgeschlossen. Wieder öffnen und zum Scannen freigeben?', { ok: 'Freigeben' })) return; fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen'); }
     fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag freigeben'); toast('Freigegeben – Scannen bucht jetzt auf diesen Tag'); logEv('tag', 'gibt ' + dayLabel(day) + ' zum Scannen frei', day.id);
+    const pd = lagerDayPending(day); if (pd.out.length) await lagerDayAsk(day, { out: pd.out, back: [] }, { title: 'Mitgenommenes aus dem Lager abbuchen?', ok: 'Abbuchen', cancel: 'Später' });
   }
+  else if (a === 'lagerDay' && day) await lagerDayAsk(day, lagerDayPending(day));
   else if (a === 'deactivate' && day) {
     if (!await ask('Scannen für „' + dayLabel(day) + '“ beenden? Danach kann niemand mehr buchen, bis wieder ein Tag freigegeben ist.', { ok: 'Scannen beenden' })) return;
     fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Scannen beenden'); toast('Scannen beendet'); logEv('tag', 'beendet das Scannen für ' + dayLabel(day), day.id);
@@ -6595,6 +6653,7 @@ adminBody.addEventListener('click', async e => {
     if (uw.length && !await ask('Beim Abgleich fehlt etwas, und es wurde rückgängig gemacht:\n\n' + uw.join('\n') + '\n\nTrotzdem abschließen?', { title: 'Bitte prüfen', ok: 'Trotzdem abschließen', danger: true })) return;
     if (open && !await ask(open + ' Getränken fehlt noch „Übrig“. Trotzdem abschließen?' + (act ? ' Das Scannen wird damit beendet.' : ''))) return;
     if (!open && act && !await ask('Tag abschließen? Das Scannen wird damit beendet.', { ok: 'Abschließen' })) return;
+    { const pd = lagerDayPending(day); if (pd.out.length || pd.back.length) await lagerDayAsk(day, pd, { title: 'Lager gleich mitbuchen?', ok: 'Ja, Lager buchen', cancel: 'Nein, nur abschließen' }); }
     fire(F.updateDoc(dref('days', day.id), { closed: true }), 'Tag abschließen');
     if (act) fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Scannen beenden');
     toast('Tag abgeschlossen' + (act ? ', Scannen beendet' : '')); logEv('tag', 'schließt ' + dayLabel(day) + ' ab', day.id);
@@ -7331,6 +7390,10 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.9.9', d: '2026-11-26', i: [
+    ['a', 'Tagesablauf: Der nächste Schritt steht farbig mit „Los →“ da; übersprungene Schritte sind orange markiert. „Zählen“ springt direkt zum Abgleich.'],
+    ['a', '„Zum Scannen freigeben“ und „Tag abschließen“ leuchten, wenn sie dran sind.'],
+    ['a', 'Neuer Kasten „Tagesabschluss“ im Abgleich: zeigt, was noch fehlt, und bucht das Lager (Mitgenommenes ab, Übriges zurück) nach einer Bestätigung. Auch beim Freigeben und beim Abschließen wird gefragt, ob das Lager gleich gebucht werden soll.'] ] },
   { v: '2.9.8', d: '2026-11-26', i: [
     ['a', 'Schmale Handys und große Schrift: Die Knopfreihe beim Einladen/Zählen passt jetzt immer auf den Bildschirm, nichts ragt mehr über den Rand.'],
     ['a', 'Die Leiste im Admin-Bereich rutscht nicht mehr unter den Kopf der App, wenn sich dessen Höhe ändert.'],
