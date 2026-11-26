@@ -916,7 +916,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.10.1'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.10.2'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4346,8 +4346,8 @@ function dayFlowSteps(day) {
   const mm = mustMissing(day), act = day.id === S.active && !day.closed;
   const st = [
     { k: 'Mitnehmen und zurückzählen', ic: '⬆️', t: 'Einladen', done: loaded.length > 0 && !mm.drinks.length && !mm.items.length, info: loaded.length ? loaded.reduce((a, k) => a + load[k], 0) + ' Fl.' + (mm.drinks.length || mm.items.length ? ' · fehlt noch' : '') : 'noch nichts', mode: 'load', hint: 'Getränke einladen – mit −/+ oder per Scan' },
-    { k: 'Tag', ic: '🔓', t: 'Freigeben', done: act || day.closed || sc.length > 0, info: act ? 'freigegeben' : day.closed ? 'war frei' : 'noch nicht', hint: 'Tag zum Scannen freigeben, damit gebucht werden kann' },
-    { k: 'Buchungen dieses Tages', ic: '🍺', t: 'Läuft', done: day.closed || counted.length > 0, info: sc.length + ' gebucht', hint: 'Mitglieder buchen – nach der Rückkehr den Rest zählen' },
+    { k: 'Tag', ic: '🔓', t: 'Freigeben', done: act || day.closed || sc.length > 0 || !!day.ended, info: act ? 'freigegeben' : day.closed || day.ended ? 'war frei' : 'noch nicht', hint: 'Tag zum Scannen freigeben, damit gebucht werden kann' },
+    { k: 'Tag', ic: '🍺', t: 'Läuft', done: !!day.closed || (!act && (!!day.ended || counted.length > 0 || sc.length > 0)), info: sc.length + ' gebucht' + (act ? ' · läuft' : day.ended ? ' · beendet' : ''), hint: 'Wenn alle zurück sind: „Scannen beenden“ – danach geht es zum Abgleich' },
     { k: 'Abgleich', ic: '⬇️', t: 'Zählen', done: loaded.length > 0 && counted.length === loaded.length, info: loaded.length ? counted.length + '/' + loaded.length + ' gezählt' : '–', mode: 'count', hint: '„Übrig“ im Abgleich eintragen (oder per Scan zählen)' },
     { k: 'Abgleich', ic: '🏁', t: 'Abschluss', done: !!day.closed, info: day.closed ? 'fertig' : 'offen', hint: 'Lager buchen und Tag abschließen' }
   ];
@@ -4358,6 +4358,29 @@ function dayFlowSteps(day) {
   return { st, next };
 }
 // Ist ein Schritt erledigt, steht im zugehörigen Bereich ein Knopf zum nächsten offenen Schritt
+/* Zahlenfelder im Abgleich (Mit, Übrig) und beim Einladen/Zählen: „Weiter“/Enter springt ins nächste Feld derselben Spalte.
+   Das Speichern passiert beim Verlassen des Feldes (change); keepState hält den Fokus beim Neu-Zeichnen. */
+const NEXT_KEYS = ['data-cnt', 'data-load', 'data-chkset'];
+function nextFieldAfter(el) {
+  const a = NEXT_KEYS.find(k => el.hasAttribute(k)); if (!a) return null;
+  const all = [...$('adminBody').querySelectorAll('input[' + a + ']')].filter(x => !x.disabled && x.offsetParent !== null);
+  return all[all.indexOf(el) + 1] || null;
+}
+$('adminBody').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target.matches || !e.target.matches(NEXT_KEYS.map(k => 'input[' + k + ']').join(','))) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const n = nextFieldAfter(e.target);
+  if (n) { n.focus({ preventScroll: false }); n.scrollIntoView({ block: 'center', behavior: 'smooth' }); try { n.select(); } catch (x) {} }
+  else e.target.blur();
+}, true);
+let lastNumField = null, lastPointer = 0;
+$('adminBody').addEventListener('pointerdown', () => { lastPointer = Date.now(); }, true);
+$('adminBody').addEventListener('focusin', e => {
+  const t = e.target, prev = lastNumField; lastNumField = t && t.matches && t.matches(NEXT_KEYS.map(k => 'input[' + k + ']').join(',')) ? t : null;
+  if (!prev || !lastNumField || prev === t || !document.contains(prev) || Date.now() - lastPointer < 800) return; // angetippt = gewollt
+  // Handy springt mit „Weiter“ selbst (Übrig → „Mit“ der nächsten Zeile): stattdessen ins nächste Übrig-Feld
+  if (prev.hasAttribute('data-cnt') && t.hasAttribute('data-load')) { const want = nextFieldAfter(prev); if (want) setTimeout(() => { want.focus(); try { want.select(); } catch (x) {} }, 0); }
+});
 function flowGoBtn(day, from) {
   if (!S.isAdmin || !day) return '';
   const { st, next } = dayFlowSteps(day);
@@ -4404,7 +4427,7 @@ function chkBlock(day) {
         '<div class="chkbtns">' +
         packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="-' + k.n + '" aria-label="' + esc(p.name) + ' minus ' + esc(k.l) + '"' + (n ? '' : ' disabled') + '><span>−' + k.n + '</span><small>' + esc(k.l) + '</small></button>').join('') +
         '<button type="button" class="b" data-chk="' + p.id + '" data-d="-1" aria-label="' + esc(p.name) + ' minus 1"' + (n ? '' : ' disabled') + '>−1</button>' +
-        '<input class="chkn chkin' + (low || over ? ' bad' : '') + '" type="number" inputmode="numeric" min="0" step="1" data-chkset="' + p.id + '" value="' + (key === 'count' && v == null ? '' : n) + '" placeholder="–" aria-label="' + esc(p.name) + ' Anzahl eintippen" enterkeyhint="done">' +
+        '<input class="chkn chkin' + (low || over ? ' bad' : '') + '" type="number" inputmode="numeric" enterkeyhint="next" min="0" step="1" data-chkset="' + p.id + '" value="' + (key === 'count' && v == null ? '' : n) + '" placeholder="–" aria-label="' + esc(p.name) + ' Anzahl eintippen" enterkeyhint="done">' +
         '<button type="button" class="b" data-chk="' + p.id + '" data-d="1" aria-label="' + esc(p.name) + ' plus 1"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '>+1</button>' +
         packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="' + k.n + '" aria-label="' + esc(p.name) + ' plus ' + esc(k.l) + '"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '><span>+' + k.n + '</span><small>' + esc(k.l) + '</small></button>').join('') + '</div></div>';
     }).join('') + '</div>';
@@ -4763,10 +4786,10 @@ function renderAdmin() {
     const fNext = dayFlowSteps(day).next;
     h += '<div class="grid2" style="margin-top:10px"><label class="f">Datum<input type="date" data-day="date" value="' + esc(day.date) + '"></label><label class="f">Ziel / Ort<input data-day="place" value="' + esc(day.place) + '"></label></div>' +
       '<div class="row">' + (day.id === S.active && !day.closed
-        ? '<span class="tag act" style="align-self:center">Zum Scannen freigegeben</span><button class="b" data-act="deactivate">Scannen beenden</button>'
+        ? '<span class="tag act" style="align-self:center">Zum Scannen freigegeben</span><button class="b' + (fNext === 2 ? ' hl' : '') + '" data-act="deactivate">⏹ Scannen beenden</button>'
         : '<button class="b pri' + (fNext === 1 ? ' hl' : '') + '" data-act="activate">' + (day.closed ? 'Wieder öffnen und zum Scannen freigeben' : 'Zum Scannen freigeben') + '</button>') +
       (day.closed ? (day.id === S.active ? '' : '<button class="b" data-act="reopen">Wieder öffnen</button>') : '<button class="b' + (fNext === 4 ? ' go' : '') + '" data-act="close">🏁 Tag abschließen</button>') + '</div>' +
-      '<div style="font-size:.8rem;color:var(--mu);margin-top:6px">' + (day.id === S.active && !day.closed ? 'Mitglieder buchen beim Scannen auf diesen Tag.' : S.active && S.active !== day.id ? 'Freigegeben ist gerade ein anderer Tag. Beim Freigeben wird dieser beendet.' : 'Gerade ist kein Tag zum Scannen freigegeben – Mitglieder können nicht buchen.') + '</div>' + flowGoBtn(day, 1);
+      '<div style="font-size:.8rem;color:var(--mu);margin-top:6px">' + (day.id === S.active && !day.closed ? 'Mitglieder buchen beim Scannen auf diesen Tag.' : S.active && S.active !== day.id ? 'Freigegeben ist gerade ein anderer Tag. Beim Freigeben wird dieser beendet.' : 'Gerade ist kein Tag zum Scannen freigegeben – Mitglieder können nicht buchen.') + '</div>' + (flowGoBtn(day, 2) || (fNext === 2 ? '' : flowGoBtn(day, 1)));
   }
   h += '</section>';
 
@@ -4780,8 +4803,8 @@ function renderAdmin() {
     if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2>' + flowGoBtn(day, chkMode === 'count' ? 3 : 0) + mustBlock(day) + chkBlock(day) +
       '<div class="row" style="margin-top:8px"><button class="b sm" data-act="sheetLoad">📷 Einladen per Scan</button><button class="b sm" data-act="sheetCount">📷 Rest zählen per Scan</button></div>' + packEditor() + '</section>';
     h += '<section><h2>Abgleich</h2>' + (rows.length ? '<div class="tw"><table><thead><tr><th>Getränk</th><th>Mit</th><th>Gebucht</th><th>Soll</th><th>Übrig</th><th>Diff.</th></tr></thead><tbody>' +
-      rows.map(r => '<tr><td>' + esc(r.p.name) + '</td><td><input class="n" inputmode="numeric" data-load="' + r.p.id + '" value="' + r.l + '" aria-label="Mitgenommen ' + esc(r.p.name) + '"></td><td>' + r.u + '</td><td class="' + (lowLevel(r) ? 'bad' : '') + '">' + r.s + (lowLevel(r) ? ' <span class="lowtag">' + (lowLevel(r) === 'leer' ? 'leer' : 'knapp') + '</span>' : '') + '</td>' +
-        '<td><input class="n" inputmode="numeric" data-cnt="' + r.p.id + '" value="' + (r.c == null ? '' : r.c) + '" aria-label="Übrig ' + esc(r.p.name) + '"></td>' +
+      rows.map((r, ri) => '<tr><td>' + esc(r.p.name) + '</td><td><input class="n" inputmode="numeric" enterkeyhint="next" tabindex="' + (200 + ri) + '" data-load="' + r.p.id + '" value="' + r.l + '" aria-label="Mitgenommen ' + esc(r.p.name) + '"></td><td>' + r.u + '</td><td class="' + (lowLevel(r) ? 'bad' : '') + '">' + r.s + (lowLevel(r) ? ' <span class="lowtag">' + (lowLevel(r) === 'leer' ? 'leer' : 'knapp') + '</span>' : '') + '</td>' +
+        '<td><input class="n" inputmode="numeric" enterkeyhint="next" tabindex="' + (100 + ri) + '" data-cnt="' + r.p.id + '" value="' + (r.c == null ? '' : r.c) + '" aria-label="Übrig ' + esc(r.p.name) + '"></td>' +
         '<td class="' + (r.diff == null ? '' : r.diff === 0 ? 'good' : r.diff < 0 ? 'bad' : 'warn') + '">' + (r.diff == null ? '–' : r.diff === 0 ? 'passt' : r.diff < 0 ? 'fehlt ' + (-r.diff) : r.diff + ' zu viel') + '</td></tr>').join('') +
       '</tbody><tfoot><tr><td>Summe</td><td>' + rows.reduce((a, r) => a + r.l, 0) + '</td><td>' + rows.reduce((a, r) => a + r.u, 0) + '</td><td>' + rows.reduce((a, r) => a + r.s, 0) + '</td><td>' + rows.reduce((a, r) => a + (r.c || 0), 0) + '</td><td></td></tr></tfoot></table></div>' +
       undoBlock(rows) +
@@ -4820,7 +4843,7 @@ function renderAdmin() {
     }
 
     const recent = scans.slice(-30).reverse();
-    const fl = dayFlowSteps(day), zGo = !RO && fl.next === 2 ? '<div class="flowgo"><span>Alle zurück?</span><button type="button" class="b sm hl" data-flowsec="Abgleich" data-flowmode="count">Weiter: ⬇️ Zählen →</button></div>' : '';
+    const fl = dayFlowSteps(day), zGo = !RO && fl.next === 2 && day.id === S.active && !day.closed ? '<div class="flowgo"><span>Alle zurück?</span><button type="button" class="b sm hl" data-act="deactivate">⏹ Scannen beenden</button></div>' : '';
     h += '<section><h2>Buchungen dieses Tages (' + scans.length + ')</h2>' + zGo + (recent.map(s => '<div class="rw"><span>' + fmtTime(s.t) + '</span><span>' + esc((P(s.p) || {}).name || '(gelöscht)') + '</span><small>' + esc(nameOf(s)) + (s.src === 'manuell' ? ' · ohne Scan' : s.src === 'nachgetragen' ? ' · nachgetragen' : '') + '</small><button class="b sm" data-act="storno" data-id="' + s.id + '">Stornieren</button></div>').join('') || '<div class="empty">Noch nichts gebucht.</div>') + '</section>';
   }
 
@@ -6650,13 +6673,16 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'activate' && day) {
     if (!(await mustCheck(day, 'Der Tag wird zum Scannen freigegeben, aber es fehlt noch:'))) return;
     if (day.closed) { if (!await ask('„' + dayLabel(day) + '“ ist abgeschlossen. Wieder öffnen und zum Scannen freigeben?', { ok: 'Freigeben' })) return; fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen'); }
-    fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag freigeben'); toast('Freigegeben – Scannen bucht jetzt auf diesen Tag'); logEv('tag', 'gibt ' + dayLabel(day) + ' zum Scannen frei', day.id);
+    fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag freigeben');
+    if (day.ended) fire(F.updateDoc(dref('days', day.id), { ended: F.deleteField() }), 'Tag'); toast('Freigegeben – Scannen bucht jetzt auf diesen Tag'); logEv('tag', 'gibt ' + dayLabel(day) + ' zum Scannen frei', day.id);
     const pd = lagerDayPending(day); if (pd.out.length) await lagerDayAsk(day, { out: pd.out, back: [] }, { title: 'Mitgenommenes aus dem Lager abbuchen?', ok: 'Abbuchen', cancel: 'Später' });
   }
   else if (a === 'lagerDay' && day) await lagerDayAsk(day, lagerDayPending(day));
   else if (a === 'deactivate' && day) {
     if (!await ask('Scannen für „' + dayLabel(day) + '“ beenden? Danach kann niemand mehr buchen, bis wieder ein Tag freigegeben ist.', { ok: 'Scannen beenden' })) return;
-    fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Scannen beenden'); toast('Scannen beendet'); logEv('tag', 'beendet das Scannen für ' + dayLabel(day), day.id);
+    fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Scannen beenden'); toast('Scannen beendet – weiter zum Abgleich'); logEv('tag', 'beendet das Scannen für ' + dayLabel(day), day.id);
+    fire(F.updateDoc(dref('days', day.id), { ended: Date.now() }), 'Tag');
+    day.ended = Date.now(); chkMode = 'count'; setTimeout(() => admGoto('Abgleich', day.id), 150); setTimeout(() => admGoto('Abgleich', day.id), 900);
   }
   else if (a === 'close' && day) {
     const open = dayRows(day, S.dayScans).filter(r => r.c == null).length, act = day.id === S.active;
@@ -7413,6 +7439,9 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.10.2', d: '2026-11-26', i: [
+    ['a', 'Tagesablauf: „Läuft“ endet mit „⏹ Scannen beenden“ (leuchtet, wenn es dran ist; auch bei den Buchungen „Alle zurück?“). Danach springt die App direkt zum Abgleich.'],
+    ['a', 'Abgleich, Einladen und Zählen: „Weiter“ bzw. Enter auf der Tastatur springt ins nächste Feld derselben Spalte.'] ] },
   { v: '2.10.1', d: '2026-11-26', i: [
     ['a', 'Tagesablauf: Ist ein Schritt erledigt (z. B. alles eingeladen, Tag freigegeben, alles gezählt), steht im Bereich ein Knopf „Weiter: … →“ zum nächsten Schritt. Während der Tag läuft, führt „Weiter: Zählen“ aus den Buchungen zum Abgleich.'] ] },
   { v: '2.10.0', d: '2026-11-26', i: [
