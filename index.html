@@ -269,6 +269,8 @@ input.n{min-width:3em}
 .flownext.hot .b{flex:0 0 auto}
 .flownext.done{color:#2e7d32;font-weight:700}
 .flownext.warnl{color:var(--amb);font-size:.8rem}
+.flowgo{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:6px 0 10px;padding:8px 10px;border:1.5px solid #2e7d32;border-radius:12px;background:rgba(46,125,50,.12);font-size:.9rem}
+.flowgo span{color:#2e7d32}.flowgo .b{flex:0 0 auto}
 .flowstep.warn{border-color:var(--amb)}.flowstep.warn .fn{background:var(--amb);color:#fff}
 .b.hl{background:var(--wy);border-color:var(--wy);color:#141414;font-weight:700;animation:hlPulse 1.8s ease-in-out infinite}
 .b.go{background:#2e7d32;border-color:#2e7d32;color:#fff;font-weight:700;animation:goPulse 1.8s ease-in-out infinite}
@@ -914,7 +916,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.10.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.10.1'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4355,6 +4357,14 @@ function dayFlowSteps(day) {
   st.forEach((x, i) => { x.warn = !x.done && i < last; });
   return { st, next };
 }
+// Ist ein Schritt erledigt, steht im zugehörigen Bereich ein Knopf zum nächsten offenen Schritt
+function flowGoBtn(day, from) {
+  if (!S.isAdmin || !day) return '';
+  const { st, next } = dayFlowSteps(day);
+  if (next < 0 || next <= from || !st[from] || !st[from].done) return '';
+  const n = st[next];
+  return '<div class="flowgo"><span>✓ <b>' + st[from].t + '</b> erledigt</span><button type="button" class="b sm hl" data-flowsec="' + esc(n.k) + '"' + (n.mode ? ' data-flowmode="' + n.mode + '"' : '') + '>Weiter: ' + n.ic + ' ' + n.t + ' →</button></div>';
+}
 function dayFlow(day) {
   const { st, next } = dayFlowSteps(day), warn = st.filter(x => x.warn);
   return '<div class="flow" role="list">' + st.map((x, i) => '<button type="button" role="listitem" class="flowstep' + (x.done ? ' done' : '') + (x.warn ? ' warn' : '') + (i === next ? ' next' : '') + '" data-flow="' + i + '" data-flowsec="' + esc(x.k) + '"' + (x.mode ? ' data-flowmode="' + x.mode + '"' : '') + '>' +
@@ -4756,7 +4766,7 @@ function renderAdmin() {
         ? '<span class="tag act" style="align-self:center">Zum Scannen freigegeben</span><button class="b" data-act="deactivate">Scannen beenden</button>'
         : '<button class="b pri' + (fNext === 1 ? ' hl' : '') + '" data-act="activate">' + (day.closed ? 'Wieder öffnen und zum Scannen freigeben' : 'Zum Scannen freigeben') + '</button>') +
       (day.closed ? (day.id === S.active ? '' : '<button class="b" data-act="reopen">Wieder öffnen</button>') : '<button class="b' + (fNext === 4 ? ' go' : '') + '" data-act="close">🏁 Tag abschließen</button>') + '</div>' +
-      '<div style="font-size:.8rem;color:var(--mu);margin-top:6px">' + (day.id === S.active && !day.closed ? 'Mitglieder buchen beim Scannen auf diesen Tag.' : S.active && S.active !== day.id ? 'Freigegeben ist gerade ein anderer Tag. Beim Freigeben wird dieser beendet.' : 'Gerade ist kein Tag zum Scannen freigegeben – Mitglieder können nicht buchen.') + '</div>';
+      '<div style="font-size:.8rem;color:var(--mu);margin-top:6px">' + (day.id === S.active && !day.closed ? 'Mitglieder buchen beim Scannen auf diesen Tag.' : S.active && S.active !== day.id ? 'Freigegeben ist gerade ein anderer Tag. Beim Freigeben wird dieser beendet.' : 'Gerade ist kein Tag zum Scannen freigegeben – Mitglieder können nicht buchen.') + '</div>' + flowGoBtn(day, 1);
   }
   h += '</section>';
 
@@ -4767,7 +4777,7 @@ function renderAdmin() {
     if ((S.dayDrivers || []).length) h += '<div class="note">Fahrer heute: <b>' + S.dayDrivers.map(x => esc(uname(x.uid) !== '(Person)' ? uname(x.uid) : x.name || '')).join(', ') + '</b></div>';
     if (!RO && canSee('eggs')) h += eggPreview(day, scans);
     h += busSection(day);
-    if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2>' + mustBlock(day) + chkBlock(day) +
+    if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2>' + flowGoBtn(day, chkMode === 'count' ? 3 : 0) + mustBlock(day) + chkBlock(day) +
       '<div class="row" style="margin-top:8px"><button class="b sm" data-act="sheetLoad">📷 Einladen per Scan</button><button class="b sm" data-act="sheetCount">📷 Rest zählen per Scan</button></div>' + packEditor() + '</section>';
     h += '<section><h2>Abgleich</h2>' + (rows.length ? '<div class="tw"><table><thead><tr><th>Getränk</th><th>Mit</th><th>Gebucht</th><th>Soll</th><th>Übrig</th><th>Diff.</th></tr></thead><tbody>' +
       rows.map(r => '<tr><td>' + esc(r.p.name) + '</td><td><input class="n" inputmode="numeric" data-load="' + r.p.id + '" value="' + r.l + '" aria-label="Mitgenommen ' + esc(r.p.name) + '"></td><td>' + r.u + '</td><td class="' + (lowLevel(r) ? 'bad' : '') + '">' + r.s + (lowLevel(r) ? ' <span class="lowtag">' + (lowLevel(r) === 'leer' ? 'leer' : 'knapp') + '</span>' : '') + '</td>' +
@@ -4810,7 +4820,8 @@ function renderAdmin() {
     }
 
     const recent = scans.slice(-30).reverse();
-    h += '<section><h2>Buchungen dieses Tages (' + scans.length + ')</h2>' + (recent.map(s => '<div class="rw"><span>' + fmtTime(s.t) + '</span><span>' + esc((P(s.p) || {}).name || '(gelöscht)') + '</span><small>' + esc(nameOf(s)) + (s.src === 'manuell' ? ' · ohne Scan' : s.src === 'nachgetragen' ? ' · nachgetragen' : '') + '</small><button class="b sm" data-act="storno" data-id="' + s.id + '">Stornieren</button></div>').join('') || '<div class="empty">Noch nichts gebucht.</div>') + '</section>';
+    const fl = dayFlowSteps(day), zGo = !RO && fl.next === 2 ? '<div class="flowgo"><span>Alle zurück?</span><button type="button" class="b sm hl" data-flowsec="Abgleich" data-flowmode="count">Weiter: ⬇️ Zählen →</button></div>' : '';
+    h += '<section><h2>Buchungen dieses Tages (' + scans.length + ')</h2>' + zGo + (recent.map(s => '<div class="rw"><span>' + fmtTime(s.t) + '</span><span>' + esc((P(s.p) || {}).name || '(gelöscht)') + '</span><small>' + esc(nameOf(s)) + (s.src === 'manuell' ? ' · ohne Scan' : s.src === 'nachgetragen' ? ' · nachgetragen' : '') + '</small><button class="b sm" data-act="storno" data-id="' + s.id + '">Stornieren</button></div>').join('') || '<div class="empty">Noch nichts gebucht.</div>') + '</section>';
   }
 
   h += '<section><h2>Getränke (' + S.products.length + ')</h2>' + S.products.map(p =>
@@ -7402,6 +7413,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.10.1', d: '2026-11-26', i: [
+    ['a', 'Tagesablauf: Ist ein Schritt erledigt (z. B. alles eingeladen, Tag freigegeben, alles gezählt), steht im Bereich ein Knopf „Weiter: … →“ zum nächsten Schritt. Während der Tag läuft, führt „Weiter: Zählen“ aus den Buchungen zum Abgleich.'] ] },
   { v: '2.10.0', d: '2026-11-26', i: [
     ['a', 'TooDruck-Modus: Der ganze Admin-Bereich ist dann nur noch zum Ansehen – nichts anlegen, ändern, löschen, freigeben, einladen, zählen, buchen oder abschließen. Ansehen, Excel/CSV und Backup herunterladen gehen weiter.'] ] },
   { v: '2.9.9', d: '2026-11-26', i: [
