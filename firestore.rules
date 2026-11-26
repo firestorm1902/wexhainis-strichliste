@@ -386,13 +386,14 @@ service cloud.firestore {
         && request.resource.data.bc is string && id == request.resource.data.bc + '_' + request.auth.uid;
     }
 
-    // Strichliste – „zuletzt aktiv“: jedes Mitglied schreibt nur sein eigenes Dokument (Uhrzeit vom Server),
+    // Strichliste – „zuletzt aktiv“ / „gerade online“: jedes Mitglied schreibt nur sein eigenes Dokument (Uhrzeit vom Server),
     // Admins lesen die Liste; löschen nur der Super-Admin
     match /slseen/{uid} {
       allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
       allow create, update: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['open', 'login', 'v'])
+        && request.resource.data.keys().hasOnly(['open', 'on', 'login', 'v'])
         && request.resource.data.open == request.time
+        && (!('on' in request.resource.data) || request.resource.data.on is bool)
         && (!('login' in request.resource.data) || request.resource.data.login is int)
         && (!('v' in request.resource.data) || (request.resource.data.v is string && request.resource.data.v.size() <= 20));
       allow delete: if isSuper();

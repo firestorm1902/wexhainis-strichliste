@@ -135,7 +135,7 @@ Admin → Tag → **Mitnehmen und zurückzählen**: Umschalter **⬆️ Einladen
 Admin → **Getränke** → bei jedem Getränk **„Mindestens mitnehmen (Flaschen)“**. Admin → **Mitnehmen und zurückzählen** → **Packliste bearbeiten**: Dinge, die immer mit müssen (Flaschenöffner, Becher, Kasse …), pro Tag zum Abhaken. Fehlt etwas, steht es rot im Bereich „Mitnehmen“, und die App fragt nach – beim Schließen des Einlade-Scanners und beim Freigeben des Tags.
 
 ### Jugendschutz (U18)
-Admin → **Personen** → **Zuletzt aktiv** (nur Admins): Unter jedem Namen steht, wann die Person die App zuletzt geöffnet hat (z. B. „vor 5 Min.“, „gestern 21:14“; grüner Punkt = in den letzten 15 Minuten). Aufgeklappt stehen das genaue Datum, die letzte echte Anmeldung (Login mit Passwort) und die App-Version auf dem Handy. „Sortiert: Name“ schaltet auf „zuletzt aktiv“ um. Jedes Handy meldet sich beim Öffnen und beim Zurückkehren in die App, höchstens alle 10 Minuten (Collection `slseen`, ein Dokument pro Person). Admins laden die Liste nur beim Öffnen des Admin-Bereichs und per „🔄 Zuletzt aktiv“ – das sind so viele Lesevorgänge, wie es Personen gibt. Erfasst wird erst ab v2.9.5; wer die App seitdem nicht geöffnet hat, steht als „noch nicht erfasst“ da.
+Admin → **Personen** → **Online und zuletzt aktiv** (nur Admins): Unter jedem Namen steht **online** mit grünem Punkt, solange die Person die App im Vordergrund offen hat – sonst, wann sie zuletzt in der App war (z. B. „vor 5 Min.“, „gestern 21:14“). Oben steht, wie viele gerade online sind. Aufgeklappt stehen das genaue Datum, die letzte echte Anmeldung (Login mit Passwort) und die App-Version auf dem Handy. „Sortiert: Name“ schaltet auf „online / zuletzt aktiv“ um. So funktioniert es: Solange die App offen ist, meldet sich das Handy alle 5 Minuten; beim Wechsel in eine andere App, beim Sperren oder Schließen meldet es sich sofort ab. Klappt das nicht (Akku leer, kein Netz), gilt die Person nach 6½ Minuten ohne Meldung als offline. Gespeichert wird in der Collection `slseen` (ein Dokument pro Person). Die Liste aktualisiert sich nicht von selbst: Admins laden sie beim Öffnen des Admin-Bereichs und per „🔄 Online-Status“ – das sind so viele Lesevorgänge, wie es Personen gibt. Erfasst wird ab v2.9.5 (online-Status ab v2.9.6).
 
 Admin → **Personen**: „minderjährig (U18)“ markiert eine Person. Admin → **Getränke**: pro Getränk „Für Jugendliche (U18) gesperrt“ – ohne Einstellung sind automatisch alle alkoholischen Sorten gesperrt; man kann aber z. B. ein Radler freigeben oder einen Energydrink sperren. Die markierten Personen erfahren davon nichts: gesperrte Getränke erscheinen bei ihnen einfach nicht in der Liste, und beim Scannen steht nur „kann gerade nicht gebucht werden – bitte beim Getränke-Admin melden“. Der Server prüft die Sperre ebenfalls.
 
@@ -490,14 +490,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.9.5**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.9.6**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.9.5';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.9.5';`
+- in `index.html`: `const APP_VERSION = '2.9.6';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.9.6';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -530,7 +530,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.9.5“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.9.6“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

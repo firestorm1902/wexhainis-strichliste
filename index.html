@@ -704,6 +704,7 @@ body.noauth main{display:none!important}
 .unm small.seen.on::before{content:'● ';font-size:.7em;vertical-align:1px}
 .seeninfo{font-size:.84rem;color:var(--mu);line-height:1.45}
 .seeninfo b{color:var(--ink);font-weight:600}
+.onl{color:var(--pet);font-weight:600}
 </style>
 </head>
 <body>
@@ -888,7 +889,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.9.5'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.9.6'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4620,29 +4621,38 @@ function summary(rows) {
   return h;
 }
 
-/* „Zuletzt aktiv“: Jedes Mitglied meldet beim Öffnen der App (und beim Zurückkehren) die Uhrzeit – höchstens alle 10 Minuten.
-   Admins laden die Liste nur bei Bedarf (beim Öffnen des Admin-Bereichs oder per „Aktualisieren“), das spart Lesevorgänge. */
-const SEEN_GAP = 10 * 60000;
-let seenLast = 0;
-function seenPing(force) {
+/* „Zuletzt aktiv“ und „gerade online“: Solange die App im Vordergrund offen ist, meldet sich das Handy alle 5 Minuten (on: true).
+   Wechselt man in eine andere App, sperrt das Handy oder schließt die App, schreibt sie sofort on: false.
+   Klappt das nicht (Akku leer, kein Netz), gilt man nach SEEN_TTL ohne Meldung als offline.
+   Admins laden die Liste nur bei Bedarf (beim Öffnen des Admin-Bereichs oder per Knopf), das spart Lesevorgänge. */
+const SEEN_HB = 5 * 60000, SEEN_TTL = 6.5 * 60000;
+let seenLast = 0, seenOn = null;
+function seenWrite(on) {
   const u = S.user; if (!u || !db || !navigator.onLine) return;
-  const k = 'slseen_' + u.uid;
-  if (!seenLast) { try { seenLast = +localStorage.getItem(k) || 0; } catch (e) {} }
-  if (!force && Date.now() - seenLast < SEEN_GAP) return;
-  seenLast = Date.now(); try { localStorage.setItem(k, String(seenLast)); } catch (e) {}
-  const data = { open: F.serverTimestamp(), v: APP_VERSION };
+  seenLast = Date.now(); seenOn = on;
+  const data = { open: F.serverTimestamp(), on, v: APP_VERSION };
   const li = u.metadata && Date.parse(u.metadata.lastSignInTime); if (li) data.login = li;
-  F.setDoc(dref('slseen', u.uid), data).catch(() => { seenLast = 0; });
+  F.setDoc(dref('slseen', u.uid), data).catch(() => { seenOn = null; seenLast = 0; });
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden && S.user && S.meDoc) seenPing(); });
+function seenPing() {
+  if (document.hidden || !S.user || !S.meDoc || S.meDoc.deleted) return;
+  if (seenOn === true && Date.now() - seenLast < SEEN_HB - 20000) return;
+  seenWrite(true);
+}
+function seenBye() { if (seenOn === true) seenWrite(false); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) seenBye(); else seenPing(); });
+window.addEventListener('pagehide', seenBye);
+window.addEventListener('online', seenPing);
+setInterval(seenPing, 60000);
+function seenIsOn(sn) { return !!(sn && sn.on && Date.now() - sn.open < SEEN_TTL); }
 let seenLoading = false;
 async function seenFetch() {
   if (seenLoading || !S.isAdmin || !db) return; seenLoading = true;
   try {
     const m = {};
-    (await F.getDocs(col('slseen'))).docs.forEach(d => { const x = d.data(); m[d.id] = { open: x.open && x.open.toMillis ? x.open.toMillis() : (+x.open || 0), login: +x.login || 0, v: x.v || '' }; });
+    (await F.getDocs(col('slseen'))).docs.forEach(d => { const x = d.data(); m[d.id] = { open: x.open && x.open.toMillis ? x.open.toMillis() : (+x.open || 0), on: x.on === true, login: +x.login || 0, v: x.v || '' }; });
     S.seen = m; S.seenAt = Date.now();
-  } catch (e) { if (!S.seen) S.seen = {}; toast('„Zuletzt aktiv“ konnte nicht geladen werden'); }
+  } catch (e) { if (!S.seen) S.seen = {}; toast('Online-Status konnte nicht geladen werden'); }
   seenLoading = false; renderAdmin();
 }
 function seenFmt(t) {
@@ -4806,14 +4816,14 @@ function renderAdmin() {
   const ulist = all.filter(u => !goneSL(u) && !(RO && (u.pending || u.blocked))), gone = all.filter(u => goneSL(u));
   if (S.isAdmin && S.seen == null && !seenLoading) setTimeout(seenFetch, 0);
   const SEEN = S.isAdmin ? S.seen : null, seenOf = uid => (SEEN && SEEN[uid]) || null;
-  if (SEEN && seenSort) ulist.sort((a, b) => ((seenOf(b.uid) || {}).open || 0) - ((seenOf(a.uid) || {}).open || 0));
+  if (SEEN && seenSort) ulist.sort((a, b) => (seenIsOn(seenOf(b.uid)) - seenIsOn(seenOf(a.uid))) || (((seenOf(b.uid) || {}).open || 0) - ((seenOf(a.uid) || {}).open || 0)));
   if (all.length) {
     const counts = {}; ulist.forEach(u => { const k = u.name.toLowerCase(); counts[k] = (counts[k] || 0) + 1; });
     const consoleUrl = 'https://console.firebase.google.com/project/' + encodeURIComponent(firebaseConfig.projectId) + '/authentication/users';
     if (S.isSuper) h += tdOthersSection();
     h += '<section><h2>Personen (' + ulist.length + ')</h2>' +
       '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">' + (RO ? 'Alle freigeschalteten Mitglieder.' : S.isSuper ? 'Antippen zum Bearbeiten. Als Super-Admin vergibst du Rollen (Getränke-Admin, Vorstand), sperrst und entfernst Konten und schickst Passwort-Mails.' : 'Jedes Konto hat einen festen Namen. Nur hier kann er korrigiert werden.') + '</div>' +
-      (S.isAdmin ? '<div class="row seenbar" style="margin:0 0 8px;align-items:center"><button class="b sm" data-seen="sort">' + (seenSort ? 'Sortiert: zuletzt aktiv' : 'Sortiert: Name') + '</button><button class="b sm" data-seen="load">🔄 Zuletzt aktiv</button><small style="color:var(--mu)">' + (SEEN ? 'Stand ' + new Date(S.seenAt || Date.now()).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : 'lädt …') + '</small></div>' : '') +
+      (S.isAdmin ? '<div class="row seenbar" style="margin:0 0 8px;align-items:center"><button class="b sm" data-seen="sort">' + (seenSort ? 'Sortiert: online / zuletzt aktiv' : 'Sortiert: Name') + '</button><button class="b sm" data-seen="load">🔄 Online-Status</button><small style="color:var(--mu)">' + (SEEN ? '<b class="onl">' + ulist.filter(u => seenIsOn(seenOf(u.uid))).length + ' online</b> · Stand ' + new Date(S.seenAt || Date.now()).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : 'lädt …') + '</small></div>' : '') +
       ulist.map(u => {
         const me = u.uid === S.user.uid;
         const badges = (RO ? '' : me && S.isSuper ? '<span class="tag act">Super-Admin</span>' : u.role === 'admin' ? '<span class="tag act">Getränke-Admin</span>' : u.role === 'vorstand' ? '<span class="tag act">Vorstand</span>' : '') +
@@ -4824,7 +4834,7 @@ function renderAdmin() {
           '<label class="f">Narrenfigur / Gruppe<select data-grp="' + u.uid + '"><option value="">keine</option>' + groupsAll().map(g => '<option value="' + esc(g.id) + '"' + (u.grp === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>').join('') + '</select></label>' +
           '<label class="chk" style="align-self:end"><input type="checkbox" data-minor="' + u.uid + '"' + (u.minor ? ' checked' : '') + '> minderjährig (U18)</label>' +
           '<div class="full" style="font-size:.84rem;color:var(--mu)">' + (u.email ? esc(u.email) : 'E-Mail noch unbekannt (wird beim nächsten Öffnen der App ergänzt)') + (u.t ? ' · seit ' + new Date(u.t).toLocaleDateString('de-DE') : '') + '</div>' +
-          (SEEN ? (sn => '<div class="full seeninfo">App zuletzt geöffnet: <b>' + seenFull(sn && sn.open) + '</b><br>Letzte Anmeldung: <b>' + seenFull(sn && sn.login) + '</b>' + (sn && sn.v ? ' · Version v' + esc(sn.v) : '') + (sn ? '' : '<br><small>Erst erfasst, wenn die Person die App ab v2.9.5 öffnet.</small>') + '</div>')(seenOf(u.uid)) : '');
+          (SEEN ? (sn => '<div class="full seeninfo">' + (seenIsOn(sn) ? '<span class="onl">● gerade online</span> (gemeldet ' + seenFmt(sn.open) + ')' : 'Zuletzt in der App: <b>' + seenFull(sn && sn.open) + '</b>') + '<br>Letzte Anmeldung: <b>' + seenFull(sn && sn.login) + '</b>' + (sn && sn.v ? ' · Version v' + esc(sn.v) : '') + (sn ? '' : '<br><small>Erst erfasst, wenn die Person die App ab v2.9.5 öffnet.</small>') + '</div>')(seenOf(u.uid)) : '');
         if (S.isSuper && !me) {
           inner += '<label class="f">Rolle<select data-role="' + u.uid + '"><option value=""' + (!u.role ? ' selected' : '') + '>Mitglied</option><option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Getränke-Admin</option><option value="vorstand"' + (u.role === 'vorstand' ? ' selected' : '') + '>Vorstand (nur lesen)</option></select></label><div></div>' +
             '<div class="full row" style="margin-top:0">' +
@@ -4834,7 +4844,7 @@ function renderAdmin() {
             '<button class="b sm dng" data-act="removeUser" data-id="' + u.uid + '">Aus Strichliste entfernen</button></div>';
         }
         if (AV[u.uid] && AV[u.uid].img) inner += '<div class="full row" style="margin-top:0;align-items:center">' + avatarHTML(u.uid, u.name, 64) + '<button class="b sm dng" data-act="delAv" data-id="' + u.uid + '">Profilbild entfernen</button></div>';
-        return '<details class="pc" data-k="u' + u.uid + '"><summary><span style="display:flex;align-items:center">' + avatarHTML(u.uid, u.name, 32) + '<span class="unm"><b>' + esc(u.name || '(ohne Namen)') + '</b>' + (SEEN ? '<small class="seen' + (seenOf(u.uid) && Date.now() - seenOf(u.uid).open < 15 * 60000 ? ' on' : '') + '">' + (seenOf(u.uid) ? seenFmt(seenOf(u.uid).open) : 'noch nicht erfasst') + '</small>' : '') + '</span></span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' + badges + '</span></summary><div class="grid2">' + inner + '</div></details>';
+        return '<details class="pc" data-k="u' + u.uid + '"><summary><span style="display:flex;align-items:center">' + avatarHTML(u.uid, u.name, 32) + '<span class="unm"><b>' + esc(u.name || '(ohne Namen)') + '</b>' + (SEEN ? (sn => '<small class="seen' + (seenIsOn(sn) ? ' on">online' : '">' + (sn ? seenFmt(sn.open) : 'noch nicht erfasst')) + '</small>')(seenOf(u.uid)) : '') + '</span></span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' + badges + '</span></summary><div class="grid2">' + inner + '</div></details>';
       }).join('') +
       (S.isSuper && gone.length ? '<details class="pc" data-k="gone"><summary><b>Entfernte Konten (' + gone.length + ')</b><small>wiederherstellen</small></summary>' +
         gone.map(u => '<div class="rw"><span></span><span>' + esc(u.name) + '<br><small>' + esc(u.email) + '</small></span>' + (u.deleted ? '<small>in WexSuperAdmin gelöscht</small>' : '<button class="b sm" data-act="restoreUser" data-id="' + u.uid + '">Wiederherstellen</button>') + '</div>').join('') + '</details>' : '') +
@@ -7301,6 +7311,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.9.6', d: '2026-11-26', i: [
+    ['a', 'Personen: „gerade online“ – grüner Punkt, solange jemand die App offen hat, mit Anzahl oben; nach online sortierbar.'] ] },
   { v: '2.9.5', d: '2026-11-26', i: [
     ['a', 'Personen: „zuletzt aktiv“ – wann jemand die App zuletzt geöffnet und sich zuletzt angemeldet hat, auf Wunsch danach sortiert.'] ] },
   { v: '2.9.4', d: '2026-11-25', i: [
