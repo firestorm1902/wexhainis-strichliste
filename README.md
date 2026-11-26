@@ -160,7 +160,7 @@ Auch Mitglieder haben oben neben dem Namen eine **🔔**. Sie zählt neue Meldun
 Gibt es im Admin-Bereich etwas zu tun, steht oben neben dem Namen eine **🔔 mit Zahl**: neue Anmeldungen, Löschanträge, offene Korrekturanträge, Antworten auf eigene Rückfragen und (Super-Admin) ungelesene Nachrichten. Antippen zeigt die Liste; ein Eintrag springt direkt in den passenden Bereich. **Später erinnern**: in 1, 3 oder 8 Stunden oder morgen früh – spätestens am nächsten Morgen um 8 Uhr meldet sich die Glocke wieder (mit Hinweis), solange noch etwas offen ist. Neue Aufgaben zeigt sie auch während der Pause sofort.
 
 ### Admin-Bereich: Reiter
-Der Admin-Bereich ist in Reiter aufgeteilt: **📥 Aufgaben** (neue Anmeldungen, Anträge, Löschanträge, Posteingang, Antworten auf Rückfragen – mit Zahl), **📅 Tag**, **🍺 Getränke** (mit Lager), **📊 Auswertung**, **👥 Personen** und **⚙️ Einstellungen**. Ist etwas offen, öffnet der Admin-Bereich mit „Aufgaben“, sonst immer mit „Tag“. Bereiche ohne Einträge („… (0)“) werden ausgeblendet. Die Glocke springt direkt in den richtigen Reiter. Der Vorstand sieht nur die Reiter mit Bereichen, die er sehen darf.
+Der Admin-Bereich ist in Reiter aufgeteilt: **📥 Aufgaben** (neue Anmeldungen, Anträge, Löschanträge, Posteingang, Antworten auf Rückfragen – mit Zahl), **📅 Tag**, **🍺 Getränke** (mit Lager), **📊 Auswertung**, **👥 Personen** und **⚙️ Einstellungen**. Ist etwas offen, öffnet der Admin-Bereich mit „Aufgaben“, sonst immer mit „Tag“. Bereiche ohne Einträge („… (0)“) werden ausgeblendet. Die Glocke springt direkt in den richtigen Reiter. Die Leiste mit Reitern, Suche und Bereichen bleibt beim Scrollen oben stehen; mit **„▴ Einklappen“** wird sie zu einer schmalen Zeile mit den Reitern, **▾** klappt sie wieder auf (wird pro Handy gemerkt). Der Vorstand sieht nur die Reiter mit Bereichen, die er sehen darf.
 
 - **Suche:** Unter den Reitern steht ein Suchfeld. Es findet Bereiche (auch über Stichwörter wie „Backup“, „Packliste“, „Inventur“), Getränke, Personen und Tage. Ein Tipp auf einen Treffer springt hin und klappt das Getränk bzw. die Person gleich auf.
 - **Der Tag als Ablauf:** Im Bereich „Tag“ steht der Ablauf ① Einladen → ② Freigeben → ③ Läuft (x gebucht) → ④ Zählen → ⑤ Abschluss. Erledigte Schritte haben einen Haken, der nächste fällige ist gelb umrandet. Antippen springt zum passenden Bereich.
@@ -490,14 +490,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.9.6**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.9.7**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.9.6';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.9.6';`
+- in `index.html`: `const APP_VERSION = '2.9.7';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.9.7';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -530,7 +530,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.9.6“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.9.7“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
