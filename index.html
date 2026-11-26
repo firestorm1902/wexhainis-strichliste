@@ -277,7 +277,10 @@ input.n{min-width:3em}
 .chkbtns .b{min-width:46px;min-height:44px;padding:6px 10px;font-weight:700}
 .chkbtns .b.pk{font-size:.95rem;font-weight:700;display:flex;flex-direction:column;align-items:center;line-height:1.05;padding:4px 8px}.chkbtns .b.pk small{font-size:.66rem;font-weight:500;opacity:.8}
 .chkin{width:4.2em;min-height:44px;padding:4px 2px;border-radius:12px;border:1.5px solid var(--line);background:var(--white);color:var(--ink);-moz-appearance:textfield}.chkin::-webkit-outer-spin-button,.chkin::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-@media (max-width:560px){.chkbtns{flex-basis:100%;justify-content:space-between;flex-wrap:nowrap}.chkbtns .b{flex:1 1 0;min-width:0;padding:4px 2px}.chkin{flex:1.3 1 0;width:auto;min-width:0}}
+@media (max-width:560px){.chkbtns{flex-basis:100%;min-width:0;justify-content:space-between;flex-wrap:nowrap;gap:5px}.chkbtns .b,.chkbtns .b.pk{flex:1 1 0;min-width:0;padding:4px 2px;overflow:hidden}.chkbtns .chkin{flex:1.3 1 0;width:auto;min-width:0}}
+/* Schutz für schmale Handys und große Schrift: nichts darf die Seite breiter machen als den Bildschirm */
+html,body{overflow-x:clip}
+main,.wrap,section,.chkrow,.chklist{min-width:0}
 .chkn{min-width:2.6em;text-align:center;font-size:1.25rem;font-weight:800}.chkn.bad{color:var(--pen)}
 .chkmode button{flex:1}
 .packl{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 8px}
@@ -895,7 +898,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.9.7'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.9.8'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -5937,7 +5940,8 @@ const tabOf = k => TAB_OF[k] || 'set';
 const ADM_MORE = ['Partymodus', 'Fasnets-Titel', 'Easter Eggs verwalten'];
 let admMore = false;
 // Admin-Leiste oben einklappbar: dann nur noch eine schmale Zeile mit den Reitern (pro Handy gemerkt)
-let admMini = (() => { try { return localStorage.getItem('admMini') === '1'; } catch (e) { return false; } })();
+const admMiniSaved = (() => { try { return localStorage.getItem('admMini'); } catch (e) { return null; } })();
+let admMini = admMiniSaved === '1', admMiniAuto = admMiniSaved == null;
 const BOARD_OPTIN = ['Zu wenig gebucht', 'Alle Tage']; // Vorstand sieht sie nur, wenn der Super-Admin sie freigibt
 const boardSees = k => !!(S.secCfg && Array.isArray(S.secCfg.boardExtra) && S.secCfg.boardExtra.includes(k));
 const KEEP_EMPTY = ['Getränke', 'Personen', 'Gruppen', 'Buchungen dieses Tages', 'Bus-Check-in'];
@@ -6031,6 +6035,8 @@ function adminNav(el, navX) {
   else nav.innerHTML = tabBar + '<div class="admfind"><input id="admQ" placeholder="🔎 Suchen: Bereich, Getränk, Person, Tag …" autocomplete="off" enterkeyhint="search"><div id="admQRes" class="admqres"></div></div>' + (secs.length > 1 ? '<div class="admnav-in">' + items.join('') + '</div>' : '') + '<div class="admnav-all"><button class="b sm admminib" data-admmini aria-label="Leiste einklappen" title="Leiste klein machen">▴ Einklappen</button><button class="b sm" data-admord="1">⇅ Anordnen' + (hid.length ? ' (' + hid.length + ' ausgeblendet)' : '') + '</button><button class="b sm" data-admall="1">Alle auf</button><button class="b sm" data-admall="0">Alle zu</button></div>';
   el.prepend(nav);
   { const ni = nav.querySelector('.admnav-in'); if (ni) ni.scrollLeft = navX || 0; }
+  // kleines Handy oder große Schrift: Leiste + Kopf würden mehr als knapp die Hälfte des Bildschirms verdecken → von selbst eingeklappt starten
+  if (admMiniAuto && !admMini) { const th = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toph')) || 0; if (nav.offsetHeight + th > innerHeight * 0.45) { admMini = true; admMiniAuto = false; setTimeout(renderAdmin, 0); } }
   { const q = $('admQ'); if (q) { q.value = admQ; if (admQFocus) { q.focus({ preventScroll: true }); try { q.setSelectionRange(admQ.length, admQ.length); } catch (e) {} } if (admQ) admFindFill(); } }
 }
 function ordHTML() {
@@ -6123,7 +6129,7 @@ $('adminBody').addEventListener('click', e => {
     sec.scrollIntoView({ behavior: 'auto', block: 'start' }); return;
   }
   if (e.target.closest('[data-admmini]')) {
-    admMini = !admMini; try { localStorage.setItem('admMini', admMini ? '1' : '0'); } catch (x) {}
+    admMini = !admMini; admMiniAuto = false; try { localStorage.setItem('admMini', admMini ? '1' : '0'); } catch (x) {}
     if (admMini) admQ = '';
     renderAdmin(); return;
   }
@@ -7325,6 +7331,10 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.9.8', d: '2026-11-26', i: [
+    ['a', 'Schmale Handys und große Schrift: Die Knopfreihe beim Einladen/Zählen passt jetzt immer auf den Bildschirm, nichts ragt mehr über den Rand.'],
+    ['a', 'Die Leiste im Admin-Bereich rutscht nicht mehr unter den Kopf der App, wenn sich dessen Höhe ändert.'],
+    ['a', 'Würde die Leiste oben zu viel vom Bildschirm verdecken, startet sie eingeklappt.'] ] },
   { v: '2.9.7', d: '2026-11-26', i: [
     ['a', 'Admin-Bereich: Die Leiste oben (Reiter, Suche, Bereiche) lässt sich mit „▴ Einklappen“ auf eine schmale Zeile verkleinern – bleibt trotzdem oben stehen.'] ] },
   { v: '2.9.6', d: '2026-11-26', i: [
@@ -7450,6 +7460,8 @@ function openChangelog() {
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
 function stickyCheck() { const t = document.querySelector('header.top'); if (!t) return; t.classList.remove('nostick'); t.classList.toggle('nostick', t.offsetHeight > innerHeight * 0.3); document.documentElement.style.setProperty('--toph', (t.classList.contains('nostick') ? 0 : t.offsetHeight) + 'px'); }
 addEventListener('resize', stickyCheck);
+// Kopf ändert seine Höhe (Name, Knöpfe, Schriftgröße, Drehen) → Höhe neu messen, sonst rutscht die Admin-Leiste unter den Kopf
+if ('ResizeObserver' in window) { let rsT = null; const ro = new ResizeObserver(() => { clearTimeout(rsT); rsT = setTimeout(stickyCheck, 30); }); const tObs = () => { const t = document.querySelector('header.top'); if (t) ro.observe(t); }; tObs(); }
 function renderAll() {
   setTimeout(stickyCheck, 0); applyTexts(); renderBell(); renderTd();
   renderAcct(); renderVersion(); renderDs(); renderInstall(); renderReqBox(); if (typeof renderParty === 'function' && S.party) renderParty(); bcShow(); bcBadge();
