@@ -160,11 +160,12 @@ Auch Mitglieder haben oben neben dem Namen eine **🔔**. Sie zählt neue Meldun
 Gibt es im Admin-Bereich etwas zu tun, steht oben neben dem Namen eine **🔔 mit Zahl**: neue Anmeldungen, Löschanträge, offene Korrekturanträge, Antworten auf eigene Rückfragen und (Super-Admin) ungelesene Nachrichten. Antippen zeigt die Liste; ein Eintrag springt direkt in den passenden Bereich. **Später erinnern**: in 1, 3 oder 8 Stunden oder morgen früh – spätestens am nächsten Morgen um 8 Uhr meldet sich die Glocke wieder (mit Hinweis), solange noch etwas offen ist. Neue Aufgaben zeigt sie auch während der Pause sofort.
 
 ### Admin-Bereich: Reiter
-Der Admin-Bereich ist in Reiter aufgeteilt: **📥 Aufgaben** (neue Anmeldungen, Anträge, Löschanträge, Posteingang, Antworten auf Rückfragen – mit Zahl), **📅 Tag**, **🍺 Getränke** (mit Lager), **📊 Auswertung**, **👥 Personen** und **⚙️ Einstellungen**. Ist etwas offen, öffnet der Admin-Bereich mit „Aufgaben“, sonst immer mit „Tag“. Bereiche ohne Einträge („… (0)“) werden ausgeblendet. Die Glocke springt direkt in den richtigen Reiter. **Aufklappen:** Bereiche (Überschrift mit Pfeil) und Einträge in Karten mit Pfeil im Kreis (z. B. „Buchen“, ein Getränk, eine Person) lassen sich antippen. Offene Karten sind gelb umrandet. Klappt man etwas auf, klappen die anderen Einträge derselben Liste bzw. die anderen Bereiche zu, und das Geöffnete rutscht unter die Leiste; **„Alle auf“** öffnet trotzdem alle Bereiche. Die Leiste mit Reitern, Suche und Bereichen bleibt beim Scrollen oben stehen; mit **„▴ Einklappen“** wird sie zu einer schmalen Zeile mit den Reitern, **▾** klappt sie wieder auf (wird pro Handy gemerkt). Würde die Leiste zusammen mit dem Kopf mehr als knapp die Hälfte des Bildschirms verdecken (kleines Handy, große Schrift), startet sie von selbst eingeklappt. Der Vorstand sieht nur die Reiter mit Bereichen, die er sehen darf.
+Der Admin-Bereich ist in Reiter aufgeteilt: **📥 Aufgaben** (oben der gewählte bzw. laufende Tag mit seinen fünf Schritten und dem nächsten Schritt samt „Los →“; darunter die offenen Aufgaben: neue Anmeldungen, Korrekturanträge, Löschanträge, Posteingang, Antworten auf Rückfragen – mit Zahl), **📅 Tag**, **🍺 Getränke** (mit Lager), **📊 Auswertung**, **👥 Personen** und **⚙️ Einstellungen**. Ist etwas offen, öffnet der Admin-Bereich mit „Aufgaben“, sonst immer mit „Tag“. Bereiche ohne Einträge („… (0)“) werden ausgeblendet. Die Glocke springt direkt in den richtigen Reiter. **Aufklappen:** Bereiche (Überschrift mit Pfeil) und Einträge in Karten mit Pfeil im Kreis (z. B. „Buchen“, ein Getränk, eine Person) lassen sich antippen. Offene Karten sind gelb umrandet. Klappt man etwas auf, klappen die anderen Einträge derselben Liste bzw. die anderen Bereiche zu, und das Geöffnete rutscht unter die Leiste; **„Alle auf“** öffnet trotzdem alle Bereiche. Die Leiste mit Reitern, Suche und Bereichen bleibt beim Scrollen oben stehen; mit **„▴ Einklappen“** wird sie zu einer schmalen Zeile mit den Reitern, **▾** klappt sie wieder auf (wird pro Handy gemerkt). Würde die Leiste zusammen mit dem Kopf mehr als knapp die Hälfte des Bildschirms verdecken (kleines Handy, große Schrift), startet sie von selbst eingeklappt. Der Vorstand sieht nur die Reiter mit Bereichen, die er sehen darf.
 
 - **Suche:** Unter den Reitern steht ein Suchfeld. Es findet Bereiche (auch über Stichwörter wie „Backup“, „Packliste“, „Inventur“), Getränke, Personen und Tage. Ein Tipp auf einen Treffer springt hin und klappt das Getränk bzw. die Person gleich auf.
 - **Der Tag als Ablauf:** Im Bereich „Tag“ steht der Ablauf ① Einladen → ② Freigeben → ③ Läuft (x gebucht) → ④ Zählen → ⑤ Abschluss. Erledigte Schritte haben einen Haken, der nächste fällige ist gelb umrandet und steht darunter als gelber Hinweis mit **„Los →“**. Übersprungene Schritte (z. B. Einladen mit fehlender Mindestmenge, obwohl der Tag schon weiter ist) sind orange mit „!“ markiert. Antippen springt zum passenden Bereich – **Zählen** und **Abschluss** direkt zum **Abgleich**. Ist ein Schritt dran, leuchten **„Zum Scannen freigeben“** (gelb) bzw. **„Tag abschließen“** (grün). Ist ein Schritt erledigt, steht im passenden Bereich ein grüner Kasten „✓ … erledigt“ mit **„Weiter: … →“** zum nächsten Schritt (z. B. nach dem Einladen zu „Freigeben“). **„Läuft“** endet mit **„⏹ Scannen beenden“**: Der Knopf leuchtet, solange der Tag läuft, und steht auch bei den Buchungen („Alle zurück?“). Nach dem Beenden springt die App direkt zum **Abgleich** zum Zählen.
 - **Schnell eintippen:** In den Zahlenfeldern im Abgleich (Mit, Übrig) und beim Einladen/Zählen springt **„Weiter“** auf der Handy-Tastatur (bzw. Enter) ins nächste Feld derselben Spalte; beim letzten Feld schließt sich die Tastatur. Gespeichert wird beim Verlassen des Feldes.
+- **Hinweise antippen:** Die Tages-Hinweise oben („x Abweichungen“, „Leer / Geht zu Ende“, „fehlt noch Übrig“, „Noch nichts eingetragen“) sind Knöpfe und springen direkt zum Abgleich bzw. zum Einladen. Sie stehen nur bei „Aufgaben“ und „Tag“.
 - **Tagesabschluss im Abgleich:** Unter der Abgleich-Tabelle steht ein Kasten mit dem, was noch fehlt („Übrig“ nicht eingetragen), dem noch nicht gebuchten **Lager** (Mitgenommenes abbuchen, Übriges zurückbuchen) mit dem Knopf **„📦 Lager jetzt buchen“** und **„🏁 Tag abschließen“**. Gebucht wird erst nach einer Bestätigung. Beim **Freigeben** fragt die App, ob das Mitgenommene gleich aus dem Lager abgebucht werden soll („Später“ geht auch); beim **Abschließen**, ob das Lager gleich mitgebucht werden soll. Berücksichtigt werden nur Getränke mit geführtem Lagerbestand.
 - **Mehr …:** Selten Gebrauchtes (Partymodus, Fasnets-Titel, Easter Eggs verwalten) ist im Reiter „Einstellungen“ unter „Mehr …“ eingeklappt. Die Suche findet es trotzdem.
 - **Vorsicht-Block:** „Backup importieren“, „Diesen Tag löschen“ und „Zurücksetzen / Werkszustand …“ stehen nur für den Super-Admin ganz unten unter „Daten“ in einem rot umrandeten Block.
@@ -499,14 +500,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.11.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.11.1**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.11.0';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.11.0';`
+- in `index.html`: `const APP_VERSION = '2.11.1';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.11.1';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -539,7 +540,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.11.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.11.1“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
