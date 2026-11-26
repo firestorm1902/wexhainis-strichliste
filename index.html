@@ -966,7 +966,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.11.1'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.11.2'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1888,6 +1888,8 @@ $('modalBody').addEventListener('click', e => {
   closeModal(); renderBell(); toast(h < 0 ? 'Erinnerung wieder an' : 'Erinnere dich ' + (h ? 'in ' + h + ' Std.' : 'morgen früh') + (h && Date.now() + h * 3600000 > bellNext8() ? ' (spätestens morgen 8 Uhr)' : ''));
 });
 /* ---------- Konto-Knopf oben: „👤 Name · Rolle ▾“ – kurze Abfrage mit Konto und „Abmelden“ ---------- */
+// Absender einer Nachricht: Name und Rolle (ältere Nachrichten ohne Rolle kamen immer vom Super-Admin)
+const bcFrom = b => (b.byName || 'Vereinsleitung') + ' (' + (b.byRole || 'Super-Admin') + ')';
 const acctRole = () => S.isSuper ? 'Super-Admin' : S.meDoc && (S.meDoc.blocked || S.meDoc.slBlock) ? 'gesperrt' : S.isAdmin ? 'Getränke-Admin' : S.isBoard ? 'Vorstand' : isPending() ? 'wartet auf Freischaltung' : 'Mitglied';
 function renderAcct() {
   renderBell();
@@ -7190,8 +7192,8 @@ function bcShow(force) {
   if (ov && ov.dataset.id === b.id) return;
   if (ov) ov.remove();
   const el = document.createElement('div'); el.id = 'bcOv'; el.className = 'dlg bcov'; el.dataset.id = b.id; if (force) el.dataset.force = '1'; el.setAttribute('role', 'alertdialog'); el.setAttribute('aria-modal', 'true');
-  el.innerHTML = '<div class="dlg-in bc-in"><div class="bc-head">📢 ' + (b.to === 'list' ? 'Persönliche Nachricht vom Vorstand' : 'Nachricht vom Vorstand') + '</div>' + (b.title ? '<h3>' + esc(b.title) + '</h3>' : '') + '<p class="bc-txt">' + esc(b.text) + '</p>' +
-    '<small>' + esc(b.byName || 'Super-Admin') + ' · ' + new Date(b.t).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) + ' Uhr</small>' +
+  el.innerHTML = '<div class="dlg-in bc-in"><div class="bc-head">📢 ' + (b.to === 'list' ? 'Persönliche Nachricht von ' : 'Nachricht von ') + esc(bcFrom(b)) + '</div>' + (b.title ? '<h3>' + esc(b.title) + '</h3>' : '') + '<p class="bc-txt">' + esc(b.text) + '</p>' +
+    '<small>' + new Date(b.t).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) + ' Uhr</small>' +
     '<div class="dlg-btns"><button class="b pri" data-bcok>' + (force ? 'Schließen' : 'Gelesen ✓') + '</button></div></div>';
   document.body.appendChild(el); if (!force) buzz && buzz(60);
   el.querySelector('[data-bcok]').focus({ preventScroll: true });
@@ -7210,9 +7212,9 @@ function bcKontoHTML() {
   const L = bcMine(); if (!L.length) return '';
   const seen = bcSeenList();
   return '<h2 style="font-size:1.05rem;margin-top:0">📢 Nachrichten</h2>' + L.map(b => '<div class="bcmine' + (seen.includes(b.id) ? '' : ' new') + '">' +
-    '<div class="clh"><b>' + esc(b.title || 'Nachricht vom Vorstand') + '</b><small>' + new Date(b.t).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + '</small></div>' +
+    '<div class="clh"><b>' + esc(b.title || 'Nachricht') + '</b><small>' + new Date(b.t).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + '</small></div>' +
     (b.to === 'list' ? '<span class="cltag">persönlich</span> ' : b.to === 'staff' ? '<span class="cltag">Admins und Vorstand</span> ' : '') +
-    '<div class="bctext">' + esc(b.text) + '</div><small style="color:var(--mu)">' + esc(b.byName || 'Super-Admin') + (b.until ? ' · sichtbar bis ' + new Date(b.until).toLocaleDateString('de-DE') : '') + '</small>' +
+    '<div class="bctext">' + esc(b.text) + '</div><small style="color:var(--mu)">von ' + esc(bcFrom(b)) + (b.until ? ' · sichtbar bis ' + new Date(b.until).toLocaleDateString('de-DE') : '') + '</small>' +
     (seen.includes(b.id) ? '' : '<div class="row" style="margin-top:4px"><button class="b sm pri" data-bcmark="' + esc(b.id) + '">Gelesen ✓</button></div>') + '</div>').join('') + '<div style="height:12px"></div>';
 }
 function bcBadge() {
@@ -7276,7 +7278,7 @@ async function bcSend() {
   if (to === 'list' && !uids.length) { toast('Bitte mindestens ein Mitglied wählen'); return; }
   const toTxt = bcToTxt({ to, uids });
   if (!await ask('An ' + toTxt + ' senden?\n\n' + (title ? title + '\n' : '') + text, { title: '📢 Nachricht senden', ok: 'Senden', danger: false, note: 'Erscheint groß im Vordergrund, bis „Gelesen“ getippt wird.' })) return;
-  const now = Date.now(), id = 'bc' + now.toString(36), v = { title, text, to, uids, until: bcDraft.dur ? now + bcDraft.dur * 864e5 : 0, t: now, by: S.user.uid, byName: S.me || '' };
+  const now = Date.now(), id = 'bc' + now.toString(36), v = { title, text, to, uids, until: bcDraft.dur ? now + bcDraft.dur * 864e5 : 0, t: now, by: S.user.uid, byName: S.me || '', byRole: acctRole() };
   S.bcMsgs[id] = Object.assign({ id, _q: 's' }, v);
   fire(F.setDoc(dref('bcmsg', id), v), 'Nachricht senden'); logEv('system', 'sendet eine Nachricht an ' + toTxt + ': ' + (title ? title + ' – ' : '') + text.slice(0, 180));
   bcDraft = { title: '', text: '', to: 'all', dur: 3, uids: [] }; ['bcTitle', 'bcText'].forEach(i => { if ($(i)) $(i).value = ''; }); if ($('bcTo')) $('bcTo').value = 'all'; if ($('bcDur')) $('bcDur').value = '3';
@@ -7540,6 +7542,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.11.2', d: '2026-11-27', i: [
+    ['m', 'Nachrichten zeigen jetzt, von wem sie kommen – mit Name und Rolle, z. B. „Nachricht von Jonas Maurer (Super-Admin)“ statt „vom Vorstand“.'] ] },
   { v: '2.11.1', d: '2026-11-26', i: [
     ['a', 'Hinweise wie „2 Abweichungen“, „Geht zu Ende“ oder „fehlt noch Übrig“ lassen sich antippen und springen direkt zum Abgleich bzw. zum Einladen.'],
     ['a', 'Aufgaben: Oben steht jetzt der laufende Tag mit seinen Schritten und dem nächsten Schritt („Los →“), darunter die offenen Anträge, Anmeldungen und Nachrichten. Die Tages-Hinweise erscheinen nur noch bei „Aufgaben“ und „Tag“.'] ] },
