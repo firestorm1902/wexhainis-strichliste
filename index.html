@@ -914,7 +914,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.9.9'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.10.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -7258,6 +7258,15 @@ const TD_CATS = [
   { k: 'msgs', t: 'Nachrichten an Mitglieder', d: 'Nachrichten senden und zurückziehen', secs: ['Nachricht an alle'] }
 ];
 const TD_DEFAULT = ['people', 'reset', 'days', 'drinks', 'settings'];
+/* Seit v2.10.0: Im TooDruck-Modus ist der ganze Admin-Bereich nur noch zum Ansehen – für Getränke-Admins und Super-Admin.
+   Erlaubt bleibt nur, was nichts speichert: Reiter, Suche, Springen, Auf-/Zuklappen, Tag auswählen, Ansicht umschalten, Aktualisieren,
+   Exporte (Excel, CSV, Backup herunterladen) und das Freischalten mit Passwort (Super-Admin). */
+const TD_ALL = { k: 'all', t: 'Admin-Bereich', d: 'Alles, was im Admin-Bereich etwas speichert oder ändert – nur noch ansehen' };
+const TD_FREE = ['[data-admtab]', '[data-admgo]', '[data-admall]', '[data-admord]', '[data-admmini]', '[data-admmore]', '[data-admq]', '#admQ', '#admQRes *',
+  '[data-flowsec]', '[data-sel=day]', '[data-usage]', '[data-seen]', '[data-tdoff]', '[data-tdother]', '[data-chkm]', '[data-ibf]', '[data-lgt]', '#lgP', '[data-shop]', '#shTrips', '#shBase', '#shBuf',
+  '#xlFrom', '#xlTo', '[data-bhist]', '[data-bhgo]', '[data-snd]', '[data-askgo]',
+  ...['anwLoad', 'anwPer', 'anwXl', 'backup', 'busShow', 'csvAll', 'csvDay', 'csvPers', 'missCheck', 'overview', 'pickDay', 'undoAllPer', 'xlAll', 'xlDay', 'xlGo', 'xlMonth', 'notifyPerm', 'bcPreview'].map(a => '[data-act=' + a + ']')].join(',');
+const TD_WRITE = 'input,select,textarea,button,[data-act],[data-al],[data-lg],[data-chk],[data-chkset],[data-rq],[data-askrm],[data-x],[data-p],[data-er],[data-gr],[data-feat],[data-featu],[data-set]';
 const tdLocks = () => { const l = S.features && S.features.tdLock; return Array.isArray(l) ? l : TD_DEFAULT; };
 const tdOn = () => !!(S.td && S.td.until > Date.now() && (S.isAdmin || S.isSuper));
 function tdNext6() { const d = new Date(); const t = new Date(d); t.setHours(6, 0, 0, 0); if (t <= d) t.setDate(t.getDate() + 1); return t.getTime(); }
@@ -7271,8 +7280,7 @@ function renderTd() {
   $('tdBtn').hidden = !staff || on;
   const bar = $('tdBar'); bar.hidden = !on;
   if (on) {
-    const L = TD_CATS.filter(c => tdLocks().includes(c.k)).map(c => c.t);
-    const html = '<b>🍻 TooDruck-Modus</b> bis ' + tdUntilTxt(S.td.until) + ' – gesperrt: ' + esc(L.join(', ') || 'nichts') + (S.isSuper ? ' <button class="b sm" data-tdoff>Freischalten</button>' : '');
+    const html = '<b>🍻 TooDruck-Modus</b> bis ' + tdUntilTxt(S.td.until) + ' – Admin-Bereich nur zum Ansehen' + (S.isSuper ? ' <button class="b sm" data-tdoff>Freischalten</button>' : '');
     if (bar.innerHTML !== html) bar.innerHTML = html;
   }
   tdApplySoon();
@@ -7283,6 +7291,11 @@ let tdApplyT = null;
 function tdApplySoon() { clearTimeout(tdApplyT); tdApplyT = setTimeout(tdApply, 30); }
 function tdLockedEl(el) {
   if (!tdOn() || !el || !el.closest) return null;
+  if (el.closest('#adminBody')) {
+    if (el.closest('h2') || el.closest('summary') && !el.closest(TD_WRITE)) return null; // Auf-/Zuklappen
+    if (el.closest(TD_FREE)) return null;
+    return el.closest(TD_WRITE) ? TD_ALL : null;
+  }
   for (const c of TD_CATS) {
     if (!tdLocks().includes(c.k)) continue;
     if (c.sel && el.closest(c.sel)) return c;
@@ -7305,9 +7318,9 @@ new MutationObserver(() => { if (tdOn()) tdApplySoon(); }).observe($('adminBody'
 }, true));
 $('tdBtn').addEventListener('click', async () => {
   if (!S.user || !(S.isAdmin || S.isSuper)) return;
-  const until = tdNext6(), L = TD_CATS.filter(c => tdLocks().includes(c.k));
-  if (!await ask('Bis ' + tdUntilTxt(until) + ' sind für dich gesperrt:\n\n• ' + (L.map(c => c.t + ' (' + c.d + ')').join('\n• ') || 'nichts') +
-    (S.isSuper ? '\n\nDu kannst ihn mit zweimaliger Passworteingabe vorzeitig beenden.' : '\n\nVorher lässt er sich nicht ausschalten.'), { title: '🍻 TooDruck-Modus einschalten?', ok: 'Einschalten', danger: false, note: 'Gilt nur für dich, auf allen deinen Geräten. Buchen, Einladen und Zählen gehen weiter.' })) return;
+  const until = tdNext6();
+  if (!await ask('Bis ' + tdUntilTxt(until) + ' ist der Admin-Bereich für dich nur noch zum Ansehen: nichts anlegen, ändern, löschen, freigeben, einladen, zählen, buchen oder abschließen. Ansehen, Excel/CSV und Backup herunterladen gehen weiter.' +
+    (S.isSuper ? '\n\nDu kannst ihn mit zweimaliger Passworteingabe vorzeitig beenden.' : '\n\nVorher lässt er sich nicht ausschalten.'), { title: '🍻 TooDruck-Modus einschalten?', ok: 'Einschalten', danger: false, note: 'Gilt nur für dich, auf allen deinen Geräten. Eigene Getränke scannen geht weiter.' })) return;
   S.td = { until, t: Date.now() }; tdStore();
   fire(F.setDoc(dref('prefs', S.user.uid), { td: S.td }, { merge: true }), 'TooDruck-Modus');
   logEv('system', 'schaltet den TooDruck-Modus ein (bis ' + new Date(until).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + ')');
@@ -7343,8 +7356,7 @@ document.addEventListener('click', async e => {
 // Super-Admin: was gesperrt wird
 function tdCfgHTML() {
   const L = tdLocks();
-  return '<h3 class="sub3">🍻 TooDruck-Modus</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Admins (und du) schalten ihn auf der Startseite ein. Bis zum nächsten Morgen 6:00 ist dann für sie gesperrt:</div>' +
-    TD_CATS.map(c => '<label class="chk rsopt"><input type="checkbox" data-tdcat="' + c.k + '"' + (L.includes(c.k) ? ' checked' : '') + '><span><b>' + esc(c.t) + '</b><br><small>' + esc(c.d) + '</small></span></label>').join('');
+  return '<h3 class="sub3">🍻 TooDruck-Modus</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Admins (und du) schalten ihn auf der Startseite ein. Bis zum nächsten Morgen 6:00 ist der <b>ganze Admin-Bereich</b> für sie nur noch zum Ansehen – nichts Schreibendes mehr (auch kein Einladen, Zählen, Freigeben, Lager oder Abschließen). Erlaubt bleiben Ansehen, Springen, Tag auswählen, Aktualisieren, Excel/CSV und Backup herunterladen. Du kannst ihn bei dir und bei anderen mit zweimaliger Passworteingabe vorzeitig beenden.</div>';
 }
 document.addEventListener('change', e => {
   const c = e.target.closest && e.target.closest('[data-tdcat]'); if (!c || !S.isSuper) return;
@@ -7390,6 +7402,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.10.0', d: '2026-11-26', i: [
+    ['a', 'TooDruck-Modus: Der ganze Admin-Bereich ist dann nur noch zum Ansehen – nichts anlegen, ändern, löschen, freigeben, einladen, zählen, buchen oder abschließen. Ansehen, Excel/CSV und Backup herunterladen gehen weiter.'] ] },
   { v: '2.9.9', d: '2026-11-26', i: [
     ['a', 'Tagesablauf: Der nächste Schritt steht farbig mit „Los →“ da; übersprungene Schritte sind orange markiert. „Zählen“ springt direkt zum Abgleich.'],
     ['a', '„Zum Scannen freigeben“ und „Tag abschließen“ leuchten, wenn sie dran sind.'],
