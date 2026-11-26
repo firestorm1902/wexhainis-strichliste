@@ -60,6 +60,8 @@ window.applyTheme = function () {
   const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = '#141414';
 };
 applyTheme();
+/* Ansicht (Einfach / Barrierefrei) schon vor dem ersten Zeichnen setzen, damit nichts springt */
+try { if (localStorage.getItem('strichliste_simple') === '1') document.documentElement.classList.add('simple'); if (localStorage.getItem('strichliste_a11y') === '1') document.documentElement.classList.add('a11y'); } catch (e) {}
 /* Installierte App: Updates erkennen und anbieten */
 window.__isStandalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
 if (window.__isStandalone) document.documentElement.classList.add('standalone');
@@ -742,6 +744,30 @@ section.coll>h2:first-child::after{width:10px;height:10px}
 section.coll.closed>h2:first-child{opacity:.92}
 section.coll>h2:first-child:active{opacity:.6}
 .bell.dnd{opacity:.75}
+/* ---------- v2.11.0: Einfache Ansicht ---------- */
+html.simple #extraTabs [data-x=best],html.simple #extraTabs [data-x=album],html.simple #extraTabs [data-x=wrap],html.simple #wrapBanner,html.simple #tabHint{display:none!important}
+html.simple #eggPrefBtn{display:none!important}
+html.simple #startBtn{font-size:1.35rem;min-height:76px}
+html.simple #dayBtns .b{min-height:44px}
+html.simple .vmode-chip{display:inline-flex}
+/* ---------- v2.11.0: Barrierefreie Ansicht: größer, kontrastreicher, ohne Bewegung ---------- */
+html.a11y{font-size:118%;--mu:#3a372f;--line:#7f7966}
+html.a11y[data-theme=dark]{--mu:#dcd7c9;--line:#8a846f}
+html.a11y body{line-height:1.5;letter-spacing:.01em}
+html.a11y .b{min-height:48px;border-width:2px}
+html.a11y .b.sm{min-height:44px}
+html.a11y input,html.a11y select,html.a11y textarea{min-height:46px;border-width:2px}
+html.a11y .linkbtn,html.a11y a{text-decoration:underline;text-underline-offset:3px}
+html.a11y :focus-visible{outline:4px solid var(--wy,#f5c000)!important;outline-offset:2px}
+html.a11y *,html.a11y *::before,html.a11y *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+html.a11y .egg-confetti,html.a11y .partyfx{display:none!important}
+html.a11y .pc,html.a11y .flowstep,html.a11y section.coll>h2:first-child{border-width:2px}
+html.a11y .toast{font-size:1.05rem;padding:14px 20px}
+.vmode-chip{display:none}
+.vmrow{display:flex;gap:12px;align-items:flex-start;padding:12px;border:2px solid var(--line);border-radius:12px;margin:8px 0;cursor:pointer}
+.vmrow input{width:24px;height:24px;margin-top:2px;flex:0 0 auto}
+.vmrow b{display:block;font-size:1rem}.vmrow small{display:block;color:var(--mu);font-size:.84rem;margin-top:2px}
+.vmrow:has(input:checked){border-color:var(--wy,#f5c000);background:rgba(245,192,0,.08)}
 .unm{display:flex;flex-direction:column;line-height:1.2;min-width:0}
 .unm small.seen{font-size:.74rem;color:var(--mu);font-weight:400}
 .unm small.seen.on{color:var(--pet)}
@@ -762,7 +788,7 @@ section.coll>h2:first-child:active{opacity:.6}
     <div class="ap-head"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild ändern"><span id="meAv"></span><i>Bild</i></button>
       <span class="ap-who"><b id="meName"></b><small id="acctRoleT"></small><small id="meGrp"></small><small id="acctMail"></small></span>
       <button class="b sm" id="acctClose" aria-label="Schließen">✕</button></div>
-    <div class="row" style="margin-top:10px"><button class="b sm" id="avShot">📷 Foto aufnehmen</button><button class="b sm" id="avPick">🖼️ Bild wählen</button><button type="button" class="b sm" id="avDel" hidden>Bild entfernen</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="txBtn" hidden>✏️ Texte bearbeiten</button><button class="b sm dng" id="logoutBtn">Abmelden</button></div>
+    <div class="row" style="margin-top:10px"><button class="b sm" id="avShot">📷 Foto aufnehmen</button><button class="b sm" id="avPick">🖼️ Bild wählen</button><button type="button" class="b sm" id="avDel" hidden>Bild entfernen</button><button class="b sm" id="viewBtn" aria-haspopup="dialog">👓 Ansicht</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="txBtn" hidden>✏️ Texte bearbeiten</button><button class="b sm dng" id="logoutBtn">Abmelden</button></div>
       <div id="pwSec" hidden class="grid2" style="margin-top:10px">
         <label class="f full">Aktuelles Passwort<input id="pwOld" type="password" autocomplete="current-password"></label>
         <label class="f">Neues Passwort<input id="pwNew" type="password" autocomplete="new-password"></label>
@@ -933,7 +959,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.10.3'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.11.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1885,7 +1911,31 @@ $('logoutBtn').addEventListener('click', async () => { if (await ask('Wirklich a
 // Jede Person kann Easter Eggs für sich ausschalten (gilt für das Konto, auf allen Handys); Ton nur für dieses Handy
 const eggsOff = () => !!(S.meDoc && S.meDoc.eggoff);
 const soundOff = () => { try { return localStorage.getItem('strichliste_mute') === '1'; } catch (e) { return false; } };
-const eggsWanted = () => canSee('eggs') && !eggsOff();
+/* v2.11.0: Ansicht pro Handy – „Einfach“ (nur Scannen, heute, Mein Konto; keine Easter-Egg-Popups) und „Barrierefrei“ (größer, kontrastreich, ohne Bewegung) */
+const VM_KEYS = { simple: 'strichliste_simple', a11y: 'strichliste_a11y' };
+const vmOn = k => { try { return localStorage.getItem(VM_KEYS[k]) === '1'; } catch (e) { return false; } };
+function vmApply() {
+  const h = document.documentElement;
+  h.classList.toggle('simple', vmOn('simple')); h.classList.toggle('a11y', vmOn('a11y'));
+  if (vmOn('simple') && ['best', 'album', 'wrap'].includes(extraTab)) { extraTab = ''; try { renderExtra(); } catch (e) {} }
+}
+function vmDialog() {
+  const row = (k, ic, t, d) => '<label class="vmrow"><input type="checkbox" data-vm="' + k + '"' + (vmOn(k) ? ' checked' : '') + '><span><b>' + ic + ' ' + t + '</b><small>' + d + '</small></span></label>';
+  openModal('<h2>👓 Ansicht</h2><p style="font-size:.9rem;color:var(--mu)">Gilt nur für dieses Handy. Beides lässt sich kombinieren und jederzeit hier wieder ausschalten.</p>' +
+    row('simple', '🟢', 'Einfache Ansicht', 'Nur das Wichtigste: großer Scan-Knopf, deine Getränke heute und Mein Konto. Bestenliste, Sammelalbum, Rückblick und Easter-Egg-Popups sind ausgeblendet.') +
+    row('a11y', '♿', 'Barrierefreie Ansicht', 'Größere Schrift und Knöpfe, stärkere Kontraste und Rahmen, deutlich sichtbare Auswahl, keine Animationen und Bewegungen.') +
+    '<div class="row"><button class="b pri" data-vmok style="width:100%">Fertig</button></div>');
+}
+$('viewBtn').addEventListener('click', () => vmDialog());
+$('modalBody').addEventListener('change', e => {
+  const c = e.target.closest && e.target.closest('[data-vm]'); if (!c) return;
+  try { localStorage.setItem(VM_KEYS[c.dataset.vm], c.checked ? '1' : '0'); } catch (err) {}
+  vmApply(); stickyCheck(); renderScan();
+  toast((c.dataset.vm === 'simple' ? 'Einfache Ansicht ' : 'Barrierefreie Ansicht ') + (c.checked ? 'an' : 'aus'));
+});
+$('modalBody').addEventListener('click', e => { if (e.target.closest('[data-vmok]')) closeModal(); });
+setTimeout(vmApply, 0);
+const eggsWanted = () => canSee('eggs') && !eggsOff() && !vmOn('simple');
 $('eggPrefBtn').addEventListener('click', async () => {
   if (!S.user) return;
   if (!eggsOn()) { // für alle abgeschaltet: nur der Super-Admin kann sie wieder einschalten
@@ -5408,15 +5458,17 @@ function renderReqBox() {
 async function reqForm() {
   // bei jedem Öffnen neu laden (sonst bleibt eine leere Liste hängen, wenn es beim ersten Mal noch keinen Tag gab)
   let list = [];
-  try { list = (await F.getDocs(F.query(col('days'), F.orderBy('date', 'desc'), F.limit(12)))).docs.map(d => Object.assign({ id: d.id }, d.data())).filter(d => d.date <= todayISO() || d.id === S.active); }
+  // Tage bis heute, der freigegebene Tag und alle Tage, an denen man selbst gebucht hat – unabhängig davon, ob gerade ein Tag freigegeben ist
+  const myDays = new Set((S.myAll || []).map(x => x.day));
+  try { list = (await F.getDocs(F.query(col('days'), F.orderBy('date', 'desc'), F.limit(20)))).docs.map(d => Object.assign({ id: d.id }, d.data())).filter(d => d.date <= todayISO() || d.id === S.active || myDays.has(d.id)).slice(0, 12); }
   catch (e) { list = reqDays || []; }
   if (S.activeDay && !list.some(d => d.id === S.activeDay.id)) list.unshift(S.activeDay);
   reqDays = list;
-  if (!reqDays.length) { toast('Noch keine Tage vorhanden'); return; }
+  if (!reqDays.length) { toast(navigator.onLine ? 'Noch keine Tage vorhanden' : 'Keine Verbindung – bitte mit Internet nochmal versuchen'); return; }
   const minor = isMinor(), prods = S.products.filter(p => !(minor && u18Blocked(p)));
   openModal('<h2>Korrektur beantragen</h2><p style="font-size:.88rem;color:var(--mu)">Ein Admin prüft deinen Antrag und genehmigt oder lehnt ihn ab. Du bekommst Bescheid.</p><div class="grid2">' +
     '<div class="mode full" id="rqType" style="display:flex"><button data-rt="add" class="on" style="flex:1">Nachbuchen</button><button data-rt="del" style="flex:1">Stornieren</button></div>' +
-    '<label class="f full">Tag<select id="rqDay">' + reqDays.map(d => '<option value="' + d.id + '"' + (d.id === S.active ? ' selected' : '') + '>' + esc(fmtDate(d.date) + (d.place ? ' – ' + d.place : '')) + '</option>').join('') + '</select></label>' +
+    '<label class="f full">Tag<select id="rqDay">' + reqDays.map(d => '<option value="' + d.id + '"' + (d.id === (S.active || (reqDays.find(x => myDays.has(x.id)) || reqDays[0]).id) ? ' selected' : '') + '>' + esc(fmtDate(d.date) + (d.place ? ' – ' + d.place : '')) + '</option>').join('') + '</select></label>' +
     '<label class="f">Getränk<select id="rqP"><option value="">Wählen …</option>' + prods.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('') + '</select></label>' +
     '<label class="f">Anzahl' + stepper('rqN', 1, { max: 20 }) + '</label>' +
     '<div class="full rqinfo" id="rqInfo" hidden></div>' +
@@ -7473,6 +7525,10 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.11.0', d: '2026-11-26', i: [
+    ['m', 'Neu unter Konto → „👓 Ansicht“: „Einfache Ansicht“ (nur Scannen, deine Getränke heute und Mein Konto, keine Easter-Egg-Popups) und „Barrierefreie Ansicht“ (größere Schrift und Knöpfe, mehr Kontrast, keine Animationen). Gilt pro Handy, beides kombinierbar.'] ] },
+  { v: '2.10.4', d: '2026-11-26', i: [
+    ['m', '„Korrektur beantragen“ geht immer – auch ohne freigegebenen Tag und für Tage, an denen du gebucht hast, selbst wenn ihr Datum in der Zukunft liegt.'] ] },
   { v: '2.10.3', d: '2026-11-26', i: [
     ['a', 'Bedienung: Aufklappbare Einträge (z. B. „Buchen“, Getränke, Personen) sind jetzt als Karten mit Pfeil im Kreis erkennbar, offene sind gelb umrandet.'],
     ['a', 'Klappt man etwas auf, klappen die anderen Einträge bzw. Bereiche zu, und das Geöffnete rutscht unter die Leiste. „Alle auf“ öffnet weiterhin alles.'] ] },

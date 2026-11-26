@@ -191,6 +191,13 @@ Startet die Kamera nicht, zeigt die App eine Anleitung passend zu Gerät (Androi
 - **Nachtmodus:** Oben rechts zwischen *Auto*, *Hell* und *Nacht* umschalten. *Auto* wird dunkel, wenn das Handy dunkel eingestellt ist oder in der Nachtzeit (Standard 19 bis 7 Uhr).
 - **Nachtzeit einstellen (Super-Admin):** Admin → Einstellungen → **Nachtmodus**: Beginn und Ende wählen. Mit **„Nachtmodus in dieser Zeit für alle erzwingen“** ist die App in dieser Zeit für alle dunkel, auch bei „Hell“; der Knopf oben zeigt dann „Nacht 🔒“. Außerhalb der Zeit gilt wieder die eigene Wahl. Die Einstellung gilt nach kurzer Zeit auf allen Handys (auch auf dem Anmeldebildschirm, sobald das Handy sie einmal geladen hat).
 
+## Ansicht: Einfach und Barrierefrei
+
+Jedes Mitglied kann unter **Konto (Name oben rechts) → 👓 Ansicht** zwei Ansichten einschalten. Sie gelten nur für dieses Handy und lassen sich kombinieren:
+
+- **🟢 Einfache Ansicht:** nur das Wichtigste – großer Scan-Knopf, deine Getränke heute und „Mein Konto“. Bestenliste, Sammelalbum, Rückblick und Easter-Egg-Popups sind ausgeblendet (gezählt wird trotzdem). Der Admin-Zugang bleibt.
+- **♿ Barrierefreie Ansicht:** größere Schrift (ca. +18 %), größere Knöpfe und Eingabefelder, stärkere Kontraste und Rahmen, unterstrichene Links, deutlich sichtbare Auswahl (gelber Rahmen) und keine Animationen oder Bewegungen.
+
 ## Tage zum Scannen freigeben
 
 - Gebucht werden kann nur, wenn ein Admin einen Tag **zum Scannen freigegeben** hat (Admin → Tag). Sonst sehen Mitglieder „Gerade kein Tag zum Scannen freigegeben“.
@@ -492,14 +499,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.10.3**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.11.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.10.3';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.10.3';`
+- in `index.html`: `const APP_VERSION = '2.11.0';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.11.0';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -532,7 +539,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.10.3“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.11.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
