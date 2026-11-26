@@ -698,6 +698,12 @@ body.noauth main{display:none!important}
 .pc summary:active{opacity:.7}
 .pc summary:focus-visible{outline:3px solid var(--wy,#f5c000);outline-offset:2px}
 .bell.dnd{opacity:.75}
+.unm{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.unm small.seen{font-size:.74rem;color:var(--mu);font-weight:400}
+.unm small.seen.on{color:var(--pet)}
+.unm small.seen.on::before{content:'● ';font-size:.7em;vertical-align:1px}
+.seeninfo{font-size:.84rem;color:var(--mu);line-height:1.45}
+.seeninfo b{color:var(--ink);font-weight:600}
 </style>
 </head>
 <body>
@@ -882,7 +888,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.9.4'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.9.5'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1041,6 +1047,7 @@ function startUserListeners() {
     if (lastRoleKey !== null && key !== lastRoleKey && S.user === u) refreshRole(u);
     lastRoleKey = key;
     autoApproveSelf();
+    if (d && !d.deleted) seenPing();
     renderScan(); renderDs(); if (S.party) renderParty();
   }, fail('me'));
   unsub.products = F.onSnapshot(col('products'), snap => {
@@ -1215,7 +1222,7 @@ function listenActiveScans() {
     S.activeScans = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); checkLowStock(); checkOverScan(); checkSoldOut(); usedCheckSoon();
   }, err => console.warn('activeScans', err));
 }
-function stopAdminListeners() { stop('tdAll'); S.tdAll = {}; stop('dayBus'); S.dayBus = []; stop('reqsAll'); S.reqs = []; stop('asksAll'); S.asks = []; stop('inbox'); S.inbox = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
+function stopAdminListeners() { S.seen = null; S.seenAt = 0; stop('tdAll'); S.tdAll = {}; stop('dayBus'); S.dayBus = []; stop('reqsAll'); S.reqs = []; stop('asksAll'); S.asks = []; stop('inbox'); S.inbox = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
   if (S.dayScansFor === S.selDay && unsub.dayScans) return;
   stop('dayScans'); stop('dayDrv'); stop('dayUndos'); S.dayScans = []; S.dayDrivers = []; S.dayUndos = []; S.dayScansFor = S.selDay;
@@ -4613,6 +4620,51 @@ function summary(rows) {
   return h;
 }
 
+/* „Zuletzt aktiv“: Jedes Mitglied meldet beim Öffnen der App (und beim Zurückkehren) die Uhrzeit – höchstens alle 10 Minuten.
+   Admins laden die Liste nur bei Bedarf (beim Öffnen des Admin-Bereichs oder per „Aktualisieren“), das spart Lesevorgänge. */
+const SEEN_GAP = 10 * 60000;
+let seenLast = 0;
+function seenPing(force) {
+  const u = S.user; if (!u || !db || !navigator.onLine) return;
+  const k = 'slseen_' + u.uid;
+  if (!seenLast) { try { seenLast = +localStorage.getItem(k) || 0; } catch (e) {} }
+  if (!force && Date.now() - seenLast < SEEN_GAP) return;
+  seenLast = Date.now(); try { localStorage.setItem(k, String(seenLast)); } catch (e) {}
+  const data = { open: F.serverTimestamp(), v: APP_VERSION };
+  const li = u.metadata && Date.parse(u.metadata.lastSignInTime); if (li) data.login = li;
+  F.setDoc(dref('slseen', u.uid), data).catch(() => { seenLast = 0; });
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.user && S.meDoc) seenPing(); });
+let seenLoading = false;
+async function seenFetch() {
+  if (seenLoading || !S.isAdmin || !db) return; seenLoading = true;
+  try {
+    const m = {};
+    (await F.getDocs(col('slseen'))).docs.forEach(d => { const x = d.data(); m[d.id] = { open: x.open && x.open.toMillis ? x.open.toMillis() : (+x.open || 0), login: +x.login || 0, v: x.v || '' }; });
+    S.seen = m; S.seenAt = Date.now();
+  } catch (e) { if (!S.seen) S.seen = {}; toast('„Zuletzt aktiv“ konnte nicht geladen werden'); }
+  seenLoading = false; renderAdmin();
+}
+function seenFmt(t) {
+  if (!t) return 'noch nie';
+  const d = new Date(t), now = new Date(), min = Math.round((now - d) / 60000);
+  const hm = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  if (min < 2) return 'gerade eben';
+  if (min < 60) return 'vor ' + min + ' Min.';
+  const day0 = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dd = Math.round((day0(now) - day0(d)) / 864e5);
+  if (dd === 0) return 'heute ' + hm;
+  if (dd === 1) return 'gestern ' + hm;
+  if (dd < 7) return d.toLocaleDateString('de-DE', { weekday: 'short' }) + ' ' + hm;
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: d.getFullYear() === now.getFullYear() ? undefined : '2-digit' }) + (dd < 60 ? ' ' + hm : '');
+}
+function seenFull(t) { return t ? new Date(t).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr' : 'noch nie'; }
+let seenSort = false;
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-seen]'); if (!b) return;
+  if (b.dataset.seen === 'sort') { seenSort = !seenSort; renderAdmin(); return; }
+  seenFetch().then(() => toast('Aktualisiert'));
+});
 function renderAdmin() {
   renderBell();
   if ($('v-admin').hidden) return;
@@ -4752,12 +4804,16 @@ function renderAdmin() {
 
   const all = Object.keys(S.users).map(uid => Object.assign({ uid, name: '', email: '', t: 0 }, S.users[uid])).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   const ulist = all.filter(u => !goneSL(u) && !(RO && (u.pending || u.blocked))), gone = all.filter(u => goneSL(u));
+  if (S.isAdmin && S.seen == null && !seenLoading) setTimeout(seenFetch, 0);
+  const SEEN = S.isAdmin ? S.seen : null, seenOf = uid => (SEEN && SEEN[uid]) || null;
+  if (SEEN && seenSort) ulist.sort((a, b) => ((seenOf(b.uid) || {}).open || 0) - ((seenOf(a.uid) || {}).open || 0));
   if (all.length) {
     const counts = {}; ulist.forEach(u => { const k = u.name.toLowerCase(); counts[k] = (counts[k] || 0) + 1; });
     const consoleUrl = 'https://console.firebase.google.com/project/' + encodeURIComponent(firebaseConfig.projectId) + '/authentication/users';
     if (S.isSuper) h += tdOthersSection();
     h += '<section><h2>Personen (' + ulist.length + ')</h2>' +
       '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">' + (RO ? 'Alle freigeschalteten Mitglieder.' : S.isSuper ? 'Antippen zum Bearbeiten. Als Super-Admin vergibst du Rollen (Getränke-Admin, Vorstand), sperrst und entfernst Konten und schickst Passwort-Mails.' : 'Jedes Konto hat einen festen Namen. Nur hier kann er korrigiert werden.') + '</div>' +
+      (S.isAdmin ? '<div class="row seenbar" style="margin:0 0 8px;align-items:center"><button class="b sm" data-seen="sort">' + (seenSort ? 'Sortiert: zuletzt aktiv' : 'Sortiert: Name') + '</button><button class="b sm" data-seen="load">🔄 Zuletzt aktiv</button><small style="color:var(--mu)">' + (SEEN ? 'Stand ' + new Date(S.seenAt || Date.now()).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : 'lädt …') + '</small></div>' : '') +
       ulist.map(u => {
         const me = u.uid === S.user.uid;
         const badges = (RO ? '' : me && S.isSuper ? '<span class="tag act">Super-Admin</span>' : u.role === 'admin' ? '<span class="tag act">Getränke-Admin</span>' : u.role === 'vorstand' ? '<span class="tag act">Vorstand</span>' : '') +
@@ -4767,7 +4823,8 @@ function renderAdmin() {
         let inner = '<label class="f full">Name<input data-u="' + u.uid + '" value="' + esc(u.name) + '"></label>' +
           '<label class="f">Narrenfigur / Gruppe<select data-grp="' + u.uid + '"><option value="">keine</option>' + groupsAll().map(g => '<option value="' + esc(g.id) + '"' + (u.grp === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>').join('') + '</select></label>' +
           '<label class="chk" style="align-self:end"><input type="checkbox" data-minor="' + u.uid + '"' + (u.minor ? ' checked' : '') + '> minderjährig (U18)</label>' +
-          '<div class="full" style="font-size:.84rem;color:var(--mu)">' + (u.email ? esc(u.email) : 'E-Mail noch unbekannt (wird beim nächsten Öffnen der App ergänzt)') + (u.t ? ' · seit ' + new Date(u.t).toLocaleDateString('de-DE') : '') + '</div>';
+          '<div class="full" style="font-size:.84rem;color:var(--mu)">' + (u.email ? esc(u.email) : 'E-Mail noch unbekannt (wird beim nächsten Öffnen der App ergänzt)') + (u.t ? ' · seit ' + new Date(u.t).toLocaleDateString('de-DE') : '') + '</div>' +
+          (SEEN ? (sn => '<div class="full seeninfo">App zuletzt geöffnet: <b>' + seenFull(sn && sn.open) + '</b><br>Letzte Anmeldung: <b>' + seenFull(sn && sn.login) + '</b>' + (sn && sn.v ? ' · Version v' + esc(sn.v) : '') + (sn ? '' : '<br><small>Erst erfasst, wenn die Person die App ab v2.9.5 öffnet.</small>') + '</div>')(seenOf(u.uid)) : '');
         if (S.isSuper && !me) {
           inner += '<label class="f">Rolle<select data-role="' + u.uid + '"><option value=""' + (!u.role ? ' selected' : '') + '>Mitglied</option><option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Getränke-Admin</option><option value="vorstand"' + (u.role === 'vorstand' ? ' selected' : '') + '>Vorstand (nur lesen)</option></select></label><div></div>' +
             '<div class="full row" style="margin-top:0">' +
@@ -4777,7 +4834,7 @@ function renderAdmin() {
             '<button class="b sm dng" data-act="removeUser" data-id="' + u.uid + '">Aus Strichliste entfernen</button></div>';
         }
         if (AV[u.uid] && AV[u.uid].img) inner += '<div class="full row" style="margin-top:0;align-items:center">' + avatarHTML(u.uid, u.name, 64) + '<button class="b sm dng" data-act="delAv" data-id="' + u.uid + '">Profilbild entfernen</button></div>';
-        return '<details class="pc" data-k="u' + u.uid + '"><summary><span style="display:flex;align-items:center">' + avatarHTML(u.uid, u.name, 32) + '<b>' + esc(u.name || '(ohne Namen)') + '</b></span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' + badges + '</span></summary><div class="grid2">' + inner + '</div></details>';
+        return '<details class="pc" data-k="u' + u.uid + '"><summary><span style="display:flex;align-items:center">' + avatarHTML(u.uid, u.name, 32) + '<span class="unm"><b>' + esc(u.name || '(ohne Namen)') + '</b>' + (SEEN ? '<small class="seen' + (seenOf(u.uid) && Date.now() - seenOf(u.uid).open < 15 * 60000 ? ' on' : '') + '">' + (seenOf(u.uid) ? seenFmt(seenOf(u.uid).open) : 'noch nicht erfasst') + '</small>' : '') + '</span></span><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' + badges + '</span></summary><div class="grid2">' + inner + '</div></details>';
       }).join('') +
       (S.isSuper && gone.length ? '<details class="pc" data-k="gone"><summary><b>Entfernte Konten (' + gone.length + ')</b><small>wiederherstellen</small></summary>' +
         gone.map(u => '<div class="rw"><span></span><span>' + esc(u.name) + '<br><small>' + esc(u.email) + '</small></span>' + (u.deleted ? '<small>in WexSuperAdmin gelöscht</small>' : '<button class="b sm" data-act="restoreUser" data-id="' + u.uid + '">Wiederherstellen</button>') + '</div>').join('') + '</details>' : '') +
@@ -7244,6 +7301,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.9.5', d: '2026-11-26', i: [
+    ['a', 'Personen: „zuletzt aktiv“ – wann jemand die App zuletzt geöffnet und sich zuletzt angemeldet hat, auf Wunsch danach sortiert.'] ] },
   { v: '2.9.4', d: '2026-11-25', i: [
     ['a', 'Einladen und Übrig zählen: auch „−Kasten“, und die Zahl lässt sich direkt eintippen.'] ] },
   { v: '2.9.3', d: '2026-11-25', i: [
