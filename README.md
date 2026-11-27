@@ -299,6 +299,20 @@ Der **?**-Knopf oben erklärt Mitgliedern, wofür die App ist und wie Buchen, Of
 
 Admin → 👥 Personen → **Rechte-Übersicht**: eine Tabelle pro Bereich (Buchen, Tage und Bus, Getränke und Lager, Personen, Auswertung, Nachrichten, Einstellungen und System), was **Mitglied**, **Vorstand**, **Getränke-Admin** und **Super-Admin** dürfen: ✏️ ändern, 👁 nur ansehen, 👤 nur eigenes, 🔓 nur wenn freigegeben, — nein. Grundlage sind die Firebase-Regeln (gelten auf dem Server) und die App. Oben steht der aktuelle Stand: wer Getränke-Admin und Vorstand ist, was der Vorstand zusätzlich sieht („Zu wenig gebucht“, „Alle Tage“), welche Bereiche für Admins bzw. Vorstand ausgeblendet sind, ob Admins den Partymodus starten dürfen, Easter Eggs und Rückgängig-Zeit.
 
+### Berechtigungen pro Rolle einstellen (ab v2.14.0)
+
+In der Rechte-Übersicht oben unter **„🔧 Berechtigungen pro Rolle einstellen“** legst du pro Bereich fest, was die Rollen dürfen:
+
+| Bereich | Getränke-Admin | Vorstand |
+|---|---|---|
+| Tage, Einladen und Zählen · Bus-Check-in · Buchungen und Anträge · Getränke und Preise · Lager · Personen | ✏️ ändern (Standard) / 👁 nur ansehen / 🙈 ausgeblendet | 👁 ansehen (Standard) / 🙈 ausgeblendet |
+
+- **Nur ansehen** sperrt das Ändern in der App (ausgegraut) **und auf dem Server** (Firebase-Regeln: `adminCan()` liest `config/perms`). Dafür müssen die Regeln ab v2.14.0 veröffentlicht sein.
+- **Ausgeblendet** blendet die zugehörigen Bereiche in der App aus (gelesen werden die Daten weiterhin, z. B. für den Abgleich).
+- Getrennte Bereiche greifen ineinander: Ist „Tage“ nur ansehen, darf „Lager“ trotzdem pro Tag ab-/zurückbuchen und „Bus-Check-in“ den Bus einrichten; ist „Getränke“ nur ansehen, darf „Lager“ trotzdem Bestand und Mindestbestand ändern.
+- Nur Einschränken ist möglich – der Vorstand bekommt keine Schreibrechte. Der Super-Admin ist nie eingeschränkt. „Alles auf Standard“ hebt alles auf. Jede Änderung steht in der Historie.
+- Eingeschränkte Getränke-Admins sehen oben im Admin-Bereich einen Hinweis, was eingeschränkt ist. Die Tabellen der Rechte-Übersicht zeigen deine Einschränkungen gestrichelt markiert.
+
 ## Freischaltung neuer Konten
 
 - Neue Konten können erst buchen, wenn ein **Admin** sie freischaltet. Admins sehen im Admin-Bereich ganz oben **Neue Anmeldungen** mit „Freischalten“ und „Ablehnen“ und bekommen eine kurze Meldung, wenn sich jemand registriert.
@@ -505,14 +519,14 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version v2.13.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
+Aktuell ist **Version v2.14.0**. Die Nummer folgt dem Muster **vHaupt.Neben.Fehler** (bis Version 103 wurde fortlaufend gezählt):
 - **Fehler** hochzählen (v2.0.0 → v2.0.1) bei kleinen Korrekturen,
 - **Neben** hochzählen (v2.0.1 → v2.1.0) bei neuen Funktionen,
 - **Haupt** hochzählen (v2.1.0 → v3.0.0) bei großen Umbauten.
 
 Nach Änderungen an zwei Stellen gleich ändern:
-- in `index.html`: `const APP_VERSION = '2.13.0';`
-- in `sw.js`: `const VERSION = 'strichliste-v2.13.0';`
+- in `index.html`: `const APP_VERSION = '2.14.0';`
+- in `sw.js`: `const VERSION = 'strichliste-v2.14.0';`
 
 Dazu oben in der Liste `CHANGELOG` (in `index.html`) einen Eintrag ergänzen: `{ v: '2.0.1', d: 'JJJJ-MM-TT', i: [['m', 'Text für alle'], ['a', 'Text nur für Admins']] }`. Rollen: `m` alle Mitglieder, `b` Vorstand, `a` Admins, `s` Super-Admin.
 
@@ -545,7 +559,7 @@ Unten auf **„Version v…“** tippen → Versionsverlauf. Jeder sieht nur, wa
 
 Seit Version 56 gibt es neue Regeln (`dused` für die Buchungsgrenze; vorher Backup, `dsum` und `theme`). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.13.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version v2.14.0“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

@@ -280,6 +280,10 @@ input.n{min-width:3em}
 .rttab td:not(:first-child){text-align:center;width:3.4em;font-size:1rem}
 .rttab td small{display:block;color:var(--mu);font-size:.74rem;margin-top:2px}
 .rttab td.rt-no{color:var(--mu)}
+.rttab td.rt-chg{outline:2px dashed var(--amb);outline-offset:-3px}
+.rttab td small.rt-area{color:var(--pet)}
+.permtab td:not(:first-child){width:auto;font-size:.85rem}
+.permtab select{width:100%;min-width:8.5em;font-size:.85rem;padding:6px}
 .rttab td.rt-w{background:rgba(46,125,50,.10)}.rttab td.rt-r{background:rgba(11,110,105,.07)}.rttab td.rt-opt{background:rgba(245,192,0,.12)}
 button.notego{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button.notego .go{flex:0 0 auto;font-weight:700;font-size:.85rem;white-space:nowrap;border:1.5px solid currentColor;border-radius:999px;padding:3px 10px;opacity:.9}
@@ -976,7 +980,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.13.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.14.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1140,7 +1144,7 @@ function startUserListeners() {
   }, fail('me'));
   unsub.products = F.onSnapshot(col('products'), snap => {
     S.products = snap.docs.map(d => Object.assign({ id: d.id, codes: [], packs: [], price: 0 }, d.data())).sort((a, b) => a.name.localeCompare(b.name, 'de'));
-    if (S.isAdmin && !snap.metadata.fromCache) S.products.forEach(p => {
+    if (S.isAdmin && adminCanA('drinks') && !snap.metadata.fromCache) S.products.forEach(p => {
       const want = !p.cat ? guessCat(p.name) : (p.cat === 'radler' && guessCat(p.name) === 'alkfrei' ? 'alkfrei' : null);
       if (want) fire(F.updateDoc(dref('products', p.id), { cat: want }), 'Sorte speichern');
     });
@@ -1166,6 +1170,7 @@ function startUserListeners() {
   bcListen();
   stop('cfgApps'); unsub.cfgApps = F.onSnapshot(dref('config', 'applinks'), snap => { S.appLinks = snap.exists() ? snap.data() : null; if (!alDraft || !alDirty) alDraft = null; renderAppLinks(); if (S.isSuper) renderAdmin(); }, err => console.warn('applinks', err));
   stop('cfgPack'); unsub.cfgPack = F.onSnapshot(dref('config', 'packlist'), snap => { S.packlist = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('packlist', err));
+  stop('cfgPerms'); unsub.cfgPerms = F.onSnapshot(dref('config', 'perms'), snap => { S.perms = snap.exists() ? snap.data() : {}; renderAdmin(); tdApplySoon(); }, err => console.warn('perms', err));
   stop('cfgSecs'); unsub.cfgSecs = F.onSnapshot(dref('config', 'sections'), snap => { S.secTitles = snap.exists() ? (snap.data().titles || {}) : {}; S.secCfg = snap.exists() ? snap.data() : {}; renderAdmin(); }, err => console.warn('sections', err));
   stop('prefs'); unsub.prefs = F.onSnapshot(dref('prefs', u.uid), snap => { const d = snap.exists() ? snap.data() : {}, o = d.order, hd = d.hidden; let ch = false;
     { const td = d.td && d.td.until > Date.now() ? d.td : null; if (JSON.stringify(td) !== JSON.stringify(S.td || null)) { S.td = td; tdStore(); renderTd(); ch = true; } }
@@ -5011,6 +5016,7 @@ function renderAdmin() {
       (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">„Aus Strichliste entfernen“ wirkt nur hier: Die Person kann nicht mehr buchen und verschwindet aus den Listen; der Stundentracker bleibt nutzbar. Konten löschen geht nur in WexSuperAdmin.</div>' : '') +
       '</section>';
   }
+  if (permAny()) h = '<div class="note">🔒 Der Super-Admin hat für Getränke-Admins eingeschränkt: ' + esc(PERM_AREAS.filter(a => !adminCanA(a.k)).map(a => a.t + (permLevel('admin', a.k) === 'hide' ? ' (ausgeblendet)' : ' (nur ansehen)')).join(', ')) + '.</div>' + h;
   if (S.isSuper) h += bcSection() + appLinksSection() + settingsSection() + groupsEditor() + titlesEditor() + rulesEditor().replace('</h2>', '</h2>' + soundPreviewHTML()) + historySection();
   else if (S.isAdmin && partyAllowed()) h += '<section><h2>Partymodus</h2>' + partyAdmin() + '</section>';
   if (S.days.length) {
@@ -5270,35 +5276,35 @@ const RIGHTS = [
   ['Buchen', [
     ['Getränke buchen (scannen, −/+)', 'own', 'own', 'own', 'own', 'Vorstand bucht wie ein Mitglied'],
     ['Eigene Buchung rückgängig (im Zeitfenster)', 'own', 'own', 'w', 'w', 'Zeitfenster stellt der Super-Admin ein'],
-    ['Buchungen aller sehen (Abgleich, Nach Person, Buchungen des Tages)', 'own', 'r', 'r', 'r', 'Mitglieder: nur eigene unter „Mein Konto“'],
-    ['Buchungen anderer stornieren und nachtragen, Fehlendes nachbuchen', '-', '-', 'w', 'w', ''],
+    ['Buchungen aller sehen (Abgleich, Nach Person, Buchungen des Tages)', 'own', 'r', 'r', 'r', 'Mitglieder: nur eigene unter „Mein Konto“', 'bookings'],
+    ['Buchungen anderer stornieren und nachtragen, Fehlendes nachbuchen', '-', '-', 'w', 'w', '', 'bookings'],
     ['Korrekturantrag stellen', 'own', 'own', 'own', 'own', ''],
-    ['Korrekturanträge sehen und entscheiden', 'own', '-', 'w', 'w', 'Mitglieder sehen ihre eigenen Anträge'],
-    ['Zurückgenommene Buchungen (Rückgängig-Protokoll) sehen', '-', 'r', 'r', 'r', ''],
-    ['Rückfragen an Mitglieder stellen und Antworten nachbuchen', 'own', '-', 'w', 'w', 'Mitglieder beantworten Rückfragen an sich']]],
+    ['Korrekturanträge sehen und entscheiden', 'own', '-', 'w', 'w', 'Mitglieder sehen ihre eigenen Anträge', 'bookings'],
+    ['Zurückgenommene Buchungen (Rückgängig-Protokoll) sehen', '-', 'r', 'r', 'r', '', 'bookings'],
+    ['Rückfragen an Mitglieder stellen und Antworten nachbuchen', 'own', '-', 'w', 'w', 'Mitglieder beantworten Rückfragen an sich', 'bookings']]],
   ['Tage und Bus', [
     ['Tage ansehen', 'r', 'r', 'r', 'r', ''],
-    ['Tag anlegen, freigeben, Scannen beenden, abschließen, Datum/Ort ändern', '-', '-', 'w', 'w', ''],
+    ['Tag anlegen, freigeben, Scannen beenden, abschließen, Datum/Ort ändern', '-', '-', 'w', 'w', '', 'days'],
     ['Tag löschen', '-', '-', '-', 'w', ''],
-    ['Einladen und Übrig zählen (Mit/Übrig), Packliste, Mindestmengen', '-', 'r', 'w', 'w', 'Vorstand sieht den Abgleich'],
-    ['Bus-Check-in einrichten (Busse, Leiter, Code/QR)', '-', '-', 'w', 'w', ''],
+    ['Einladen und Übrig zählen (Mit/Übrig), Packliste, Mindestmengen', '-', 'r', 'w', 'w', 'Vorstand sieht den Abgleich', 'days'],
+    ['Bus-Check-in einrichten (Busse, Leiter, Code/QR)', '-', '-', 'w', 'w', '', 'bus'],
     ['Im Bus einchecken', 'own', 'own', 'own', 'own', 'Bus-Leiter tragen zusätzlich Personen in ihren Bus ein'],
     ['Check-ins aller sehen (Anwesenheit)', 'r', 'r', 'r', 'r', 'ohne Standort'],
-    ['Check-ins anderer eintragen und entfernen', '-', '-', 'w', 'w', 'und der Bus-Leiter für seinen Bus'],
+    ['Check-ins anderer eintragen und entfernen', '-', '-', 'w', 'w', 'und der Bus-Leiter für seinen Bus', 'bus'],
     ['Fahrer-Markierungen sehen', 'own', 'r', 'r', 'r', '']]],
   ['Getränke und Lager', [
     ['Getränke, Preise, Grenzen ansehen', 'r', 'r', 'r', 'r', ''],
-    ['Getränke anlegen, ändern, löschen; Preise, Barcodes, Grenzen, U18', '-', '-', 'w', 'w', ''],
-    ['Lagerbestand und Lagerverlauf sehen', '-', 'r', 'r', 'r', ''],
-    ['Lager buchen (Eingang, Entnahme, Inventur, Tag ab-/zurückbuchen), Mindestbestand', '-', '-', 'w', 'w', ''],
+    ['Getränke anlegen, ändern, löschen; Preise, Barcodes, Grenzen, U18', '-', '-', 'w', 'w', '', 'drinks'],
+    ['Lagerbestand und Lagerverlauf sehen', '-', 'r', 'r', 'r', '', 'lager'],
+    ['Lager buchen (Eingang, Entnahme, Inventur, Tag ab-/zurückbuchen), Mindestbestand', '-', '-', 'w', 'w', '', 'lager'],
     ['Lagerbewegungen nachträglich ändern oder löschen', '-', '-', '-', 'w', '']]],
   ['Personen', [
-    ['Personenliste mit Name, E-Mail, Gruppe, Rolle sehen', 'own', 'r', 'r', 'r', 'Mitglieder sehen nur sich selbst'],
-    ['Neue Anmeldungen freischalten oder ablehnen', '-', '-', 'w', 'w', ''],
-    ['Name korrigieren, Gruppe, „minderjährig (U18)“', '-', '-', 'w', 'w', ''],
+    ['Personenliste mit Name, E-Mail, Gruppe, Rolle sehen', 'own', 'r', 'r', 'r', 'Mitglieder sehen nur sich selbst', 'people'],
+    ['Neue Anmeldungen freischalten oder ablehnen', '-', '-', 'w', 'w', '', 'people'],
+    ['Name korrigieren, Gruppe, „minderjährig (U18)“', '-', '-', 'w', 'w', '', 'people'],
     ['Rollen vergeben (Getränke-Admin, Vorstand)', '-', '-', '-', 'w', ''],
     ['Für die Strichliste sperren, entfernen, wiederherstellen; Passwort-Mail', '-', '-', '-', 'w', 'Sperre für alle Apps nur in WexSuperAdmin'],
-    ['Profilbild anderer entfernen', 'own', '-', 'w', 'w', 'Mitglieder: eigenes Bild setzen und löschen'],
+    ['Profilbild anderer entfernen', 'own', '-', 'w', 'w', 'Mitglieder: eigenes Bild setzen und löschen', 'people'],
     ['Online-Status und „zuletzt aktiv“ sehen', '-', '-', 'r', 'r', ''],
     ['Neu registriert, Löschanträge, Datenschutz-Bestätigungen (und erinnern)', '-', '-', '-', 'w', ''],
     ['Datenauskunft (ZIP mit allen Daten einer Person)', '-', '-', '-', 'w', ''],
@@ -5327,9 +5333,36 @@ const RIGHTS = [
     ['Ansicht (Einfach, Barrierefrei), Nacht-/Hellmodus', 'own', 'own', 'own', 'own', 'pro Handy']]]
 ];
 const RIGHT_SYM = { w: ['✏️', 'darf ändern'], r: ['👁', 'nur ansehen'], own: ['👤', 'nur eigenes'], opt: ['🔓', 'nur wenn freigegeben'], '-': ['—', 'nein'] };
+function permEditorHTML() {
+  const opt = (v, cur, l) => '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>';
+  return '<details class="pc" data-k="rt-edit" open><summary><b>🔧 Berechtigungen pro Rolle einstellen</b><small>' + PERM_AREAS.filter(a => permLevel('admin', a.k) !== 'write' || permLevel('board', a.k) !== 'read').length + ' eingeschränkt</small></summary>' +
+    '<div style="font-size:.82rem;color:var(--mu);margin:8px 0">Einschränken pro Bereich. <b>Nur ansehen</b> sperrt das Ändern auch auf dem Server (Firebase-Regeln ab v2.14.0). <b>Ausgeblendet</b> blendet die Bereiche in der App aus. Du selbst bist nie eingeschränkt. Mehr Rechte als bisher (z. B. Vorstand darf ändern) gibt es nicht.</div>' +
+    '<div class="tw"><table class="rttab permtab"><thead><tr><th>Bereich</th><th>Getränke-Admin</th><th>Vorstand</th></tr></thead><tbody>' +
+    PERM_AREAS.map(a => '<tr><td><b>' + esc(a.t) + '</b><small>' + esc(a.d) + '</small></td>' +
+      '<td><select data-perm="admin|' + a.k + '" aria-label="Getränke-Admin: ' + esc(a.t) + '">' + opt('write', permLevel('admin', a.k), '✏️ ändern') + opt('read', permLevel('admin', a.k), '👁 nur ansehen') + opt('hide', permLevel('admin', a.k), '🙈 ausgeblendet') + '</select></td>' +
+      '<td><select data-perm="board|' + a.k + '" aria-label="Vorstand: ' + esc(a.t) + '">' + opt('read', permLevel('board', a.k), '👁 ansehen') + opt('hide', permLevel('board', a.k), '🙈 ausgeblendet') + '</select></td></tr>').join('') +
+    '</tbody></table></div><div class="row"><button class="b sm" data-permreset>Alles auf Standard</button></div></details>';
+}
+function permSave(P2, what) {
+  const v = { admin: P2.admin || {}, board: P2.board || {}, t: Date.now(), by: S.user.uid };
+  S.perms = v; fire(F.setDoc(dref('config', 'perms'), v), 'Berechtigungen'); logEv('system', what); renderAdmin();
+}
+document.addEventListener('change', e => {
+  const sl = e.target.closest && e.target.closest('[data-perm]'); if (!sl || !S.isSuper) return;
+  const [role, k] = sl.dataset.perm.split('|'), a = PERM_AREAS.find(x => x.k === k);
+  const P2 = { admin: Object.assign({}, (S.perms || {}).admin), board: Object.assign({}, (S.perms || {}).board) };
+  if ((role === 'admin' && sl.value === 'write') || (role === 'board' && sl.value === 'read')) delete P2[role][k]; else P2[role][k] = sl.value;
+  permSave(P2, 'Berechtigung ' + (role === 'admin' ? 'Getränke-Admin' : 'Vorstand') + ' · ' + a.t + ': ' + sl.options[sl.selectedIndex].text.replace(/^\S+\s/, ''));
+  toast((role === 'admin' ? 'Getränke-Admin' : 'Vorstand') + ' · ' + a.t + ': ' + sl.options[sl.selectedIndex].text);
+});
+document.addEventListener('click', async e => {
+  if (!e.target.closest('[data-permreset]') || !S.isSuper) return;
+  if (!await ask('Alle Einschränkungen aufheben? Getränke-Admins dürfen dann wieder alles ändern, der Vorstand alles ansehen.', { ok: 'Zurücksetzen' })) return;
+  permSave({ admin: {}, board: {} }, 'setzt die Berechtigungen auf Standard'); toast('Berechtigungen auf Standard');
+});
 function rightsSection() {
   if (!S.isSuper) return '';
-  const cell = v => '<td class="rt-' + (v === '-' ? 'no' : v) + '" title="' + RIGHT_SYM[v][1] + '">' + RIGHT_SYM[v][0] + '</td>';
+  const cell = (v, chg) => '<td class="rt-' + (v === '-' ? 'no' : v) + (chg ? ' rt-chg' : '') + '" title="' + RIGHT_SYM[v][1] + (chg ? ' (von dir eingeschränkt)' : '') + '">' + RIGHT_SYM[v][0] + '</td>';
   const names = role => Object.keys(S.users).filter(k => (S.users[k].role || '') === role && !goneSL(S.users[k])).map(k => S.users[k].name || '?').sort((a, b) => a.localeCompare(b, 'de'));
   const adm = names('admin'), bd = names('vorstand'), titleOf = k => secTitle(k) || k;
   const hidA = secAllHidden(), hidB = secBoardHidden(), extraB = (S.secCfg && Array.isArray(S.secCfg.boardExtra)) ? S.secCfg.boardExtra : [];
@@ -5344,9 +5377,12 @@ function rightsSection() {
     '<div>🪩 Partymodus für Admins: ' + (partyAllowed() ? 'erlaubt' : 'nicht erlaubt') + '</div>' +
     '<div>🥚 Easter Eggs: ' + (eggsOn() ? 'an' : 'für alle aus') + ' · ↩️ Rückgängig: ' + (undoCfg().on ? undoCfg().secs + ' Sekunden' : 'aus') + '</div>' +
     '<small>Ändern: Bereiche über „⇅ Anordnen“ (oben), Freigaben und Partymodus unter Einstellungen.</small></div>';
+  h += permEditorHTML();
   RIGHTS.forEach(([grp, rows]) => {
     h += '<details class="pc" data-k="rt-' + esc(grp) + '"><summary><b>' + esc(grp) + '</b><small>' + rows.length + ' Punkte</small></summary><div class="tw"><table class="rttab"><thead><tr><th>Was</th><th title="Mitglied">Mitgl.</th><th>Vorst.</th><th title="Getränke-Admin">Admin</th><th title="Super-Admin">Super</th></tr></thead><tbody>' +
-      rows.map(r => '<tr><td>' + esc(r[0]) + (r[5] ? '<small>' + esc(r[5]) + '</small>' : '') + '</td>' + cell(r[1]) + cell(r[2]) + cell(r[3]) + cell(r[4]) + '</tr>').join('') + '</tbody></table></div></details>';
+      rows.map(r => { const ar = r[6], la = ar ? permLevel('admin', ar) : 'write', lb = ar ? permLevel('board', ar) : 'read';
+        const va = ar && la === 'hide' && r[3] !== '-' ? '-' : ar && la === 'read' && r[3] === 'w' ? 'r' : r[3], vb = ar && lb === 'hide' && r[2] === 'r' ? '-' : r[2];
+        return '<tr><td>' + esc(r[0]) + (r[5] ? '<small>' + esc(r[5]) + '</small>' : '') + (ar ? '<small class="rt-area">Bereich: ' + esc((PERM_AREAS.find(a => a.k === ar) || {}).t || ar) + '</small>' : '') + '</td>' + cell(r[1]) + cell(vb, vb !== r[2]) + cell(va, va !== r[3]) + cell(r[4]) + '</tr>'; }).join('') + '</tbody></table></div></details>';
   });
   h += '<div style="font-size:.8rem;color:var(--mu);margin-top:8px">Gesperrte Personen (Strichliste oder alle Apps) und noch nicht freigeschaltete dürfen nichts buchen. Im TooDruck-Modus ist der Admin-Bereich für die Person nur zum Ansehen (Sperre in der App). Stundentracker-Rechte (Stunden-Admin) stehen in der Stundentracker-App.</div></section>';
   return h;
@@ -6264,7 +6300,7 @@ function adminNav(el, navX) {
   secs = admArrange(el, secs);
   admSeen = secs.map(x => x.firstElementChild.dataset.adm);
   // ausgeblendete Bereiche: nur für diesen Admin, über „Anordnen“ wieder einblendbar
-  const allHid = S.isSuper ? [] : S.isAdmin ? secAllHidden() : secBoardHidden(); // Vorstand: eigene Liste
+  const allHid = (S.isSuper ? [] : S.isAdmin ? secAllHidden() : secBoardHidden()).concat(permHiddenSecs()); // Vorstand: eigene Liste; dazu Bereiche, die der Super-Admin für die Rolle ausblendet
   secs.forEach(x => { const k = x.firstElementChild.dataset.adm; x.firstElementChild.classList.toggle('allhid', S.isSuper && secAllHidden().includes(k)); x.firstElementChild.classList.toggle('bdhid', S.isSuper && secBoardHidden().includes(k)); });
   const hid = secs.filter(x => admHidden.includes(x.firstElementChild.dataset.adm) || allHid.includes(x.firstElementChild.dataset.adm));
   hid.forEach(x => x.remove()); secs = secs.filter(x => !hid.includes(x));
@@ -7549,6 +7585,38 @@ document.addEventListener('click', async e => {
 /* ---------- TooDruck-Modus: Admins sperren sich selbst kritische Einstellungen bis zum nächsten Morgen 6:00 ----------
    Gilt pro Person (gespeichert in prefs/{uid}.td, also auf allen eigenen Geräten). Admins können ihn nicht vorzeitig beenden;
    der Super-Admin nur mit zweimaliger Passworteingabe. Was gesperrt wird, legt der Super-Admin fest (config/features.tdLock). */
+/* ---------- v2.14.0: Berechtigungen pro Bereich und Rolle (config/perms) ----------
+   Der Super-Admin schränkt ein: Getränke-Admins pro Bereich „ändern“ (Standard), „nur ansehen“ oder „ausgeblendet“,
+   den Vorstand „ansehen“ (Standard) oder „ausgeblendet“. Schreiben prüfen auch die Firestore-Regeln (adminCan), Ausblenden nur die App. */
+const PERM_AREAS = [
+  { k: 'days', t: 'Tage, Einladen und Zählen', d: 'Tag anlegen, freigeben, beenden, abschließen, Datum/Ort; Mit und Übrig; Packliste', secs: ['Tag', 'Mitnehmen und zurückzählen', 'Abgleich'] },
+  { k: 'bus', t: 'Bus-Check-in', d: 'Busse und Leiter einrichten, Code/QR, Personen ein- und austragen', secs: ['Bus-Check-in'], sel: '[data-act=busStart],[data-act=busStop],[data-act=busDel],[data-act=busPlus],[data-act=busMinus],[data-busrm],[data-busn],[data-busl]' },
+  { k: 'bookings', t: 'Buchungen und Anträge', d: 'stornieren, nachtragen, Fehlendes nachbuchen, Korrekturanträge entscheiden, Rückfragen', secs: ['Buchungen dieses Tages', 'Buchung nachtragen', 'Korrekturanträge', 'Zu viel gescannt', 'Zurückgenommene Buchungen', 'Zu wenig gebucht'], sel: '[data-act=storno],[data-act=nbMinus],[data-act=askNew],[data-act=askBook],[data-act=askDel],[data-act=missFix],[data-act=undoAllLoad],[data-act=addBooking],[data-rq],[data-askrm]' },
+  { k: 'drinks', t: 'Getränke und Preise', d: 'anlegen, ändern, löschen; Preise, Barcodes, Grenzen, Gebinde, U18', secs: ['Getränke'] },
+  { k: 'lager', t: 'Lager', d: 'Eingang, Entnahme, Inventur, Mindestbestand, pro Tag ab- und zurückbuchen', secs: ['Lager'], sel: '[data-act=lagerDay],[data-lg],[data-lgpack],[data-min]' },
+  { k: 'people', t: 'Personen', d: 'freischalten, ablehnen, Namen korrigieren, Gruppe, U18, Profilbilder entfernen', secs: ['Personen', 'Neue Anmeldungen'], sel: '[data-act=approve],[data-act=reject],[data-act=delAv],[data-u],[data-grp],[data-minor]' }
+];
+const permLevel = (role, k) => { const p = ((S.perms || {})[role]) || {}; return p[k] || (role === 'admin' ? 'write' : 'read'); };
+const adminCanA = k => S.isSuper || !S.isAdmin || permLevel('admin', k) === 'write';
+const permAny = () => !!(S.isAdmin && !S.isSuper && PERM_AREAS.some(a => !adminCanA(a.k)));
+function permHiddenSecs() {
+  if (S.isSuper) return [];
+  const role = S.isAdmin ? 'admin' : 'board';
+  return [].concat(...PERM_AREAS.filter(a => permLevel(role, a.k) === 'hide').map(a => a.secs));
+}
+function permAreaOf(el) {
+  for (const a of PERM_AREAS) if (a.sel && el.closest(a.sel)) return a;
+  const sec = el.closest('#adminBody > section'), h = sec && sec.querySelector('h2');
+  if (h) for (const a of PERM_AREAS) if (a.secs.includes(h.dataset.adm)) return a;
+  return null;
+}
+function permLockedEl(el) {
+  if (S.isSuper || !S.isAdmin || !el.closest('#adminBody')) return null;
+  if (el.closest('h2') || (el.closest('summary') && !el.closest(TD_WRITE))) return null;
+  if (el.closest(TD_FREE) || !el.closest(TD_WRITE)) return null;
+  const a = permAreaOf(el);
+  return a && !adminCanA(a.k) ? Object.assign({ perm: true }, a) : null;
+}
 const TD_CATS = [
   { k: 'people', t: 'Personen', d: 'Rollen, Sperren, Freischalten, Namen, Jugendschutz, Gruppe, Konto entfernen, Passwort-Link, Profilbild löschen',
     sel: '[data-role],[data-u],[data-minor],[data-grp],[data-act=approve],[data-act=reject],[data-act=block],[data-act=unblock],[data-act=removeUser],[data-act=restoreUser],[data-act=purgeUser],[data-act=resetPw],[data-act=delAv]' },
@@ -7592,7 +7660,8 @@ function renderTd() {
 let tdApplyT = null;
 function tdApplySoon() { clearTimeout(tdApplyT); tdApplyT = setTimeout(tdApply, 30); }
 function tdLockedEl(el) {
-  if (!tdOn() || !el || !el.closest) return null;
+  if (!el || !el.closest) return null;
+  if (!tdOn()) return permLockedEl(el); // ohne TooDruck: nur die Einschränkungen des Super-Admins
   if (el.closest('#adminBody')) {
     if (el.closest('h2') || el.closest('summary') && !el.closest(TD_WRITE)) return null; // Auf-/Zuklappen
     if (el.closest(TD_FREE)) return null;
@@ -7608,15 +7677,15 @@ function tdLockedEl(el) {
 function tdApply() {
   const body = $('adminBody'); if (!body) return;
   body.querySelectorAll('[data-tdlock]').forEach(x => { x.disabled = false; x.removeAttribute('data-tdlock'); x.removeAttribute('title'); });
-  if (!tdOn()) return;
-  body.querySelectorAll('input,select,textarea,button').forEach(x => { if (x.closest('h2')) return; const c = tdLockedEl(x); if (c && !x.disabled) { x.disabled = true; x.dataset.tdlock = c.k; x.title = 'Gesperrt (TooDruck-Modus bis ' + tdUntilTxt(S.td.until) + ')'; } });
+  if (!tdOn() && !permAny()) return;
+  body.querySelectorAll('input,select,textarea,button').forEach(x => { if (x.closest('h2')) return; const c = tdLockedEl(x); if (c && !x.disabled) { x.disabled = true; x.dataset.tdlock = c.k; x.title = c.perm ? 'Nur ansehen – „' + c.t + '“ hat der Super-Admin eingeschränkt' : 'Gesperrt (TooDruck-Modus bis ' + tdUntilTxt(S.td.until) + ')'; } });
 }
-new MutationObserver(() => { if (tdOn()) tdApplySoon(); }).observe($('adminBody'), { childList: true, subtree: true });
+new MutationObserver(() => { if (tdOn() || permAny()) tdApplySoon(); }).observe($('adminBody'), { childList: true, subtree: true });
 // Sicherheitsnetz: gesperrte Aktionen abfangen, falls etwas nicht ausgegraut wurde
 ['click', 'change'].forEach(ev => $('adminBody').addEventListener(ev, e => {
   const c = tdLockedEl(e.target); if (!c) return;
   if (ev === 'click' && e.target.closest('input,select,textarea') && e.target.closest('input[type=checkbox],input[type=radio]') == null) return; // Fokus in Feldern ist harmlos
-  e.preventDefault(); e.stopImmediatePropagation(); toast('🍻 Gesperrt bis ' + tdUntilTxt(S.td.until) + ' (TooDruck-Modus)');
+  e.preventDefault(); e.stopImmediatePropagation(); toast(c.perm ? '🔒 Nur ansehen – „' + c.t + '“ hat der Super-Admin für Getränke-Admins eingeschränkt' : '🍻 Gesperrt bis ' + tdUntilTxt(S.td.until) + ' (TooDruck-Modus)');
 }, true));
 $('tdBtn').addEventListener('click', async () => {
   if (!S.user || !(S.isAdmin || S.isSuper)) return;
@@ -7704,6 +7773,9 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.14.0', d: '2026-11-27', i: [
+    ['s', 'Rechte-Übersicht: Berechtigungen pro Rolle einstellen – pro Bereich (Tage, Bus, Buchungen, Getränke, Lager, Personen) Getränke-Admins „ändern“, „nur ansehen“ oder „ausgeblendet“, den Vorstand „ansehen“ oder „ausgeblendet“. „Nur ansehen“ gilt auch auf dem Server (neue Firebase-Regeln).'],
+    ['a', 'Eingeschränkte Bereiche sind ausgegraut; oben steht, was der Super-Admin eingeschränkt hat.'] ] },
   { v: '2.13.0', d: '2026-11-27', i: [
     ['s', 'Personen: neue „Rechte-Übersicht“ – was Mitglieder, Vorstand, Getränke-Admins und Super-Admin sehen und ändern dürfen, nach Bereichen, dazu die aktuellen Admins, Vorstände, Freigaben und ausgeblendeten Bereiche.'] ] },
   { v: '2.12.0', d: '2026-11-27', i: [
