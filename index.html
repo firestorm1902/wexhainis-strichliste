@@ -980,7 +980,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '2.14.0'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
+const APP_VERSION = '2.14.1'; // Muster Haupt.Neben.Fehler – vorher fortlaufend gezählt (bis 103)
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -4461,7 +4461,7 @@ $('adminBody').addEventListener('keydown', e => {
   if (e.key !== 'Enter' || !e.target.matches || !e.target.matches(NEXT_KEYS.map(k => 'input[' + k + ']').join(','))) return;
   e.preventDefault(); e.stopImmediatePropagation();
   const n = nextFieldAfter(e.target);
-  if (n) { n.focus({ preventScroll: false }); n.scrollIntoView({ block: 'center', behavior: 'smooth' }); try { n.select(); } catch (x) {} }
+  if (n) { n.focus({ preventScroll: true }); n.scrollIntoView({ block: 'nearest' }); try { n.select(); } catch (x) {} }
   else e.target.blur();
 }, true);
 let lastNumField = null, lastPointer = 0;
@@ -4518,7 +4518,7 @@ function chkBlock(day) {
         '<div class="chkbtns">' +
         packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="-' + k.n + '" aria-label="' + esc(p.name) + ' minus ' + esc(k.l) + '"' + (n ? '' : ' disabled') + '><span>−' + k.n + '</span><small>' + esc(k.l) + '</small></button>').join('') +
         '<button type="button" class="b" data-chk="' + p.id + '" data-d="-1" aria-label="' + esc(p.name) + ' minus 1"' + (n ? '' : ' disabled') + '>−1</button>' +
-        '<input class="chkn chkin' + (low || over ? ' bad' : '') + '" type="number" inputmode="numeric" enterkeyhint="next" min="0" step="1" data-chkset="' + p.id + '" value="' + (key === 'count' && v == null ? '' : n) + '" placeholder="–" aria-label="' + esc(p.name) + ' Anzahl eintippen" enterkeyhint="done">' +
+        '<input class="chkn chkin' + (low || over ? ' bad' : '') + '" type="number" inputmode="numeric" enterkeyhint="enter" min="0" step="1" data-chkset="' + p.id + '" value="' + (key === 'count' && v == null ? '' : n) + '" placeholder="–" aria-label="' + esc(p.name) + ' Anzahl eintippen" enterkeyhint="done">' +
         '<button type="button" class="b" data-chk="' + p.id + '" data-d="1" aria-label="' + esc(p.name) + ' plus 1"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '>+1</button>' +
         packs.map(k => '<button type="button" class="b pk" data-chk="' + p.id + '" data-d="' + k.n + '" aria-label="' + esc(p.name) + ' plus ' + esc(k.l) + '"' + (full ? ' disabled title="Nicht mehr im Lager"' : '') + '><span>+' + k.n + '</span><small>' + esc(k.l) + '</small></button>').join('') + '</div></div>';
     }).join('') + '</div>';
@@ -4898,8 +4898,8 @@ function renderAdmin() {
     if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2>' + flowGoBtn(day, chkMode === 'count' ? 3 : 0) + mustBlock(day) + chkBlock(day) +
       '<div class="row" style="margin-top:8px"><button class="b sm" data-act="sheetLoad">📷 Einladen per Scan</button><button class="b sm" data-act="sheetCount">📷 Rest zählen per Scan</button></div>' + packEditor() + '</section>';
     h += '<section><h2>Abgleich</h2>' + (rows.length ? '<div class="tw"><table><thead><tr><th>Getränk</th><th>Mit</th><th>Gebucht</th><th>Soll</th><th>Übrig</th><th>Diff.</th></tr></thead><tbody>' +
-      rows.map((r, ri) => '<tr><td>' + esc(r.p.name) + '</td><td><input class="n" inputmode="numeric" enterkeyhint="next" tabindex="' + (200 + ri) + '" data-load="' + r.p.id + '" value="' + r.l + '" aria-label="Mitgenommen ' + esc(r.p.name) + '"></td><td>' + r.u + '</td><td class="' + (lowLevel(r) ? 'bad' : '') + '">' + r.s + (lowLevel(r) ? ' <span class="lowtag">' + (lowLevel(r) === 'leer' ? 'leer' : 'knapp') + '</span>' : '') + '</td>' +
-        '<td><input class="n" inputmode="numeric" enterkeyhint="next" tabindex="' + (100 + ri) + '" data-cnt="' + r.p.id + '" value="' + (r.c == null ? '' : r.c) + '" aria-label="Übrig ' + esc(r.p.name) + '"></td>' +
+      rows.map((r, ri) => '<tr><td>' + esc(r.p.name) + '</td><td><input class="n" inputmode="numeric" enterkeyhint="enter" tabindex="' + (200 + ri) + '" data-load="' + r.p.id + '" value="' + r.l + '" aria-label="Mitgenommen ' + esc(r.p.name) + '"></td><td>' + r.u + '</td><td class="' + (lowLevel(r) ? 'bad' : '') + '">' + r.s + (lowLevel(r) ? ' <span class="lowtag">' + (lowLevel(r) === 'leer' ? 'leer' : 'knapp') + '</span>' : '') + '</td>' +
+        '<td><input class="n" inputmode="numeric" enterkeyhint="enter" tabindex="' + (100 + ri) + '" data-cnt="' + r.p.id + '" value="' + (r.c == null ? '' : r.c) + '" aria-label="Übrig ' + esc(r.p.name) + '"></td>' +
         '<td class="' + (r.diff == null ? '' : r.diff === 0 ? 'good' : r.diff < 0 ? 'bad' : 'warn') + '">' + (r.diff == null ? '–' : r.diff === 0 ? 'passt' : r.diff < 0 ? 'fehlt ' + (-r.diff) : r.diff + ' zu viel') + '</td></tr>').join('') +
       '</tbody><tfoot><tr><td>Summe</td><td>' + rows.reduce((a, r) => a + r.l, 0) + '</td><td>' + rows.reduce((a, r) => a + r.u, 0) + '</td><td>' + rows.reduce((a, r) => a + r.s, 0) + '</td><td>' + rows.reduce((a, r) => a + (r.c || 0), 0) + '</td><td></td></tr></tfoot></table></div>' +
       undoBlock(rows) +
@@ -5955,7 +5955,8 @@ function primaryFor(t) {
 }
 document.addEventListener('focusin', e => {
   const t = e.target; if (!textLike(t)) return;
-  if (t.tagName === 'INPUT') t.enterKeyHint = nextField(t) ? 'next' : primaryFor(t) ? (t.closest('#authSec') ? 'go' : 'send') : 'done';
+  // Zahlenspalten (Abgleich, Einladen/Zählen): „enter“ statt „next“ – sonst springt Android selbst in Seitenreihenfolge (Mit ↔ Übrig, quer durch die Seite)
+  if (t.tagName === 'INPUT') t.enterKeyHint = t.matches('[data-cnt],[data-load],[data-chkset]') ? 'enter' : nextField(t) ? 'next' : primaryFor(t) ? (t.closest('#authSec') ? 'go' : 'send') : 'done';
   if (t.inputMode === 'numeric' || t.inputMode === 'decimal' || t.type === 'number') setTimeout(() => { if (document.activeElement === t) try { t.select(); } catch (err) {} }, 30);
   if (t.closest('.modal-in, .sheet-in')) setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 320);
 });
@@ -7773,6 +7774,8 @@ function usageSection() {
    Wer was sieht: Mitglied m · Vorstand m+b · Admin m+b+a · Super-Admin alles.
    Der Super-Admin kann den Verlauf unter Einstellungen für alle ausblenden (config/features.changelog = false). */
 const CHANGELOG = [
+  { v: '2.14.1', d: '2026-11-27', i: [
+    ['a', 'Abgleich, Einladen und Zählen: Die Eingabetaste der Handy-Tastatur springt jetzt zuverlässig ins Feld darunter (statt quer durch die Seite).'] ] },
   { v: '2.14.0', d: '2026-11-27', i: [
     ['s', 'Rechte-Übersicht: Berechtigungen pro Rolle einstellen – pro Bereich (Tage, Bus, Buchungen, Getränke, Lager, Personen) Getränke-Admins „ändern“, „nur ansehen“ oder „ausgeblendet“, den Vorstand „ansehen“ oder „ausgeblendet“. „Nur ansehen“ gilt auch auf dem Server (neue Firebase-Regeln).'],
     ['a', 'Eingeschränkte Bereiche sind ausgegraut; oben steht, was der Super-Admin eingeschränkt hat.'] ] },
